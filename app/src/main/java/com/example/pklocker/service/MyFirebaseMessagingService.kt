@@ -63,13 +63,51 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 when (target) {
                     "usb" -> lockManager.setUsbDataDisabled(state)
                     "camera" -> lockManager.setCameraDisabled(state)
+                    "settings" -> {
+                        // Save to prefs so AntiUninstallService can enforce it
+                        prefs.edit().putBoolean("settings_blocked", state).commit()
+                        Log.d("FCM_LOG", "Settings blocked: $state")
+                    }
+                    "auto_lock" -> {
+                        prefs.edit().putBoolean("auto_lock_enabled", state).commit()
+                    }
+                    "alarm" -> lockManager.toggleWarningAlarm(state)
+                    else -> Log.w("FCM_LOG", "Unknown hardware_block target: $target")
+                }
+            }
+            "config_change" -> {
+                when (target) {
+                    "wallpaper" -> {
+                        val url = data["url"] ?: data["state"] // state might contain url in some payloads
+                        lockManager.setWarningWallpaper(url)
+                    }
                 }
             }
             "app_block" -> {
+                val appKey = target ?: return
+                
+                // Strategy 1: Device Owner → setApplicationHidden (BEST - OS level block)
+                val hiddenByDPM = lockManager.setAppHidden(appKey, state)
+                
+                // Strategy 2: Fallback → SharedPrefs + Accessibility Service blocking
+                // Always save to prefs as backup (Accessibility will use this)
                 val blockedApps = prefs.getStringSet("blocked_apps", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-                if (state) target?.let { blockedApps.add(it) } 
-                else target?.let { blockedApps.remove(it) }
+                if (state) blockedApps.add(appKey)
+                else blockedApps.remove(appKey)
                 prefs.edit().putStringSet("blocked_apps", blockedApps).commit()
+                
+                Log.d("FCM_LOG", "App block [$appKey] state=$state, DPM_hidden=$hiddenByDPM, fallback_saved=true")
+            }
+            "request_data" -> {
+                when (target) {
+                    "location" -> {
+                        // Location update logic (already in your app's background service likely)
+                        // Trigger a one-time sync if needed
+                    }
+                    "phone_info" -> {
+                        // Send back IMEI/Phone info to server
+                    }
+                }
             }
         }
     }

@@ -44,7 +44,7 @@ interface ApiService {
         @Path("imei") imei: String
     ): Response<RegistrationResponse>
 
-    @POST("devices/{imei}/advanced-control")
+    @POST("devices/{imei}/controls")
     suspend fun sendAdvancedControl(
         @Header("Authorization") token: String,
         @Path("imei") imei: String,

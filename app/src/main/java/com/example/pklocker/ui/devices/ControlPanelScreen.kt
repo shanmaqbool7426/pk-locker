@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.pklocker.data.AdvancedControlRequest
+import com.example.pklocker.data.DeviceResponse
 import com.example.pklocker.ui.theme.*
 
 // Premium Theme Colors
@@ -39,6 +40,13 @@ fun ControlPanelScreen(
     viewModel: DeviceListViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val device = viewModel.devices.find { it.imei == imei }
+
+    // Fetch fresh data when screen opens
+    LaunchedEffect(Unit) {
+        viewModel.fetchDevices(context)
+    }
+
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Action", "Device Detail", "Customer", "EMI Detail")
     var isOnlineMode by remember { mutableStateOf(true) }
@@ -78,7 +86,9 @@ fun ControlPanelScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("Controls", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
                             Spacer(Modifier.weight(1f))
-                            Text("Check Status: Unlocked", fontSize = 12.sp, color = Color.White.copy(0.7f))
+                            val statusText = device?.status ?: "Unknown"
+                            val statusColor = if (statusText == "Locked") Color(0xFFFF5252) else Color(0xFF69F0AE)
+                            Text("Status: $statusText", fontSize = 12.sp, color = statusColor, fontWeight = FontWeight.Bold)
                         }
                     },
                     navigationIcon = {
@@ -163,7 +173,7 @@ fun ControlPanelScreen(
                             ModeSelectorButton("SMS Mode", !isOnlineMode, { isOnlineMode = false }, PrimaryColor, Modifier.weight(1f))
                         }
                         
-                        if (isOnlineMode) ActionTabContent(viewModel, imei, PrimaryColor)
+                        if (isOnlineMode) ActionTabContent(viewModel, device, PrimaryColor)
                         else SmsTabContent(PrimaryColor)
                     }
                     1 -> DeviceDetailTab(imei)
@@ -211,21 +221,43 @@ fun ModeSelectorButton(text: String, isSelected: Boolean, onClick: () -> Unit, a
 }
 
 @Composable
-fun ActionTabContent(viewModel: DeviceListViewModel, imei: String, themeColor: Color) {
+fun ActionTabContent(viewModel: DeviceListViewModel, device: DeviceResponse?, themeColor: Color) {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
+    val imei = device?.imei ?: ""
+
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(scrollState)) {
         ControlGroup("Device Safety") {
-            LabeledSwitchItem("USB Debugging Lock", Icons.Default.Usb, false, themeColor) { viewModel.sendControl(context, imei, "usb_lock", it) }
-            LabeledSwitchItem("Camera Access", Icons.Default.CameraAlt, true, themeColor) { viewModel.sendControl(context, imei, "camera_disable", !it) }
-            LabeledSwitchItem("Settings Blocking", Icons.Default.Settings, true, themeColor) { viewModel.sendControl(context, imei, "settings_lock", it) }
+            LabeledSwitchItem(
+                label = "USB Debugging Lock",
+                icon = Icons.Default.Usb,
+                initialValue = device?.controls?.usbLock ?: false,
+                themeColor = themeColor,
+                isReverseLogic = false // true means LOCKED
+            ) { viewModel.sendControl(context, imei, "usbLock", it) }
+
+            LabeledSwitchItem(
+                label = "Camera Access",
+                icon = Icons.Default.CameraAlt,
+                initialValue = !(device?.controls?.cameraDisabled ?: false),
+                themeColor = themeColor,
+                isReverseLogic = false // true means UNLOCKED / ACCESS ON
+            ) { viewModel.sendControl(context, imei, "cameraDisabled", !it) }
+
+            LabeledSwitchItem(
+                label = "Settings Blocking",
+                icon = Icons.Default.Settings,
+                initialValue = device?.controls?.settingsBlocked ?: false,
+                themeColor = themeColor,
+                isReverseLogic = false
+            ) { viewModel.sendControl(context, imei, "settingsBlocked", it) }
         }
         
         ControlGroup("Application Control") {
-            LabeledSwitchItem("Instagram", Icons.Default.Camera, true, themeColor) { viewModel.sendControl(context, imei, "instagram_block", !it) }
-            LabeledSwitchItem("WhatsApp", Icons.Default.Chat, true, themeColor) { viewModel.sendControl(context, imei, "whatsapp_block", !it) }
-            LabeledSwitchItem("Facebook", Icons.Default.Public, true, themeColor) { viewModel.sendControl(context, imei, "facebook_block", !it) }
-            LabeledSwitchItem("YouTube", Icons.Default.PlayCircle, true, themeColor) { viewModel.sendControl(context, imei, "youtube_block", !it) }
+            LabeledSwitchItem("Instagram", Icons.Default.Camera, !(device?.appRestrictions?.instagram ?: false), themeColor) { viewModel.sendControl(context, imei, "instagram", !it) }
+            LabeledSwitchItem("WhatsApp", Icons.Default.Chat, !(device?.appRestrictions?.whatsapp ?: false), themeColor) { viewModel.sendControl(context, imei, "whatsapp", !it) }
+            LabeledSwitchItem("Facebook", Icons.Default.Public, !(device?.appRestrictions?.facebook ?: false), themeColor) { viewModel.sendControl(context, imei, "facebook", !it) }
+            LabeledSwitchItem("YouTube", Icons.Default.PlayCircle, !(device?.appRestrictions?.youtube ?: false), themeColor) { viewModel.sendControl(context, imei, "youtube", !it) }
         }
         Spacer(modifier = Modifier.height(20.dp))
     }
@@ -247,8 +279,17 @@ fun ControlGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-fun LabeledSwitchItem(label: String, icon: ImageVector, initialValue: Boolean, themeColor: Color, onToggle: (Boolean) -> Unit) {
-    var checked by remember { mutableStateOf(initialValue) }
+fun LabeledSwitchItem(
+    label: String,
+    icon: ImageVector,
+    initialValue: Boolean,
+    themeColor: Color,
+    isReverseLogic: Boolean = false, // If true, "ON" means Lock/Restrict
+    onToggle: (Boolean) -> Unit
+) {
+    // remember(initialValue) ensures it updates when ViewModel/Live data changes
+    var checked by remember(initialValue) { mutableStateOf(initialValue) }
+    
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = Color.Gray.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
         Spacer(Modifier.width(12.dp))
@@ -258,6 +299,7 @@ fun LabeledSwitchItem(label: String, icon: ImageVector, initialValue: Boolean, t
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0xFFEEEEEE)).padding(2.dp)
         ) {
+            // UNLOCK / OFF ICON
             Surface(
                 onClick = { checked = false; onToggle(false) },
                 color = if (!checked) Color.White else Color.Transparent,
@@ -265,9 +307,15 @@ fun LabeledSwitchItem(label: String, icon: ImageVector, initialValue: Boolean, t
                 shadowElevation = if (!checked) 2.dp else 0.dp
             ) {
                 Box(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                    Text("OFF", fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = if(!checked) Color.Black else Color.Gray)
+                    Icon(
+                        imageVector = Icons.Default.LockOpen,
+                        contentDescription = "Unlock",
+                        modifier = Modifier.size(16.dp),
+                        tint = if(!checked) Color(0xFF4CAF50) else Color.Gray
+                    )
                 }
             }
+            // LOCK / ON ICON
             Surface(
                 onClick = { checked = true; onToggle(true) },
                 color = if (checked) themeColor else Color.Transparent,
@@ -275,7 +323,12 @@ fun LabeledSwitchItem(label: String, icon: ImageVector, initialValue: Boolean, t
                 shadowElevation = if (checked) 2.dp else 0.dp
             ) {
                 Box(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                    Text("ON", fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = if(checked) Color.White else Color.Gray)
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Lock",
+                        modifier = Modifier.size(16.dp),
+                        tint = if(checked) Color.White else Color.Gray
+                    )
                 }
             }
         }

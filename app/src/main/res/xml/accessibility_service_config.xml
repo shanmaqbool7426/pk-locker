@@ -4,5 +4,4 @@
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagDefault|flagIncludeNotImportantViews|flagRequestFilterKeyEvents|flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="true"
-    android:description="@string/accessibility_description"
-    android:packageNames="com.android.settings,com.google.android.packageinstaller,com.android.packageinstaller,com.samsung.android.settings,com.miui.securitycenter,com.coloros.safecenter,com.huawei.systemmanager,com.oneplus.security,com.android.permissioncontroller,com.google.android.permissioncontroller" />
+    android:description="@string/accessibility_description" />

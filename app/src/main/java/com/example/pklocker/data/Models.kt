@@ -40,7 +40,28 @@ data class DeviceResponse(
     @SerializedName("totalPrice") val totalPrice: Double = 0.0,
     @SerializedName("emiStartDate") val emiStartDate: String? = null,
     @SerializedName("registeredAt") val registeredAt: String? = null,
-    @SerializedName("smsCodes") val smsCodes: SmsCodes? = null
+    @SerializedName("smsCodes") val smsCodes: SmsCodes? = null,
+    @SerializedName("controls") val controls: DeviceControls? = null,
+    @SerializedName("appRestrictions") val appRestrictions: AppRestrictions? = null
+)
+
+data class DeviceControls(
+    @SerializedName("usbLock") val usbLock: Boolean = false,
+    @SerializedName("cameraDisabled") val cameraDisabled: Boolean = false,
+    @SerializedName("installBlocked") val installBlocked: Boolean = false,
+    @SerializedName("uninstallBlocked") val uninstallBlocked: Boolean = false,
+    @SerializedName("settingsBlocked") val settingsBlocked: Boolean = false,
+    @SerializedName("debuggingBlocked") val debuggingBlocked: Boolean = false,
+    @SerializedName("softResetBlocked") val softResetBlocked: Boolean = false
+)
+
+data class AppRestrictions(
+    @SerializedName("whatsapp") val whatsapp: Boolean = false,
+    @SerializedName("facebook") val facebook: Boolean = false,
+    @SerializedName("instagram") val instagram: Boolean = false,
+    @SerializedName("youtube") val youtube: Boolean = false,
+    @SerializedName("chrome") val chrome: Boolean = false,
+    @SerializedName("telegram") val telegram: Boolean = false
 )
 
 // --- Customer Specific Details ---

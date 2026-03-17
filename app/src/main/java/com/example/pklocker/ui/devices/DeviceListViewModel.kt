@@ -103,9 +103,35 @@ class DeviceListViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                apiService.sendAdvancedControl("Bearer $token", imei, AdvancedControlRequest(action, state))
+                // Optimistic UI update
+                devices = devices.map { device ->
+                    if (device.imei == imei) {
+                        when {
+                            // Hardware Controls
+                            action == "usbLock" -> device.copy(controls = device.controls?.copy(usbLock = state))
+                            action == "cameraDisabled" -> device.copy(controls = device.controls?.copy(cameraDisabled = state))
+                            action == "settingsBlocked" -> device.copy(controls = device.controls?.copy(settingsBlocked = state))
+                            
+                            // App Restrictions
+                            action == "instagram" -> device.copy(appRestrictions = device.appRestrictions?.copy(instagram = state))
+                            action == "whatsapp" -> device.copy(appRestrictions = device.appRestrictions?.copy(whatsapp = state))
+                            action == "facebook" -> device.copy(appRestrictions = device.appRestrictions?.copy(facebook = state))
+                            action == "youtube" -> device.copy(appRestrictions = device.appRestrictions?.copy(youtube = state))
+                            
+                            else -> device
+                        }
+                    } else device
+                }
+
+                val response = apiService.sendAdvancedControl("Bearer $token", imei, AdvancedControlRequest(action, state))
+                
+                if (!response.isSuccessful) {
+                    Log.e("CONTROL_ERROR", "Action failed: ${response.message()}")
+                    fetchDevices(context) // Rollback
+                }
             } catch (e: Exception) {
-                Log.e("CONTROL_ERROR", "Command failed")
+                Log.e("CONTROL_ERROR", "Command failed: ${e.message}")
+                fetchDevices(context) // Rollback
             }
         }
     }

@@ -14,11 +14,42 @@ import android.util.Log
 import android.widget.Toast
 import com.example.pklocker.receiver.AdminReceiver
 import com.example.pklocker.service.LockService
+import android.media.RingtoneManager
+import android.media.Ringtone
+import android.app.WallpaperManager
+import java.net.URL
+import android.graphics.BitmapFactory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import android.telephony.TelephonyManager
+import android.media.RingtoneManager
+import android.media.Ringtone
+import android.app.WallpaperManager
+import java.net.URL
+import android.graphics.BitmapFactory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class LockManager(private val context: Context) {
 
     private val devicePolicyManager = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
     private val adminComponent = ComponentName(context, AdminReceiver::class.java)
+
+    // ─── PROPER PACKAGE NAME MAPPING ──────────────────────────────────────
+    // Dashboard keys → actual Android package names
+    companion object {
+        val APP_PACKAGE_MAP = mapOf(
+            "whatsapp"  to listOf("com.whatsapp", "com.whatsapp.w4b"),
+            "facebook"  to listOf("com.facebook.katana", "com.facebook.lite", "com.facebook.orca"),
+            "instagram" to listOf("com.instagram.android", "com.instagram.lite"),
+            "youtube"   to listOf("com.google.android.youtube", "com.google.android.apps.youtube.music"),
+            "chrome"    to listOf("com.android.chrome", "com.chrome.beta"),
+            "telegram"  to listOf("org.telegram.messenger", "org.thunderdog.challegram"),
+            "hotstar"   to listOf("in.startv.hotstar", "com.hotstar.android")
+        )
+    }
 
     fun isAdminActive(): Boolean = devicePolicyManager.isAdminActive(adminComponent)
 
@@ -125,7 +156,10 @@ class LockManager(private val context: Context) {
     // ─── Individual Control Methods for Dashboard ──────────────────────────────
     
     fun setUsbDataDisabled(disabled: Boolean) {
-        if (!isAdminActive() || !isDeviceOwner()) return
+        if (!isAdminActive() || !isDeviceOwner()) {
+            Log.w("LOCK_MANAGER", "USB block requires Device Owner! isAdmin=${isAdminActive()}, isOwner=${isDeviceOwner()}")
+            return
+        }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 setUserRestriction(UserManager.DISALLOW_USB_FILE_TRANSFER, disabled)
@@ -137,12 +171,45 @@ class LockManager(private val context: Context) {
     }
 
     fun setCameraDisabled(disabled: Boolean) {
-        if (!isAdminActive()) return
+        if (!isAdminActive()) {
+            Log.w("LOCK_MANAGER", "Camera block requires Device Admin!")
+            return
+        }
         try {
             devicePolicyManager.setCameraDisabled(adminComponent, disabled)
             Log.d("LOCK_MANAGER", "Camera Disabled: $disabled")
         } catch (e: Exception) {
             Log.e("LOCK_MANAGER", "Camera block error: ${e.message}")
         }
+    }
+
+    // ─── APP HIDING (U.S. Locker Style) ────────────────────────────────────────
+    // setApplicationHidden completely removes the app from launcher and recents
+    // This is the REAL way to block apps — no Accessibility needed!
+    fun setAppHidden(appKey: String, hidden: Boolean): Boolean {
+        if (!isDeviceOwner()) {
+            Log.w("LOCK_MANAGER", "App hiding requires Device Owner! Falling back to Accessibility blocking for: $appKey")
+            return false // Caller should fall back to SharedPrefs/Accessibility approach
+        }
+
+        val packages = APP_PACKAGE_MAP[appKey.lowercase()] ?: return false
+        var anySuccess = false
+
+        for (pkg in packages) {
+            try {
+                // Check if the package is actually installed
+                context.packageManager.getPackageInfo(pkg, 0)
+                val result = devicePolicyManager.setApplicationHidden(adminComponent, pkg, hidden)
+                if (result) {
+                    anySuccess = true
+                    Log.d("LOCK_MANAGER", "App ${if (hidden) "HIDDEN" else "VISIBLE"}: $pkg")
+                }
+            } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
+                // App not installed, skip silently
+            } catch (e: Exception) {
+                Log.e("LOCK_MANAGER", "App hide error for $pkg: ${e.message}")
+            }
+        }
+        return anySuccess
     }
 }
