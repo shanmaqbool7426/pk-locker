@@ -217,13 +217,17 @@ fun MainAppEntryPoint() {
     }
 
     if (isCustomer) {
+        val lockManagerForReset = remember { com.example.pklocker.util.LockManager(context) }
+        val doFullReset: () -> Unit = {
+            // Remove Device Admin/Owner FIRST so app can be uninstalled
+            lockManagerForReset.selfDeactivate()
+            sharedPrefs.edit().clear().apply()
+            isCustomer = false
+            isUserLoggedIn = false
+            isLocked = false
+        }
         if (isLocked) {
-            CustomerLockScreen(onReset = {
-                sharedPrefs.edit().clear().apply()
-                isCustomer = false
-                isUserLoggedIn = false
-                isLocked = false
-            })
+            CustomerLockScreen(onReset = doFullReset)
         } else {
             CustomerStatusScreen(
                 token = fcmToken ?: "No Token",
@@ -235,12 +239,7 @@ fun MainAppEntryPoint() {
                 onManualLock = {
                     sharedPrefs.edit().putBoolean("is_locked", true).apply()
                 },
-                onReset = {
-                    sharedPrefs.edit().clear().apply()
-                    isCustomer = false
-                    isUserLoggedIn = false
-                    isLocked = false
-                }
+                onReset = doFullReset
             )
         }
     } else if (!isUserLoggedIn) {
@@ -532,8 +531,14 @@ fun CustomerLockScreen(onReset: () -> Unit) {
 
             // Debug reset — production mein hataana hai
             Spacer(modifier = Modifier.height(20.dp))
-            TextButton(onClick = onReset) {
-                Text("DEBUG RESET", color = Color.White.copy(alpha = 0.15f), fontSize = 10.sp)
+
+            // Emergency local release — removes Device Admin so app can be uninstalled
+            val lockMgr = remember { com.example.pklocker.util.LockManager(context) }
+            TextButton(onClick = {
+                lockMgr.selfDeactivate()
+                onReset()
+            }) {
+                Text("EMERGENCY RELEASE", color = Color.White.copy(alpha = 0.25f), fontSize = 10.sp)
             }
         }
     }

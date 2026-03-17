@@ -56,4 +56,16 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Body body: Map<String, String>
     ): Response<RegistrationResponse>
+
+    @POST("devices/{imei}/unlock-all")
+    suspend fun unlockAllControls(
+        @Header("Authorization") token: String,
+        @Path("imei") imei: String
+    ): Response<RegistrationResponse>
+
+    @POST("devices/{imei}/deregister")
+    suspend fun deregisterDevice(
+        @Header("Authorization") token: String,
+        @Path("imei") imei: String
+    ): Response<RegistrationResponse>
 }

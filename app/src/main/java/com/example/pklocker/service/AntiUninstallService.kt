@@ -119,17 +119,24 @@ class AntiUninstallService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val packageName = event.packageName?.toString()?.lowercase() ?: ""
+
+        val prefs = applicationContext.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        val isCustomer = prefs.getBoolean("is_customer", false)
+
+        // ── If this is NOT a customer device (e.g. shopkeeper's own phone / tester),
+        //    do NOTHING. This allows the tester to freely access settings, uninstall, etc.
+        if (!isCustomer) {
+            Log.d("ANTI_GUARD", "Not a customer device — skipping all guards")
+            return
+        }
+
         if (packageName.isNotEmpty()) {
             Log.d("ANTI_GUARD", "Event from: $packageName")
         }
 
-        val prefs = applicationContext.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
-        val isCustomer = prefs.getBoolean("is_customer", false)
         val isLocked = prefs.getBoolean("is_locked", false)
         val isSettingsBlocked = prefs.getBoolean("settings_blocked", false)
 
-        if (!isCustomer) return
-        
         Log.d("ANTI_GUARD", "Processing: $packageName")
 
         if (packageName.isEmpty()) return

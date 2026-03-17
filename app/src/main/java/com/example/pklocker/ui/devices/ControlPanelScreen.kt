@@ -142,7 +142,7 @@ fun ControlPanelScreen(
                             ModeSelectorButton("Online Mode", isOnlineMode, { isOnlineMode = true }, PrimaryColor, Modifier.weight(1f))
                             ModeSelectorButton("SMS Mode", !isOnlineMode, { isOnlineMode = false }, PrimaryColor, Modifier.weight(1f))
                         }
-                        if (isOnlineMode) ActionTabContent(viewModel, device, PrimaryColor)
+                        if (isOnlineMode) ActionTabContent(viewModel, device, imei, PrimaryColor, onBack)
                         else SmsTabContent(PrimaryColor)
                     }
                     1 -> DeviceDetailTab(imei)
@@ -189,12 +189,84 @@ fun ModeSelectorButton(text: String, isSelected: Boolean, onClick: () -> Unit, a
 }
 
 @Composable
-fun ActionTabContent(viewModel: DeviceListViewModel, device: DeviceResponse?, themeColor: Color) {
+fun ActionTabContent(viewModel: DeviceListViewModel, device: DeviceResponse?, imei: String, themeColor: Color, onBack: () -> Unit) {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
-    val imei = device?.imei ?: ""
+
+    var showUnlockAllDialog by remember { mutableStateOf(false) }
+
+    if (showUnlockAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showUnlockAllDialog = false },
+            title = { Text("Unlock All Controls?", fontWeight = FontWeight.Bold) },
+            text = { Text("This will immediately remove ALL active restrictions on this device — USB lock, camera, app blocks, and more.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.unlockAllControls(context, imei)
+                        showUnlockAllDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100))
+                ) {
+                    Text("YES, UNLOCK ALL", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUnlockAllDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(scrollState)) {
+
+        // ── Unlock All Controls Banner ──────────────────────────────────────────
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+            elevation = CardDefaults.cardElevation(2.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Unlock All Controls",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color(0xFFBF360C)
+                    )
+                    Text(
+                        "Clears every active restriction at once",
+                        fontSize = 11.sp,
+                        color = Color(0xFFE64A19)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Button(
+                    onClick = { showUnlockAllDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Icon(
+                        Icons.Default.LockOpen,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("RESET ALL", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+        // ───────────────────────────────────────────────────────────────────────
+
         ControlGroup("Premium Security Controls") {
             LabeledSwitchItem("Auto-Lock (Offline)", Icons.Default.GppMaybe, device?.controls?.autoLock ?: false, themeColor)
             { viewModel.sendControl(context, imei, "autoLock", it) }
@@ -249,6 +321,101 @@ fun ActionTabContent(viewModel: DeviceListViewModel, device: DeviceResponse?, th
             LabeledSwitchItem("WhatsApp Block", Icons.Default.Chat, device?.appRestrictions?.whatsapp ?: false, themeColor) { viewModel.sendControl(context, imei, "whatsapp", it) }
             LabeledSwitchItem("Facebook Block", Icons.Default.Public, device?.appRestrictions?.facebook ?: false, themeColor) { viewModel.sendControl(context, imei, "facebook", it) }
             LabeledSwitchItem("YouTube Block", Icons.Default.PlayCircle, device?.appRestrictions?.youtube ?: false, themeColor) { viewModel.sendControl(context, imei, "youtube", it) }
+        }
+
+        // ── Danger Zone: Release Device ─────────────────────────────────────────
+        var showReleaseDialog by remember { mutableStateOf(false) }
+        var releaseConfirmText by remember { mutableStateOf("") }
+
+        if (showReleaseDialog) {
+            AlertDialog(
+                onDismissRequest = { showReleaseDialog = false; releaseConfirmText = "" },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Warning, null, tint = Color(0xFFD32F2F), modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Release Device?", fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
+                    }
+                },
+                text = {
+                    Column {
+                        Text(
+                            "This will:\n• Remove ALL active restrictions\n• Remove Device Admin from the phone\n• Allow the customer to uninstall the app",
+                            fontSize = 13.sp
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text("Type CONFIRM to proceed:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Spacer(Modifier.height(6.dp))
+                        OutlinedTextField(
+                            value = releaseConfirmText,
+                            onValueChange = { releaseConfirmText = it },
+                            placeholder = { Text("CONFIRM", color = Color.Gray) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showReleaseDialog = false
+                            releaseConfirmText = ""
+                            viewModel.deregisterDevice(context, imei) { onBack() }
+                        },
+                        enabled = releaseConfirmText.trim().uppercase() == "CONFIRM",
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                    ) {
+                        Text("RELEASE DEVICE", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showReleaseDialog = false; releaseConfirmText = "" }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD32F2F).copy(alpha = 0.4f)),
+            elevation = CardDefaults.cardElevation(1.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Release Device",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color(0xFFD32F2F)
+                    )
+                    Text(
+                        "Remove admin & allow uninstall",
+                        fontSize = 11.sp,
+                        color = Color(0xFFB71C1C)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Button(
+                    onClick = { showReleaseDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Icon(Icons.Default.NoEncryption, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("RELEASE", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
         }
         Spacer(modifier = Modifier.height(20.dp))
     }

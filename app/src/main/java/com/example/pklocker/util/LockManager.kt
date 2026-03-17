@@ -271,4 +271,59 @@ class LockManager(private val context: Context) {
             }
         }
     }
+
+    // ─── SELF DEACTIVATE (Shopkeeper-triggered remote release) ────────────────
+    // This removes all Device Admin / Device Owner privileges from the app so
+    // the customer can freely uninstall it via normal Settings > Apps.
+    fun selfDeactivate() {
+        try {
+            // Step 1: Clear all user restrictions first (required before removing Device Owner)
+            if (isDeviceOwner()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    // Remove every restriction we may have applied
+                    listOf(
+                        android.os.UserManager.DISALLOW_USB_FILE_TRANSFER,
+                        android.os.UserManager.DISALLOW_FACTORY_RESET,
+                        android.os.UserManager.DISALLOW_SAFE_BOOT,
+                        android.os.UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES,
+                        android.os.UserManager.DISALLOW_INSTALL_APPS,
+                        android.os.UserManager.DISALLOW_UNINSTALL_APPS,
+                        android.os.UserManager.DISALLOW_OUTGOING_CALLS
+                    ).forEach { restriction ->
+                        try {
+                            devicePolicyManager.clearUserRestriction(adminComponent, restriction)
+                        } catch (e: Exception) {
+                            Log.w("LOCK_MANAGER", "Could not clear restriction $restriction: ${e.message}")
+                        }
+                    }
+                    Log.d("LOCK_MANAGER", "All user restrictions cleared")
+
+                    // Step 2: Remove Device Owner status
+                    // After this the app behaves like a regular Device Admin
+                    devicePolicyManager.clearDeviceOwnerApp(context.packageName)
+                    Log.d("LOCK_MANAGER", "Device Owner removed")
+                }
+            }
+
+            // Step 3: Remove Device Admin (now anyone can uninstall the app)
+            if (isAdminActive()) {
+                devicePolicyManager.removeActiveAdmin(adminComponent)
+                Log.d("LOCK_MANAGER", "Device Admin removed — app can now be uninstalled")
+            }
+
+            // Step 4: Clear customer flag from SharedPrefs
+            val prefs = context.getSharedPreferences("PKLockerPrefs", android.content.Context.MODE_PRIVATE)
+            prefs.edit()
+                .putBoolean("is_customer", false)
+                .putBoolean("is_locked", false)
+                .putBoolean("settings_blocked", false)
+                .putBoolean("auto_lock_enabled", false)
+                .putStringSet("blocked_apps", emptySet())
+                .commit()
+
+            Log.d("LOCK_MANAGER", "selfDeactivate() complete — device fully released")
+        } catch (e: Exception) {
+            Log.e("LOCK_MANAGER", "selfDeactivate() error: ${e.message}")
+        }
+    }
 }

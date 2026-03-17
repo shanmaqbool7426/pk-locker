@@ -107,6 +107,98 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 
                 Log.d("FCM_LOG", "App block updated. Current List: $blockedApps. DeviceOwner success: $hiddenByDPM")
             }
+            "unlock_all" -> {
+                Log.d("FCM_LOG", "UNLOCK ALL received — clearing every restriction")
+
+                // ── STEP 1: Clear ALL SharedPrefs FIRST (sync) ────────────────
+                // AntiUninstallService reads prefs on every event, so clear these
+                // immediately before anything else — this instantly stops blocking.
+                prefs.edit()
+                    .putBoolean("is_locked", false)
+                    .putBoolean("settings_blocked", false)
+                    .putBoolean("auto_lock_enabled", false)
+                    .putStringSet("blocked_apps", emptySet())
+                    .commit()
+
+                // ── STEP 2: Stop the lock overlay service ──────────────────────
+                applicationContext.stopService(Intent(applicationContext, LockService::class.java))
+
+                // ── STEP 3: Cancel lock notification ──────────────────────────
+                val notifManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                notifManager.cancel(1001)
+
+                // ── STEP 4: Clear DevicePolicyManager restrictions on main thread
+                // (same pattern as lockDevice() uses Handler delay)
+                Handler(Looper.getMainLooper()).post {
+                    try {
+                        // Camera
+                        lockManager.setCameraDisabled(false)
+                        // USB, Install, Uninstall, Calls, Reset, Boot (require Device Owner)
+                        lockManager.setUsbDataDisabled(false)
+                        lockManager.setAppInstallDisabled(false)
+                        lockManager.setAppUninstallDisabled(false)
+                        lockManager.setOutgoingCallsDisabled(false)
+                        lockManager.setFactoryResetDisabled(false)
+                        lockManager.setSafeBootDisabled(false)
+                        // Alarm
+                        lockManager.toggleWarningAlarm(false)
+                        Log.d("FCM_LOG", "DevicePolicyManager restrictions cleared")
+                    } catch (e: Exception) {
+                        Log.e("FCM_LOG", "DPM clear error: ${e.message}")
+                    }
+                }
+
+                // ── STEP 5: Unhide all blocked apps (require Device Owner) ─────
+                Handler(Looper.getMainLooper()).postDelayed({
+                    listOf("whatsapp", "facebook", "instagram", "youtube", "chrome", "telegram", "hotstar").forEach { appKey ->
+                        lockManager.setAppHidden(appKey, false)
+                    }
+                    Log.d("FCM_LOG", "UNLOCK ALL complete — device fully unrestricted")
+                }, 500)
+            }
+            "deregister" -> {
+                Log.d("FCM_LOG", "DEREGISTER command received — fully releasing device")
+
+                // ── STEP 1: Clear all prefs immediately (AntiUninstallService stops instantly)
+                prefs.edit()
+                    .putBoolean("is_locked", false)
+                    .putBoolean("settings_blocked", false)
+                    .putBoolean("auto_lock_enabled", false)
+                    .putBoolean("is_customer", false)
+                    .putStringSet("blocked_apps", emptySet())
+                    .commit()
+
+                // ── STEP 2: Stop services & notifications ─────────────────────
+                applicationContext.stopService(Intent(applicationContext, LockService::class.java))
+                val notifManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                notifManager.cancel(1001)
+
+                // ── STEP 3: Remove ALL restrictions + Device Admin on main thread
+                Handler(Looper.getMainLooper()).post {
+                    try {
+                        // Clear individual restrictions
+                        lockManager.setCameraDisabled(false)
+                        lockManager.setUsbDataDisabled(false)
+                        lockManager.setAppInstallDisabled(false)
+                        lockManager.setAppUninstallDisabled(false)
+                        lockManager.setOutgoingCallsDisabled(false)
+                        lockManager.setFactoryResetDisabled(false)
+                        lockManager.setSafeBootDisabled(false)
+                        lockManager.toggleWarningAlarm(false)
+                        listOf("whatsapp", "facebook", "instagram", "youtube", "chrome", "telegram", "hotstar").forEach { appKey ->
+                            lockManager.setAppHidden(appKey, false)
+                        }
+
+                        // ── KEY STEP: Remove Device Admin + Device Owner ────────
+                        // After this, customer can uninstall from Settings > Apps normally
+                        lockManager.selfDeactivate()
+
+                        Log.d("FCM_LOG", "DEREGISTER complete — Device Admin removed, app can be uninstalled")
+                    } catch (e: Exception) {
+                        Log.e("FCM_LOG", "Deregister error: ${e.message}")
+                    }
+                }
+            }
             "request_data" -> {
                 when (target) {
                     "location" -> {

@@ -116,4 +116,53 @@ class DeviceListViewModel : ViewModel() {
             }
         }
     }
+
+    fun unlockAllControls(context: Context, imei: String) {
+        val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        val token = sharedPrefs.getString("auth_token", "") ?: ""
+
+        if (token.isEmpty()) return
+
+        viewModelScope.launch {
+            isLoading = true
+            try {
+                val response = apiService.unlockAllControls("Bearer $token", imei)
+                if (response.isSuccessful) {
+                    Log.d("UNLOCK_ALL", "All controls cleared for IMEI: $imei")
+                    fetchDevices(context)
+                } else {
+                    Log.e("UNLOCK_ALL_ERROR", "Failed: ${response.message()}")
+                }
+            } catch (e: Exception) {
+                Log.e("UNLOCK_ALL_ERROR", "Exception: ${e.message}")
+                fetchDevices(context)
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    fun deregisterDevice(context: Context, imei: String, onSuccess: () -> Unit) {
+        val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        val token = sharedPrefs.getString("auth_token", "") ?: ""
+
+        if (token.isEmpty()) return
+
+        viewModelScope.launch {
+            isLoading = true
+            try {
+                val response = apiService.deregisterDevice("Bearer $token", imei)
+                if (response.isSuccessful) {
+                    Log.d("DEREGISTER", "Device released: $imei")
+                    onSuccess()
+                } else {
+                    Log.e("DEREGISTER_ERROR", "Failed: ${response.message()}")
+                }
+            } catch (e: Exception) {
+                Log.e("DEREGISTER_ERROR", "Exception: ${e.message}")
+            } finally {
+                isLoading = false
+            }
+        }
+    }
 }
