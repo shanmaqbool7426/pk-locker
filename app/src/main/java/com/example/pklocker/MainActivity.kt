@@ -313,6 +313,7 @@ fun CustomerStatusScreen(
     // Permission States
     var isAdminActive by remember { mutableStateOf(lockManager.isAdminActive()) }
     var isOverlayActive by remember { mutableStateOf(lockManager.canDrawOverlays()) }
+    var isDeviceOwner by remember { mutableStateOf(lockManager.isDeviceOwner()) }
 
     // Accessibility check
     val isAccessibilityActive = remember {
@@ -326,6 +327,7 @@ fun CustomerStatusScreen(
         while(true) {
             isAdminActive = lockManager.isAdminActive()
             isOverlayActive = lockManager.canDrawOverlays()
+            isDeviceOwner = lockManager.isDeviceOwner()
             kotlinx.coroutines.delay(2000)
         }
     }
@@ -348,15 +350,28 @@ fun CustomerStatusScreen(
             // ─── PERMISSION CHECKLIST ───────────────────────────────────────
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(2.dp)
+                elevation = CardDefaults.cardElevation(2.dp),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("REQUIRED PERMISSIONS", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = PrimaryDark)
                     Spacer(modifier = Modifier.height(12.dp))
 
                     PermissionItem(
+                        title = "Device Owner Status",
+                        subtitle = "Required for Hardware Controls",
+                        isActive = isDeviceOwner,
+                        onClick = { 
+                            android.widget.Toast.makeText(context, "Command: adb shell dpm set-device-owner...", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    )
+                    
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color(0xFFEEEEEE))
+
+                    PermissionItem(
                         title = "Display over other apps",
+                        subtitle = null,
                         isActive = isOverlayActive,
                         onClick = { lockManager.requestOverlayPermission() }
                     )
@@ -416,30 +431,40 @@ fun CustomerStatusScreen(
 }
 
 @Composable
-fun PermissionItem(title: String, isActive: Boolean, onClick: () -> Unit) {
+fun PermissionItem(title: String, subtitle: String? = null, isActive: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Icon(
                 imageVector = if (isActive) Icons.Default.CheckCircle else Icons.Default.Error,
                 contentDescription = null,
                 tint = if (isActive) SuccessGreen else Color.Red,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(20.dp)
             )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(title, fontSize = 14.sp, color = if(isActive) Color.Black else Color.Red)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if(isActive) Color.Black else Color.Red)
+                if (subtitle != null) {
+                    Text(subtitle, fontSize = 11.sp, color = Color.Gray)
+                }
+            }
         }
         if (!isActive) {
-            TextButton(onClick = onClick) {
-                Text("GRANT", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            TextButton(
+                onClick = onClick,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Text("ACTIVATE", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
+        } else {
+            Icon(Icons.Default.Check, null, tint = SuccessGreen, modifier = Modifier.size(16.dp))
         }
     }
 }
-
 @Composable
 fun CustomerLockScreen(onReset: () -> Unit) {
     // ─── Back button completely disable karo lock screen par ─────────────────

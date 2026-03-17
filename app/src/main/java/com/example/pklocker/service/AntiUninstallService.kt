@@ -8,7 +8,16 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
 
+import android.content.BroadcastReceiver
+import android.content.Intent
+import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import com.example.pklocker.util.LockManager
+
 class AntiUninstallService : AccessibilityService() {
+    
+    private var connectivityReceiver: BroadcastReceiver? = null
 
     companion object {
         // Ye sab pages customer ko nahi dikhne chahiye
@@ -71,6 +80,42 @@ class AntiUninstallService : AccessibilityService() {
     }
 
 
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        Log.d("ANTI_GUARD", "Service Connected - Initializing Auto-Lock Monitor")
+        registerAutoLockReceiver()
+    }
+
+    private fun registerAutoLockReceiver() {
+        if (connectivityReceiver != null) return
+        
+        connectivityReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+                val isAutoLockEnabled = prefs.getBoolean("auto_lock_enabled", false)
+                val isCustomer = prefs.getBoolean("is_customer", false)
+                
+                if (isCustomer && isAutoLockEnabled && !isOnline()) {
+                    Log.w("AUTO_LOCK", "Internet disconnected! Triggering Lock from Guard Service.")
+                    
+                    // Trigger Lock
+                    prefs.edit().putBoolean("is_locked", true).commit()
+                    val lockManager = LockManager(applicationContext)
+                    lockManager.lockDevice()
+                }
+            }
+        }
+        
+        val filter = IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION)
+        registerReceiver(connectivityReceiver, filter)
+    }
+
+    private fun isOnline(): Boolean {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val net = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(net) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val packageName = event.packageName?.toString()?.lowercase() ?: ""
@@ -156,6 +201,16 @@ class AntiUninstallService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
-        Log.w("ANTI_GUARD", "AntiUninstallService interrupted")
+        Log.w("ANTI_GUARD", "Service Interrupted")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        connectivityReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (e: Exception) {}
+        }
+        Log.w("ANTI_GUARD", "AntiUninstallService destroyed")
     }
 }

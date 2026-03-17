@@ -70,28 +70,25 @@ class DeviceListViewModel : ViewModel() {
         if (token.isEmpty()) return
 
         viewModelScope.launch {
+            isLoading = true
             try {
-                // Optimistic UI update
-                devices = devices.map { 
-                    if (it.imei == imei) {
-                        it.copy(status = if (targetLockState) "Locked" else "Unlocked")
-                    } else it
-                }
-
                 val response = if (targetLockState) {
                     apiService.lockDevice("Bearer $token", imei)
                 } else {
                     apiService.unlockDevice("Bearer $token", imei)
                 }
 
-                if (!response.isSuccessful) {
-                    // Rollback if failed
+                if (response.isSuccessful) {
+                    // Fetch fresh list only after successful server update
                     fetchDevices(context)
+                } else {
                     Log.e("LOCK_ERROR", "Action failed: ${response.message()}")
                 }
             } catch (e: Exception) {
                 fetchDevices(context)
                 Log.e("LOCK_EXCEPTION", "Error: ${e.message}")
+            } finally {
+                isLoading = false
             }
         }
     }
@@ -104,39 +101,14 @@ class DeviceListViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                // Optimistic UI update
-                devices = devices.map { device ->
-                    if (device.imei == imei) {
-                        val controls = device.controls ?: DeviceControls()
-                        when (action) {
-                            "usbLock" -> device.copy(controls = controls.copy(usbLock = state as Boolean))
-                            "cameraDisabled" -> device.copy(controls = controls.copy(cameraDisabled = state as Boolean))
-                            "settingsBlocked" -> device.copy(controls = controls.copy(settingsBlocked = state as Boolean))
-                            "autoLock" -> device.copy(controls = controls.copy(autoLock = state as Boolean))
-                            "installBlocked" -> device.copy(controls = controls.copy(installBlocked = state as Boolean))
-                            "uninstallBlocked" -> device.copy(controls = controls.copy(uninstallBlocked = state as Boolean))
-                            "softResetBlocked" -> device.copy(controls = controls.copy(softResetBlocked = state as Boolean))
-                            "softBootBlocked" -> device.copy(controls = controls.copy(softBootBlocked = state as Boolean))
-                            "outgoingCallsBlocked" -> device.copy(controls = controls.copy(outgoingCallsBlocked = state as Boolean))
-                            "warningAudio" -> device.copy(controls = controls.copy(warningAudio = state as Boolean))
-                            "warningWallpaper" -> device.copy(controls = controls.copy(warningWallpaper = state as String))
-                            
-                            // App Restrictions
-                            "instagram" -> device.copy(appRestrictions = device.appRestrictions?.copy(instagram = state as Boolean))
-                            "whatsapp" -> device.copy(appRestrictions = device.appRestrictions?.copy(whatsapp = state as Boolean))
-                            "facebook" -> device.copy(appRestrictions = device.appRestrictions?.copy(facebook = state as Boolean))
-                            "youtube" -> device.copy(appRestrictions = device.appRestrictions?.copy(youtube = state as Boolean))
-                            
-                            else -> device
-                        }
-                    } else device
-                }
-
                 val response = apiService.sendAdvancedControl("Bearer $token", imei, AdvancedControlRequest(action, state))
                 
-                if (!response.isSuccessful) {
+                if (response.isSuccessful) {
+                    Log.d("CONTROL_SUCCESS", "Action $action changed to $state")
+                    // Fetch accurate DB state after control command
+                    fetchDevices(context)
+                } else {
                     Log.e("CONTROL_ERROR", "Action failed: ${response.message()}")
-                    fetchDevices(context) // Rollback
                 }
             } catch (e: Exception) {
                 Log.e("CONTROL_ERROR", "Command failed: ${e.message}")

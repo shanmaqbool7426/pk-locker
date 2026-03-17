@@ -199,26 +199,26 @@ fun ActionTabContent(viewModel: DeviceListViewModel, device: DeviceResponse?, th
             LabeledSwitchItem("Auto-Lock (Offline)", Icons.Default.GppMaybe, device?.controls?.autoLock ?: false, themeColor)
             { viewModel.sendControl(context, imei, "autoLock", it) }
 
-            LabeledSwitchItem("USB Lock", Icons.Default.Usb, device?.controls?.usbLock ?: false, themeColor)
+            LabeledSwitchItem("USB Block", Icons.Default.Usb, device?.controls?.usbLock ?: false, themeColor)
             { viewModel.sendControl(context, imei, "usbLock", it) }
 
-            LabeledSwitchItem("Camera Access", Icons.Default.CameraAlt, !(device?.controls?.cameraDisabled ?: false), themeColor)
-            { viewModel.sendControl(context, imei, "cameraDisabled", !it) }
+            LabeledSwitchItem("Camera Block", Icons.Default.CameraAlt, device?.controls?.cameraDisabled ?: false, themeColor)
+            { viewModel.sendControl(context, imei, "cameraDisabled", it) }
 
-            LabeledSwitchItem("App Installation", Icons.Default.AppRegistration, !(device?.controls?.installBlocked ?: false), themeColor)
-            { viewModel.sendControl(context, imei, "installBlocked", !it) }
+            LabeledSwitchItem("App Installation Block", Icons.Default.AppRegistration, device?.controls?.installBlocked ?: false, themeColor)
+            { viewModel.sendControl(context, imei, "installBlocked", it) }
 
-            LabeledSwitchItem("App Uninstallation", Icons.Default.DeleteSweep, !(device?.controls?.uninstallBlocked ?: false), themeColor)
-            { viewModel.sendControl(context, imei, "uninstallBlocked", !it) }
+            LabeledSwitchItem("App Uninstallation Block", Icons.Default.DeleteSweep, device?.controls?.uninstallBlocked ?: false, themeColor)
+            { viewModel.sendControl(context, imei, "uninstallBlocked", it) }
 
-            LabeledSwitchItem("Soft Reset", Icons.Default.SettingsBackupRestore, !(device?.controls?.softResetBlocked ?: false), themeColor)
-            { viewModel.sendControl(context, imei, "softResetBlocked", !it) }
+            LabeledSwitchItem("Soft Reset Block", Icons.Default.SettingsBackupRestore, device?.controls?.softResetBlocked ?: false, themeColor)
+            { viewModel.sendControl(context, imei, "softResetBlocked", it) }
 
-            LabeledSwitchItem("Soft Boot", Icons.Default.RestartAlt, !(device?.controls?.softBootBlocked ?: false), themeColor)
-            { viewModel.sendControl(context, imei, "softBootBlocked", !it) }
+            LabeledSwitchItem("Soft Boot Block", Icons.Default.RestartAlt, device?.controls?.softBootBlocked ?: false, themeColor)
+            { viewModel.sendControl(context, imei, "softBootBlocked", it) }
 
-            LabeledSwitchItem("Outgoing Calls", Icons.Default.Call, !(device?.controls?.outgoingCallsBlocked ?: false), themeColor)
-            { viewModel.sendControl(context, imei, "outgoingCallsBlocked", !it) }
+            LabeledSwitchItem("Outgoing Calls Block", Icons.Default.Call, device?.controls?.outgoingCallsBlocked ?: false, themeColor)
+            { viewModel.sendControl(context, imei, "outgoingCallsBlocked", it) }
 
             LabeledSwitchItem("Settings Blocking", Icons.Default.Settings, device?.controls?.settingsBlocked ?: false, themeColor)
             { viewModel.sendControl(context, imei, "settingsBlocked", it) }
@@ -245,10 +245,10 @@ fun ActionTabContent(viewModel: DeviceListViewModel, device: DeviceResponse?, th
         }
 
         ControlGroup("Application Control") {
-            LabeledSwitchItem("Instagram", Icons.Default.Camera, !(device?.appRestrictions?.instagram ?: false), themeColor) { viewModel.sendControl(context, imei, "instagram", !it) }
-            LabeledSwitchItem("WhatsApp", Icons.Default.Chat, !(device?.appRestrictions?.whatsapp ?: false), themeColor) { viewModel.sendControl(context, imei, "whatsapp", !it) }
-            LabeledSwitchItem("Facebook", Icons.Default.Public, !(device?.appRestrictions?.facebook ?: false), themeColor) { viewModel.sendControl(context, imei, "facebook", !it) }
-            LabeledSwitchItem("YouTube", Icons.Default.PlayCircle, !(device?.appRestrictions?.youtube ?: false), themeColor) { viewModel.sendControl(context, imei, "youtube", !it) }
+            LabeledSwitchItem("Instagram Block", Icons.Default.Camera, device?.appRestrictions?.instagram ?: false, themeColor) { viewModel.sendControl(context, imei, "instagram", it) }
+            LabeledSwitchItem("WhatsApp Block", Icons.Default.Chat, device?.appRestrictions?.whatsapp ?: false, themeColor) { viewModel.sendControl(context, imei, "whatsapp", it) }
+            LabeledSwitchItem("Facebook Block", Icons.Default.Public, device?.appRestrictions?.facebook ?: false, themeColor) { viewModel.sendControl(context, imei, "facebook", it) }
+            LabeledSwitchItem("YouTube Block", Icons.Default.PlayCircle, device?.appRestrictions?.youtube ?: false, themeColor) { viewModel.sendControl(context, imei, "youtube", it) }
         }
         Spacer(modifier = Modifier.height(20.dp))
     }
@@ -287,17 +287,36 @@ fun ControlGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
 
 @Composable
 fun LabeledSwitchItem(label: String, icon: ImageVector, initialValue: Boolean, themeColor: Color, onToggle: (Boolean) -> Unit) {
-    var checked by remember(initialValue) { mutableStateOf(initialValue) }
+    var isProcessing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(initialValue) {
+        // Jab server se naya state mil jaye toh processing rok do
+        isProcessing = false
+    }
+
     Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = Color.Gray.copy(0.6f), modifier = Modifier.size(24.dp))
+        Icon(icon, null, tint = Color.Gray.copy(if (isProcessing) 0.3f else 0.6f), modifier = Modifier.size(24.dp))
         Spacer(Modifier.width(12.dp))
-        Text(label, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium, fontSize = 14.sp)
-        Row(modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0xFFEEEEEE)).padding(2.dp)) {
-            Surface(onClick = { checked = false; onToggle(false) }, color = if (!checked) Color.White else Color.Transparent, shape = RoundedCornerShape(10.dp)) {
-                Icon(Icons.Default.LockOpen, null, modifier = Modifier.padding(8.dp).size(16.dp), tint = if(!checked) Color(0xFF4CAF50) else Color.Gray)
-            }
-            Surface(onClick = { checked = true; onToggle(true) }, color = if (checked) themeColor else Color.Transparent, shape = RoundedCornerShape(10.dp)) {
-                Icon(Icons.Default.Lock, null, modifier = Modifier.padding(8.dp).size(16.dp), tint = if(checked) Color.White else Color.Gray)
+        Text(label, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium, fontSize = 14.sp, color = if (isProcessing) Color.Gray else Color.Black)
+        
+        if (isProcessing) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp).padding(end = 4.dp), strokeWidth = 2.dp, color = themeColor)
+        } else {
+            Row(modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0xFFEEEEEE)).padding(2.dp)) {
+                Surface(onClick = { 
+                    if (!initialValue) return@Surface
+                    isProcessing = true
+                    onToggle(false) 
+                }, color = if (!initialValue) Color(0xFF4CAF50) else Color.Transparent, shape = RoundedCornerShape(10.dp)) {
+                    Icon(Icons.Default.LockOpen, null, modifier = Modifier.padding(10.dp).size(16.dp), tint = if(!initialValue) Color.White else Color.Gray)
+                }
+                Surface(onClick = { 
+                    if (initialValue) return@Surface
+                    isProcessing = true
+                    onToggle(true) 
+                }, color = if (initialValue) Color(0xFFD32F2F) else Color.Transparent, shape = RoundedCornerShape(10.dp)) {
+                    Icon(Icons.Default.Lock, null, modifier = Modifier.padding(10.dp).size(16.dp), tint = if(initialValue) Color.White else Color.Gray)
+                }
             }
         }
     }
