@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">PK Locker</string>
+    <string name="accessibility_description">Required to prevent unauthorized uninstallation of PK Locker for security purposes.</string>
+</resources>

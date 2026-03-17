@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#B71C1C"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <ImageView
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:src="@android:drawable/ic_delete"
+        android:tint="@android:color/white"
+        android:padding="10dp"
+        android:background="@android:drawable/dialog_holo_light_frame" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="DEVICE LOCKED"
+        android:textColor="@android:color/white"
+        android:textSize="32sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Security Protocol Active"
+        android:textColor="#FFCDD2"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="This device is locked due to payment overdue or security violation. Please contact your provider."
+        android:textAlignment="center"
+        android:textColor="@android:color/white"
+        android:textSize="14sp" />
+
+    <EditText
+        android:id="@+id/unlockCodeInput"
+        android:layout_width="220dp"
+        android:layout_height="60dp"
+        android:layout_marginTop="40dp"
+        android:background="@android:color/white"
+        android:gravity="center"
+        android:hint="Enter Unlock Code"
+        android:inputType="numberPassword"
+        android:maxLength="6"
+        android:padding="12dp"
+        android:textColor="@android:color/black" />
+
+    <Button
+        android:id="@+id/btnSubmitUnlock"
+        android:layout_width="220dp"
+        android:layout_height="56dp"
+        android:layout_marginTop="16dp"
+        android:backgroundTint="#2E7D32"
+        android:text="UNLOCK DEVICE"
+        android:textColor="@android:color/white"
+        android:textStyle="bold" />
+
+</LinearLayout>
