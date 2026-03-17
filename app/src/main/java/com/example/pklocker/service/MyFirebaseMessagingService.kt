@@ -72,6 +72,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                         prefs.edit().putBoolean("auto_lock_enabled", state).commit()
                     }
                     "alarm" -> lockManager.toggleWarningAlarm(state)
+                    "install" -> lockManager.setAppInstallDisabled(state)
+                    "uninstall" -> lockManager.setAppUninstallDisabled(state)
+                    "calls" -> lockManager.setOutgoingCallsDisabled(state)
+                    "reset" -> lockManager.setFactoryResetDisabled(state)
+                    "boot" -> lockManager.setSafeBootDisabled(state)
                     else -> Log.w("FCM_LOG", "Unknown hardware_block target: $target")
                 }
             }
@@ -84,19 +89,23 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 }
             }
             "app_block" -> {
-                val appKey = target ?: return
+                val appKey = target?.lowercase() ?: return
                 
-                // Strategy 1: Device Owner → setApplicationHidden (BEST - OS level block)
+                // Strategy 1: Device Owner → setApplicationHidden
                 val hiddenByDPM = lockManager.setAppHidden(appKey, state)
                 
                 // Strategy 2: Fallback → SharedPrefs + Accessibility Service blocking
-                // Always save to prefs as backup (Accessibility will use this)
                 val blockedApps = prefs.getStringSet("blocked_apps", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-                if (state) blockedApps.add(appKey)
-                else blockedApps.remove(appKey)
+                if (state) {
+                    blockedApps.add(appKey)
+                    Log.d("FCM_LOG", "Added $appKey to blocklist")
+                } else {
+                    blockedApps.remove(appKey)
+                    Log.d("FCM_LOG", "Removed $appKey from blocklist")
+                }
                 prefs.edit().putStringSet("blocked_apps", blockedApps).commit()
                 
-                Log.d("FCM_LOG", "App block [$appKey] state=$state, DPM_hidden=$hiddenByDPM, fallback_saved=true")
+                Log.d("FCM_LOG", "App block updated. Current List: $blockedApps. DeviceOwner success: $hiddenByDPM")
             }
             "request_data" -> {
                 when (target) {

@@ -83,13 +83,9 @@ class AntiUninstallService : AccessibilityService() {
         val isLocked = prefs.getBoolean("is_locked", false)
         val isSettingsBlocked = prefs.getBoolean("settings_blocked", false)
 
-        Log.d("ANTI_GUARD", "Service State -> isCustomer: $isCustomer, isLocked: $isLocked, pkg: $packageName")
-
-        if (!isCustomer) {
-            // Log once why we are returning
-            Log.w("ANTI_GUARD", "Skipping: Device is NOT marked as customer in this process.")
-            return
-        }
+        if (!isCustomer) return
+        
+        Log.d("ANTI_GUARD", "Processing: $packageName")
 
         if (packageName.isEmpty()) return
 

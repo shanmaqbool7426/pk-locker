@@ -16,6 +16,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -100,6 +101,13 @@ fun MainAppEntryPoint() {
     var isUserLoggedIn by rememberSaveable { mutableStateOf(sharedPrefs.getBoolean("is_logged_in", false)) }
     var fcmToken by remember { mutableStateOf(sharedPrefs.getString("fcm_token", "Fetching...")) }
     var deviceImei by remember { mutableStateOf(sharedPrefs.getString("device_imei", "")) }
+
+    LaunchedEffect(deviceImei) {
+        if (!deviceImei.isNullOrBlank() && !isCustomer) {
+            sharedPrefs.edit().putBoolean("is_customer", true).commit()
+            isCustomer = true
+        }
+    }
 
     // ─── Overlay Permission Guard ─────────────────────────────────────────────
     // Customer device pe har baar check karo — agar permission gayi toh dialog dikhao
@@ -439,36 +447,66 @@ fun CustomerLockScreen(onReset: () -> Unit) {
         // Kuch mat karo — back button ka koi asar nahi
     }
 
+    var unlockCodeInput by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val sharedPrefs = remember { context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE) }
+
     Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFB71C1C)) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
+            modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(Icons.Default.GppBad, null, modifier = Modifier.size(100.dp), tint = Color.White)
-            Spacer(modifier = Modifier.height(24.dp))
-            Text("DEVICE LOCKED", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                "Security Protocol Active",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White.copy(alpha = 0.9f)
-            )
-
+            Icon(Icons.Default.GppBad, null, modifier = Modifier.size(80.dp), tint = Color.White)
             Spacer(modifier = Modifier.height(16.dp))
+            Text("DEVICE LOCKED", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+            Text("Security Protocol Active", fontSize = 16.sp, color = Color.White.copy(alpha = 0.9f))
 
-            Text(
-                "This device is locked due to payment overdue or security violation. Please contact your provider.",
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 14.sp
-            )
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Enter Unlock Code", color = Color.White, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = unlockCodeInput,
+                        onValueChange = { unlockCodeInput = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color.White,
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.5f)
+                        ),
+                        placeholder = { Text("6-digit code", color = Color.White.copy(alpha = 0.4f)) }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            // Logic for offline verify or emergency release
+                            if (unlockCodeInput == "000000") { // Placeholder for real logic
+                                sharedPrefs.edit().putBoolean("is_locked", false).apply()
+                            } else {
+                                android.widget.Toast.makeText(context, "Invalid Code", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                        modifier = Modifier.fillMaxWidth().height(50.dp)
+                    ) {
+                        Text("UNLOCK NOW", color = Color(0xFFB71C1C), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(40.dp))
+            Text("Contact Shopkeeper for Code", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
 
             // Debug reset — production mein hataana hai
-            Spacer(modifier = Modifier.height(60.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             TextButton(onClick = onReset) {
                 Text("DEBUG RESET", color = Color.White.copy(alpha = 0.15f), fontSize = 10.sp)
             }

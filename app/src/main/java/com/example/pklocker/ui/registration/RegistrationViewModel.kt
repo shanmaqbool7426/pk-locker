@@ -139,7 +139,8 @@ class RegistrationViewModel : ViewModel() {
 
                     isSuccess = true
                     message = "Device Registered successfully!"
-                    // sharedPrefs.edit().putBoolean("is_customer", true).apply() // Only for customer side
+                    // Mark as customer so locker services start working
+                    sharedPrefs.edit().putBoolean("is_customer", true).commit()
 
                 } else {
                     isSuccess = false

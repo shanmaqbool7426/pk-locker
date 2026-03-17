@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pklocker.data.AdvancedControlRequest
 import com.example.pklocker.data.ApiService
+import com.example.pklocker.data.DeviceControls
 import com.example.pklocker.data.DeviceResponse
 import kotlinx.coroutines.launch
 import retrofit2.Retrofit
@@ -95,7 +96,7 @@ class DeviceListViewModel : ViewModel() {
         }
     }
 
-    fun sendControl(context: Context, imei: String, action: String, state: Boolean) {
+    fun sendControl(context: Context, imei: String, action: String, state: Any) {
         val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
         val token = sharedPrefs.getString("auth_token", "") ?: ""
 
@@ -106,17 +107,25 @@ class DeviceListViewModel : ViewModel() {
                 // Optimistic UI update
                 devices = devices.map { device ->
                     if (device.imei == imei) {
-                        when {
-                            // Hardware Controls
-                            action == "usbLock" -> device.copy(controls = device.controls?.copy(usbLock = state))
-                            action == "cameraDisabled" -> device.copy(controls = device.controls?.copy(cameraDisabled = state))
-                            action == "settingsBlocked" -> device.copy(controls = device.controls?.copy(settingsBlocked = state))
+                        val controls = device.controls ?: DeviceControls()
+                        when (action) {
+                            "usbLock" -> device.copy(controls = controls.copy(usbLock = state as Boolean))
+                            "cameraDisabled" -> device.copy(controls = controls.copy(cameraDisabled = state as Boolean))
+                            "settingsBlocked" -> device.copy(controls = controls.copy(settingsBlocked = state as Boolean))
+                            "autoLock" -> device.copy(controls = controls.copy(autoLock = state as Boolean))
+                            "installBlocked" -> device.copy(controls = controls.copy(installBlocked = state as Boolean))
+                            "uninstallBlocked" -> device.copy(controls = controls.copy(uninstallBlocked = state as Boolean))
+                            "softResetBlocked" -> device.copy(controls = controls.copy(softResetBlocked = state as Boolean))
+                            "softBootBlocked" -> device.copy(controls = controls.copy(softBootBlocked = state as Boolean))
+                            "outgoingCallsBlocked" -> device.copy(controls = controls.copy(outgoingCallsBlocked = state as Boolean))
+                            "warningAudio" -> device.copy(controls = controls.copy(warningAudio = state as Boolean))
+                            "warningWallpaper" -> device.copy(controls = controls.copy(warningWallpaper = state as String))
                             
                             // App Restrictions
-                            action == "instagram" -> device.copy(appRestrictions = device.appRestrictions?.copy(instagram = state))
-                            action == "whatsapp" -> device.copy(appRestrictions = device.appRestrictions?.copy(whatsapp = state))
-                            action == "facebook" -> device.copy(appRestrictions = device.appRestrictions?.copy(facebook = state))
-                            action == "youtube" -> device.copy(appRestrictions = device.appRestrictions?.copy(youtube = state))
+                            "instagram" -> device.copy(appRestrictions = device.appRestrictions?.copy(instagram = state as Boolean))
+                            "whatsapp" -> device.copy(appRestrictions = device.appRestrictions?.copy(whatsapp = state as Boolean))
+                            "facebook" -> device.copy(appRestrictions = device.appRestrictions?.copy(facebook = state as Boolean))
+                            "youtube" -> device.copy(appRestrictions = device.appRestrictions?.copy(youtube = state as Boolean))
                             
                             else -> device
                         }

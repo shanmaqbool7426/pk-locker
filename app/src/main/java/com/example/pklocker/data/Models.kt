@@ -52,7 +52,12 @@ data class DeviceControls(
     @SerializedName("uninstallBlocked") val uninstallBlocked: Boolean = false,
     @SerializedName("settingsBlocked") val settingsBlocked: Boolean = false,
     @SerializedName("debuggingBlocked") val debuggingBlocked: Boolean = false,
-    @SerializedName("softResetBlocked") val softResetBlocked: Boolean = false
+    @SerializedName("autoLock") val autoLock: Boolean = false,
+    @SerializedName("softResetBlocked") val softResetBlocked: Boolean = false,
+    @SerializedName("softBootBlocked") val softBootBlocked: Boolean = false,
+    @SerializedName("outgoingCallsBlocked") val outgoingCallsBlocked: Boolean = false,
+    @SerializedName("warningAudio") val warningAudio: Boolean = false,
+    @SerializedName("warningWallpaper") val warningWallpaper: String? = null
 )
 
 data class AppRestrictions(
@@ -108,4 +113,4 @@ data class DeviceRegistrationRequest(
 data class Guarantor(val name: String? = null, val mobile: String? = null, val address: String? = null)
 data class RegistrationResponse(val success: Boolean, val message: String, val device: DeviceSummary? = null)
 data class DeviceSummary(val id: String, val imei: String, val customerName: String, val smsCodes: SmsCodes? = null)
-data class AdvancedControlRequest(val action: String, val state: Boolean)
+data class AdvancedControlRequest(val action: String, val state: Any)

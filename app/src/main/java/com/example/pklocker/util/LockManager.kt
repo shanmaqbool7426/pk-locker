@@ -14,14 +14,6 @@ import android.util.Log
 import android.widget.Toast
 import com.example.pklocker.receiver.AdminReceiver
 import com.example.pklocker.service.LockService
-import android.media.RingtoneManager
-import android.media.Ringtone
-import android.app.WallpaperManager
-import java.net.URL
-import android.graphics.BitmapFactory
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import android.telephony.TelephonyManager
 import android.media.RingtoneManager
 import android.media.Ringtone
@@ -183,6 +175,37 @@ class LockManager(private val context: Context) {
         }
     }
 
+    fun setAppInstallDisabled(disabled: Boolean) {
+        if (isDeviceOwner()) {
+            setUserRestriction(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES, disabled)
+            setUserRestriction(UserManager.DISALLOW_INSTALL_APPS, disabled)
+        }
+    }
+
+    fun setAppUninstallDisabled(disabled: Boolean) {
+        if (isDeviceOwner()) {
+            setUserRestriction(UserManager.DISALLOW_UNINSTALL_APPS, disabled)
+        }
+    }
+
+    fun setOutgoingCallsDisabled(disabled: Boolean) {
+        if (isDeviceOwner()) {
+            setUserRestriction(UserManager.DISALLOW_OUTGOING_CALLS, disabled)
+        }
+    }
+
+    fun setFactoryResetDisabled(disabled: Boolean) {
+        if (isDeviceOwner()) {
+            setUserRestriction(UserManager.DISALLOW_FACTORY_RESET, disabled)
+        }
+    }
+
+    fun setSafeBootDisabled(disabled: Boolean) {
+        if (isDeviceOwner()) {
+            setUserRestriction(UserManager.DISALLOW_SAFE_BOOT, disabled)
+        }
+    }
+
     // ─── APP HIDING (U.S. Locker Style) ────────────────────────────────────────
     // setApplicationHidden completely removes the app from launcher and recents
     // This is the REAL way to block apps — no Accessibility needed!
@@ -211,5 +234,41 @@ class LockManager(private val context: Context) {
             }
         }
         return anySuccess
+    }
+
+    // ─── U.S. LOCKER ADVANCED UPDATES ──────────────────────────────────────────
+    
+    private var ringtone: Ringtone? = null
+
+    fun toggleWarningAlarm(play: Boolean) {
+        try {
+            if (play) {
+                val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ringtone = RingtoneManager.getRingtone(context, notification)
+                ringtone?.play()
+                Log.d("LOCK_MANAGER", "Warning Alarm Started")
+            } else {
+                ringtone?.stop()
+                Log.d("LOCK_MANAGER", "Warning Alarm Stopped")
+            }
+        } catch (e: Exception) {
+            Log.e("LOCK_MANAGER", "Alarm Error: ${e.message}")
+        }
+    }
+
+    fun setWarningWallpaper(imageUrl: String?) {
+        if (imageUrl.isNullOrBlank()) return
+        
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val url = URL(imageUrl)
+                val bitmap = BitmapFactory.decodeStream(url.openConnection().getInputStream())
+                val wallpaperManager = WallpaperManager.getInstance(context)
+                wallpaperManager.setBitmap(bitmap)
+                Log.d("LOCK_MANAGER", "Wallpaper Updated Successfully")
+            } catch (e: Exception) {
+                Log.e("LOCK_MANAGER", "Wallpaper Update Failed: ${e.message}")
+            }
+        }
     }
 }

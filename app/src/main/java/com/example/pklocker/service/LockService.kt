@@ -20,6 +20,11 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.example.pklocker.R
+import android.content.BroadcastReceiver
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.util.Log
+import android.content.IntentFilter
 
 class LockService : Service() {
 
@@ -45,7 +50,36 @@ class LockService : Service() {
         }
 
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        
+        // Register Auto-Lock listener if enabled
+        registerAutoLockReceiver()
+        
         showLockOverlay()
+    }
+
+    private val connectivityReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+            val isAutoLockEnabled = prefs.getBoolean("auto_lock_enabled", false)
+            
+            if (isAutoLockEnabled && !isOnline()) {
+                Log.w("AUTO_LOCK", "Internet disconnected! Triggering Lock.")
+                prefs.edit().putBoolean("is_locked", true).apply()
+                // Update UI or restart session if needed
+            }
+        }
+    }
+
+    private fun registerAutoLockReceiver() {
+        val filter = IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION)
+        registerReceiver(connectivityReceiver, filter)
+    }
+
+    private fun isOnline(): Boolean {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val net = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(net) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     private fun createNotificationChannel() {
@@ -138,6 +172,10 @@ class LockService : Service() {
                 windowManager.removeView(it)
             } catch (e: Exception) { }
         }
+        try {
+            unregisterReceiver(connectivityReceiver)
+        } catch (e: Exception) {}
+        
         lockView = null
     }
 }
