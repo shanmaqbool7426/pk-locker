@@ -5,6 +5,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 
 interface ApiService {
@@ -24,6 +25,11 @@ interface ApiService {
 
     @GET("devices")
     suspend fun getAllDevices(
+        @Header("Authorization") token: String
+    ): Response<DeviceListResponse>
+
+    @GET("devices/deregistered")
+    suspend fun getDeregisteredDevices(
         @Header("Authorization") token: String
     ): Response<DeviceListResponse>
 
@@ -68,4 +74,14 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Path("imei") imei: String
     ): Response<RegistrationResponse>
+
+    // ── Customer-side: fetch device info + smsCodes for offline SMS locking ──
+    // This is called when customer activates their device (enters IMEI).
+    // smsCodes (lockCode + unlockCode) are saved to SharedPrefs by MainActivity
+    // so SmsReceiver can use them offline without internet.
+    @GET("devices/{imei}")
+    suspend fun getDeviceStatus(
+        @Header("Authorization") token: String,
+        @Path("imei") imei: String
+    ): Response<CustomerDeviceResponse>
 }

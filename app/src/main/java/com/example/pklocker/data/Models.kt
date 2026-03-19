@@ -34,6 +34,7 @@ data class DeviceResponse(
     @SerializedName("phoneNumber") val phoneNumber: String,
     @SerializedName("brand") val brand: String? = null,
     @SerializedName("model") val model: String? = null,
+    @SerializedName("androidVersion") val androidVersion: String? = null,
     @SerializedName("status") val status: String = "Unlocked",
     @SerializedName("emiTenure") val emiTenure: Int = 0,
     @SerializedName("emiAmount") val emiAmount: Double = 0.0,
@@ -107,10 +108,16 @@ data class DeviceRegistrationRequest(
     val emiStartDate: String? = null,
     val emiAmount: Double = 0.0,
     val fcmToken: String? = null,
-    val guarantor: Guarantor? = null
+    val guarantor: Guarantor? = null,
+    val cnicProofImage: String? = null // NEW: Customer CNIC Proof
 )
 
-data class Guarantor(val name: String? = null, val mobile: String? = null, val address: String? = null)
+data class Guarantor(
+    val name: String? = null, 
+    val mobile: String? = null, 
+    val address: String? = null,
+    val cnicProofImage: String? = null // NEW: Guarantor CNIC Proof
+)
 data class RegistrationResponse(val success: Boolean, val message: String, val device: DeviceSummary? = null)
 data class DeviceSummary(val id: String, val imei: String, val customerName: String, val smsCodes: SmsCodes? = null)
 data class AdvancedControlRequest(val action: String, val state: Any)

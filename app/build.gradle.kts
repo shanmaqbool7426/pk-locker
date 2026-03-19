@@ -66,6 +66,9 @@ dependencies {
     // WorkManager for Offline Security
     implementation(libs.androidx.work.runtime)
 
+    // Coil for Image Loading
+    implementation(libs.coil.compose)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

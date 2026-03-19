@@ -16,15 +16,18 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
-import android.widget.EditText
-import android.widget.Toast
-import androidx.core.app.NotificationCompat
+import android.widget.TextView
+import android.net.Uri
+import android.widget.ImageView
 import com.example.pklocker.R
 import android.content.BroadcastReceiver
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
 import android.content.IntentFilter
+import android.widget.EditText
+import android.widget.Toast
+import androidx.core.app.NotificationCompat
 
 class LockService : Service() {
 
@@ -143,12 +146,35 @@ class LockService : Service() {
             keyCode == KeyEvent.KEYCODE_MENU
         }
 
+        // --- Dynamic Data Population ---
+        val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        val shopNameStr = prefs.getString("shop_name", "Ali Mobile Shop") ?: "Ali Mobile Shop"
+        val shopPhoneStr = prefs.getString("shop_phone", "0300-1234567") ?: "0300-1234567"
+        
+        lockView?.findViewById<TextView>(R.id.tvShopName)?.text = shopNameStr.uppercase()
+        lockView?.findViewById<TextView>(R.id.tvShopPhone)?.text = shopPhoneStr
+        
+        // --- Dial Support Listener ---
+        lockView?.findViewById<Button>(R.id.btnContactSupport)?.setOnClickListener {
+            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$shopPhoneStr")).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        }
+
+        // --- Hidden Unlock Entry Logic ---
+        val tvShowUnlock = lockView?.findViewById<TextView>(R.id.tvShowUnlock)
+        val unlockContainer = lockView?.findViewById<View>(R.id.unlockContainer)
         val btnUnlock = lockView?.findViewById<Button>(R.id.btnSubmitUnlock)
         val codeInput = lockView?.findViewById<EditText>(R.id.unlockCodeInput)
 
+        // Show/Hide unlock code entry
+        tvShowUnlock?.setOnClickListener {
+            unlockContainer?.visibility = if (unlockContainer?.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }
+
         btnUnlock?.setOnClickListener {
             if (codeInput?.text.toString() == MASTER_UNLOCK_CODE) {
-                val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
                 prefs.edit().putBoolean("is_locked", false).apply()
                 stopSelf()
             } else {

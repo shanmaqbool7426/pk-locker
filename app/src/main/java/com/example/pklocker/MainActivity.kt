@@ -13,6 +13,8 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -30,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -102,14 +105,10 @@ fun MainAppEntryPoint() {
     var fcmToken by remember { mutableStateOf(sharedPrefs.getString("fcm_token", "Fetching...")) }
     var deviceImei by remember { mutableStateOf(sharedPrefs.getString("device_imei", "")) }
 
-    LaunchedEffect(deviceImei) {
-        if (!deviceImei.isNullOrBlank() && !isCustomer) {
-            sharedPrefs.edit().putBoolean("is_customer", true).commit()
-            isCustomer = true
-        }
-    }
+    // isCustomer is now set EXPLICITLY via the LoginScreen "Setup" flow.
+    // Removed LaunchedEffect(deviceImei) that used to auto-set isCustomer = true.
 
-    // ─── Overlay Permission Guard ─────────────────────────────────────────────
+    // ─── Overlay & SMS Permission Guards ─────────────────────────────────────
     // Customer device pe har baar check karo — agar permission gayi toh dialog dikhao
     var overlayPermissionMissing by remember {
         mutableStateOf(
@@ -118,14 +117,26 @@ fun MainAppEntryPoint() {
         )
     }
 
+    var smsPermissionMissing by remember {
+        mutableStateOf(
+            isCustomer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECEIVE_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val smsPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        smsPermissionMissing = !granted
+    }
+
     // Jab bhi app foreground mein aaye, dobara check karo
     LaunchedEffect(isCustomer) {
         if (isCustomer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             overlayPermissionMissing = !Settings.canDrawOverlays(context)
+            smsPermissionMissing = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECEIVE_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED
         }
     }
 
-    // ─── Blocking Dialog — Permission Gayi Toh Ruko ──────────────────────────
+    // ─── Dialogs for Missing Permissions ─────────────────────────────────────
     if (overlayPermissionMissing && isCustomer) {
         AlertDialog(
             onDismissRequest = { /* dismiss nahi hoga — mandatory hai */ },
@@ -182,6 +193,29 @@ fun MainAppEntryPoint() {
             }
         )
         return  // Dialog dismiss nahi hua toh aage mat jao
+    }
+
+    if (smsPermissionMissing && isCustomer) {
+        AlertDialog(
+            onDismissRequest = { /* mandatory */ },
+            icon = { Icon(Icons.Default.Email, null, tint = Color(0xFF1976D2), modifier = Modifier.size(40.dp)) },
+            title = { Text("Offline SMS Security", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "PKLocker requires SMS permission to securely manage this device offline when there is no internet connection.",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { smsPermissionLauncher.launch(android.Manifest.permission.RECEIVE_SMS) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
+                ) {
+                    Text("GRANT PERMISSION", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+        return
     }
 
     // Professional FCM Token Sync with Server
@@ -248,7 +282,13 @@ fun MainAppEntryPoint() {
             sharedPrefs.edit().putBoolean("is_logged_in", true).apply()
         })
     } else {
-        PKLockerApp(isAdmin = true)
+        PKLockerApp(
+            isAdmin = true, 
+            onLogout = {
+                isUserLoggedIn = false
+                sharedPrefs.edit().remove("is_logged_in").remove("auth_token").remove("shop_name").apply()
+            }
+        )
     }
 }
 
@@ -269,6 +309,47 @@ private fun syncTokenToServer(imei: String, token: String) {
     }
 }
 
+/**
+ * Fetch SMS lock/unlock codes from server and save to SharedPrefs.
+ * Called after customer enters their IMEI.
+ * SmsReceiver uses these codes to lock/unlock offline.
+ */
+private fun fetchAndSaveSmsCodesForCustomer(context: Context, imei: String) {
+    val retrofit = Retrofit.Builder()
+        .baseUrl(com.example.pklocker.util.Constants.BASE_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+    val apiService = retrofit.create(ApiService::class.java)
+
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            // Fetch device detail (no auth needed if it's a public endpoint, or we use empty token)
+            val response = apiService.getDeviceStatus("", imei)
+            if (response.isSuccessful) {
+                val body = response.body()
+                val lockCode   = body?.data?.device?.smsCodes?.lockCode
+                val unlockCode = body?.data?.device?.smsCodes?.unlockCode
+                if (!lockCode.isNullOrBlank() && !unlockCode.isNullOrBlank()) {
+                    context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+                        .edit()
+                        .putString("sms_lock_code", lockCode)
+                        .putString("sms_unlock_code", unlockCode)
+                        .apply()
+                    Log.d("SMS_CODES", "SMS codes saved for IMEI: $imei")
+                } else {
+                    // Fallback: codes are deterministic from IMEI, SmsReceiver will generate them
+                    Log.w("SMS_CODES", "Server returned empty codes — SmsReceiver will generate from IMEI")
+                }
+            } else {
+                Log.w("SMS_CODES", "Could not fetch device info: ${response.code()} — SmsReceiver will generate codes from IMEI")
+            }
+        } catch (e: Exception) {
+            // Network error — SmsReceiver will fall back to generating codes from IMEI
+            Log.w("SMS_CODES", "Network error fetching SMS codes: ${e.message} — SmsReceiver will use IMEI-based generation")
+        }
+    }
+}
+
 @Composable
 fun CustomerStatusScreen(
     token: String, 
@@ -277,6 +358,7 @@ fun CustomerStatusScreen(
     onManualLock: () -> Unit,
     onReset: () -> Unit
 ) {
+    val context = LocalContext.current
     var showImeiDialog by remember { mutableStateOf(imei == "Not Set" || imei.isBlank()) }
     var tempImei by remember { mutableStateOf("") }
 
@@ -299,6 +381,8 @@ fun CustomerStatusScreen(
                 Button(onClick = { 
                     if (tempImei.isNotBlank()) {
                         onImeiSubmit(tempImei)
+                        // Save IMEI and fetch SMS codes from server (for offline SMS locking)
+                        fetchAndSaveSmsCodesForCustomer(context, tempImei)
                         showImeiDialog = false
                     }
                 }) { Text("ACTIVATE") }
@@ -306,7 +390,6 @@ fun CustomerStatusScreen(
         )
     }
 
-    val context = LocalContext.current
     val lockManager = remember { com.example.pklocker.util.LockManager(context) }
 
     // Permission States
@@ -466,86 +549,149 @@ fun PermissionItem(title: String, subtitle: String? = null, isActive: Boolean, o
 }
 @Composable
 fun CustomerLockScreen(onReset: () -> Unit) {
-    // ─── Back button completely disable karo lock screen par ─────────────────
-    androidx.activity.compose.BackHandler(enabled = true) {
-        // Kuch mat karo — back button ka koi asar nahi
-    }
+    androidx.activity.compose.BackHandler(enabled = true) {}
 
-    var unlockCodeInput by remember { mutableStateOf("") }
     val context = LocalContext.current
     val sharedPrefs = remember { context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE) }
+    val shopName = sharedPrefs.getString("shop_name", "Authorized Dealer") ?: "Authorized Dealer"
+    val shopPhone = sharedPrefs.getString("shop_phone", "Contact Provider") ?: "Contact Provider"
+    
+    // Fallback data for reference UI (should be dynamic in production)
+    val emiDue = "Rs. 2,500"
+    val dueDate = "20 March"
 
-    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFB71C1C)) {
+    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0A0A0A)) {
         Column(
             modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
         ) {
-            Icon(Icons.Default.GppBad, null, modifier = Modifier.size(80.dp), tint = Color.White)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("DEVICE LOCKED", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-            Text("Security Protocol Active", fontSize = 16.sp, color = Color.White.copy(alpha = 0.9f))
+            Spacer(modifier = Modifier.height(40.dp))
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f)),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
+            // --- Glowing Warning Header ---
+            Surface(
+                color = Color(0xFFDC2626).copy(0.1f),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFDC2626)),
+                modifier = Modifier.padding(bottom = 24.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Enter Unlock Code", color = Color.White, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = unlockCodeInput,
-                        onValueChange = { unlockCodeInput = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color.White,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.5f)
-                        ),
-                        placeholder = { Text("6-digit code", color = Color.White.copy(alpha = 0.4f)) }
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            // Logic for offline verify or emergency release
-                            if (unlockCodeInput == "000000") { // Placeholder for real logic
-                                sharedPrefs.edit().putBoolean("is_locked", false).apply()
-                            } else {
-                                android.widget.Toast.makeText(context, "Invalid Code", android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                        modifier = Modifier.fillMaxWidth().height(50.dp)
-                    ) {
-                        Text("UNLOCK NOW", color = Color(0xFFB71C1C), fontWeight = FontWeight.Bold)
+                Text(
+                    text = "! WARNING !",
+                    color = Color(0xFFDC2626),
+                    fontWeight = FontWeight.Black,
+                    fontSize = 20.sp,
+                    letterSpacing = 4.sp,
+                    modifier = Modifier.padding(horizontal = 40.dp, vertical = 8.dp)
+                )
+            }
+
+            Text(
+                text = "DEVICE LOCKED",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Black,
+                color = Color.White,
+                letterSpacing = 1.sp
+            )
+            Text(
+                text = "For security reasons, this terminal has been restricted.",
+                fontSize = 13.sp,
+                color = Color.Gray,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp, bottom = 40.dp)
+            )
+
+            // --- Security Icon ---
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(120.dp)) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Transparent,
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFDC2626).copy(0.3f)),
+                    modifier = Modifier.fillMaxSize()
+                ) {}
+                Icon(
+                    Icons.Default.GppBad, 
+                    null, 
+                    modifier = Modifier.size(60.dp), 
+                    tint = Color(0xFFDC2626)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            // --- Payment & Shop Info Card ---
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333))
+            ) {
+                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(shopName.uppercase(), fontWeight = FontWeight.Black, fontSize = 18.sp, color = Color.White)
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                        Icon(Icons.Default.Call, null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(shopPhone, color = Color.Gray, fontSize = 14.sp)
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp), color = Color(0xFF333333))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column {
+                            Text("EMI PENDING", color = Color(0xFFDC2626), fontWeight = FontWeight.Black, fontSize = 10.sp)
+                            Text(emiDue, color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("DUE DATE", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                            Text(dueDate, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    Surface(color = Color.White.copy(0.05f), shape = RoundedCornerShape(12.dp)) {
+                        Text(
+                            "\"EMI pay karein aur phone unlock karwain\"", 
+                            color = Color.White.copy(0.7f), 
+                            fontSize = 13.sp, 
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(16.dp),
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
-            Text("Contact Shopkeeper for Code", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // Debug reset — production mein hataana hai
+            // --- Contact Button ---
+            Button(
+                onClick = {
+                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$shopPhone"))
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.fillMaxWidth().height(60.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Icon(Icons.Default.SupportAgent, null, tint = Color.White)
+                Spacer(Modifier.width(12.dp))
+                Text("CONTACT SUPPORT", fontWeight = FontWeight.Black, fontSize = 15.sp, color = Color.White)
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
-
-            // Emergency local release — removes Device Admin so app can be uninstalled
-            val lockMgr = remember { com.example.pklocker.util.LockManager(context) }
-            TextButton(onClick = {
-                lockMgr.selfDeactivate()
+            
+            // Subtle Emergency Release (Debug)
+            TextButton(onClick = { 
+                com.example.pklocker.util.LockManager(context).selfDeactivate()
                 onReset()
             }) {
-                Text("EMERGENCY RELEASE", color = Color.White.copy(alpha = 0.25f), fontSize = 10.sp)
+                Text("Emergency Local Release", color = Color.White.copy(0.1f), fontSize = 10.sp)
             }
         }
     }
 }
 
 @Composable
-fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel()) {
+fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), onLogout: () -> Unit) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var selectedDeviceImei by remember { mutableStateOf<String?>(null) }
     var selectedDeviceName by remember { mutableStateOf<String?>(null) }
@@ -614,7 +760,9 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel()) 
                         AppDestinations.VIDEO_HELP -> if (isAdmin) Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("Video Tutorials Coming Soon")
                         }
-                        AppDestinations.PROFILE -> ProfilePlaceholder()
+                        AppDestinations.PROFILE -> com.example.pklocker.ui.profile.ProfileScreen(
+                            onLogout = onLogout
+                        )
                     }
                 }
             }
@@ -632,11 +780,4 @@ enum class AppDestinations(val label: String, val icon: ImageVector) {
     PHONE_QR("Phone QR", Icons.Default.StayCurrentPortrait),
     VIDEO_HELP("Help", Icons.Default.PlayCircle),
     PROFILE("Profile", Icons.Default.Person),
-}
-
-@Composable
-fun ProfilePlaceholder() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Profile & Settings")
-    }
 }

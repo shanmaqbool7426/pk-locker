@@ -1,8 +1,14 @@
 package com.example.pklocker.ui.devices
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -16,20 +22,26 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.pklocker.data.AdvancedControlRequest
 import com.example.pklocker.data.DeviceResponse
 import com.example.pklocker.ui.theme.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 
-// Premium Theme Colors
-val PrimaryColor = Color(0xFF1A237E)
-val BgColor = Color(0xFFF4F6F9)
+// Consistent Premium Theme Colors
+private val SoftBg = Color(0xFFF8FAFC)
+private val CardWhite = Color.White
+private val BrandBlue = Color(0xFF2563EB)
+private val TextTitle = Color(0xFF0F172A)
+private val TextMuted = Color(0xFF64748B)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,7 +59,7 @@ fun ControlPanelScreen(
     }
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Action", "Device Detail", "Customer", "EMI Detail")
+    val tabs = listOf("Secure Control", "Hardware Tech", "Customer Profile", "EMI Ledger")
     var isOnlineMode by remember { mutableStateOf(true) }
 
     var showConfirmDialog by remember { mutableStateOf(false) }
@@ -56,103 +68,153 @@ fun ControlPanelScreen(
     if (showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
-            title = { Text(if (pendingLockState) "Confirm Lock" else "Confirm Unlock") },
-            text = { Text("Are you sure you want to proceed? This will immediately affect the device.") },
+            title = { Text(if (pendingLockState) "Restrict Device" else "Release Restriction", fontWeight = FontWeight.Black, color = TextTitle) },
+            text = { Text("Immediately apply security protocols to this terminal? System will sync via ${if(isOnlineMode) "Cloud" else "SMS"}.") },
             confirmButton = {
                 Button(
                     onClick = {
                         viewModel.toggleLock(context, imei, pendingLockState)
                         showConfirmDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = if (pendingLockState) Color.Red else PrimaryColor)
+                    colors = ButtonDefaults.buttonColors(containerColor = if (pendingLockState) Color(0xFFDC2626) else BrandBlue),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("YES, PROCEED")
+                    Text("EXECUTE", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirmDialog = false }) { Text("Cancel") }
-            }
+                TextButton(onClick = { showConfirmDialog = false }) { Text("Cancel", color = TextMuted) }
+            },
+            containerColor = CardWhite,
+            shape = RoundedCornerShape(20.dp)
         )
     }
 
     Scaffold(
         topBar = {
-            Column(modifier = Modifier.background(PrimaryColor)) {
-                TopAppBar(
+            Column(modifier = Modifier.background(CardWhite)) {
+                CenterAlignedTopAppBar(
                     title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Controls", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                            Spacer(Modifier.weight(1f))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("ADMIN PANEL", fontWeight = FontWeight.Black, color = TextTitle, fontSize = 14.sp, letterSpacing = 2.sp)
                             val statusText = device?.status ?: "Unknown"
-                            val statusColor = if (statusText == "Locked") Color(0xFFFF5252) else Color(0xFF69F0AE)
-                            Text("Status: $statusText", fontSize = 12.sp, color = statusColor, fontWeight = FontWeight.Bold)
+                            val statusColor = if (statusText == "Locked") Color(0xFFDC2626) else Color(0xFF16A34A)
+                            Text(statusText.uppercase(), fontSize = 10.sp, color = statusColor, fontWeight = FontWeight.Black)
                         }
                     },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color.White)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = TextTitle)
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryColor)
+                    actions = {
+                        IconButton(onClick = { viewModel.fetchDevices(context) }) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, tint = BrandBlue)
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CardWhite)
                 )
 
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                // Compact Avatar Header
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        modifier = Modifier.size(90.dp),
-                        color = Color.White.copy(alpha = 0.2f),
-                        border = BorderStroke(2.dp, Color.White.copy(alpha = 0.5f))
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(Color(0xFFEFF6FF), Color(0xFFDBEAFE)))),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Person, null, modifier = Modifier.padding(20.dp), tint = Color.White)
+                        Text(customerName.take(1).uppercase(), fontSize = 24.sp, fontWeight = FontWeight.Black, color = BrandBlue)
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(customerName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(customerName, color = TextTitle, fontWeight = FontWeight.Black, fontSize = 18.sp)
+                        Text("Terminal ID: $imei", fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.Bold)
+                    }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth().background(Color.White).padding(vertical = 12.dp, horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                ScrollableTabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = CardWhite,
+                    edgePadding = 20.dp,
+                    divider = {},
+                    indicator = { tabPositions ->
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                            color = BrandBlue,
+                            height = 3.dp
+                        )
+                    }
                 ) {
                     tabs.forEachIndexed { index, title ->
-                        TabButton(title, selectedTab == index, { selectedTab = index }, PrimaryColor)
+                        Tab(
+                            selected = selectedTab == index,
+                            onClick = { selectedTab = index },
+                            text = { Text(title, fontSize = 12.sp, fontWeight = if(selectedTab == index) FontWeight.Black else FontWeight.Bold) },
+                            selectedContentColor = BrandBlue,
+                            unselectedContentColor = TextMuted
+                        )
                     }
                 }
             }
         },
         bottomBar = {
-            Row(modifier = Modifier.fillMaxWidth().background(Color.White).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Button(onClick = { pendingLockState = true; showConfirmDialog = true }, modifier = Modifier.weight(1f).height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)), shape = RoundedCornerShape(12.dp)) {
-                    Text("LOCK DEVICE", fontWeight = FontWeight.Bold)
-                }
-                Button(onClick = { pendingLockState = false; showConfirmDialog = true }, modifier = Modifier.weight(1f).height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor), shape = RoundedCornerShape(12.dp)) {
-                    Text("UNLOCK", fontWeight = FontWeight.Bold)
+            Surface(
+                color = CardWhite,
+                tonalElevation = 8.dp,
+                shadowElevation = 8.dp,
+                modifier = Modifier.padding(bottom = 8.dp)
+            ) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Button(
+                        onClick = { pendingLockState = true; showConfirmDialog = true }, 
+                        modifier = Modifier.weight(1f).height(56.dp), 
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF111827)), // Midnight Blue/Black for Authority
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                    ) {
+                        Icon(Icons.Default.Lock, null, modifier = Modifier.size(18.dp), tint = Color.White)
+                        Spacer(Modifier.width(8.dp))
+                        Text("SECURE LOCK", fontWeight = FontWeight.Black, color = Color.White)
+                    }
+                    Button(
+                        onClick = { pendingLockState = false; showConfirmDialog = true }, 
+                        modifier = Modifier.weight(1f).height(56.dp), 
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandBlue), 
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                    ) {
+                        Icon(Icons.Default.LockOpen, null, modifier = Modifier.size(18.dp), tint = Color.White)
+                        Spacer(Modifier.width(8.dp))
+                        Text("RELEASE", fontWeight = FontWeight.Black, color = Color.White)
+                    }
                 }
             }
         },
-        containerColor = BgColor
+        containerColor = SoftBg
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             Column {
                 when (selectedTab) {
                     0 -> {
-                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            ModeSelectorButton("Online Mode", isOnlineMode, { isOnlineMode = true }, PrimaryColor, Modifier.weight(1f))
-                            ModeSelectorButton("SMS Mode", !isOnlineMode, { isOnlineMode = false }, PrimaryColor, Modifier.weight(1f))
+                        Row(modifier = Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            PremiumModeButton("Sync Mode", isOnlineMode, { isOnlineMode = true }, Modifier.weight(1f), Icons.Default.CloudSync)
+                            PremiumModeButton("Direct SMS", !isOnlineMode, { isOnlineMode = false }, Modifier.weight(1f), Icons.Default.Sms)
                         }
-                        if (isOnlineMode) ActionTabContent(viewModel, device, imei, PrimaryColor, onBack)
-                        else SmsTabContent(PrimaryColor)
+                        if (isOnlineMode) ActionTabContent(viewModel, device, imei, onBack)
+                        else SmsTabContent(device)
                     }
-                    1 -> DeviceDetailTab(imei)
-                    2 -> CustomerDetailTab(customerName)
-                    3 -> EmiDetailTab()
+                    1 -> HardwareTechTab(device)
+                    2 -> CustomerProfileTab(device)
+                    3 -> EmiLedgerTab(device)
                 }
             }
             if (viewModel.isLoading) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = PrimaryColor)
+                Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = BrandBlue)
                 }
             }
         }
@@ -160,36 +222,25 @@ fun ControlPanelScreen(
 }
 
 @Composable
-fun TabButton(title: String, isSelected: Boolean, onClick: () -> Unit, activeColor: Color) {
+fun PremiumModeButton(text: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier, icon: ImageVector) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
-        color = if (isSelected) activeColor else Color.Transparent,
-        border = if (!isSelected) BorderStroke(1.dp, Color.Gray.copy(0.3f)) else null
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = if (isSelected) BrandBlue else CardWhite,
+        border = if (!isSelected) BorderStroke(1.dp, Color(0xFFE2E8F0)) else null,
+        shadowElevation = if (isSelected) 4.dp else 0.dp
     ) {
-        Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-            Text(title, fontSize = 11.sp, color = if (isSelected) Color.White else Color.Gray, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            Icon(icon, null, tint = if (isSelected) Color.White else TextMuted, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(text, color = if (isSelected) Color.White else TextMuted, fontWeight = FontWeight.Black, fontSize = 13.sp)
         }
     }
 }
 
 @Composable
-fun ModeSelectorButton(text: String, isSelected: Boolean, onClick: () -> Unit, activeColor: Color, modifier: Modifier) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.height(44.dp),
-        shape = RoundedCornerShape(8.dp),
-        color = if (isSelected) activeColor else Color.White,
-        shadowElevation = if (isSelected) 4.dp else 1.dp
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(text, color = if (isSelected) Color.White else Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-        }
-    }
-}
-
-@Composable
-fun ActionTabContent(viewModel: DeviceListViewModel, device: DeviceResponse?, imei: String, themeColor: Color, onBack: () -> Unit) {
+fun ActionTabContent(viewModel: DeviceListViewModel, device: DeviceResponse?, imei: String, onBack: () -> Unit) {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
 
@@ -198,160 +249,109 @@ fun ActionTabContent(viewModel: DeviceListViewModel, device: DeviceResponse?, im
     if (showUnlockAllDialog) {
         AlertDialog(
             onDismissRequest = { showUnlockAllDialog = false },
-            title = { Text("Unlock All Controls?", fontWeight = FontWeight.Bold) },
-            text = { Text("This will immediately remove ALL active restrictions on this device — USB lock, camera, app blocks, and more.") },
+            title = { Text("Factory Reset Controls?", fontWeight = FontWeight.Black, color = TextTitle) },
+            text = { Text("WARNING: This will immediately clear ALL active restrictions (USB, Camera, Apps) on the terminal.") },
             confirmButton = {
                 Button(
                     onClick = {
                         viewModel.unlockAllControls(context, imei)
                         showUnlockAllDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100))
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("YES, UNLOCK ALL", fontWeight = FontWeight.Bold)
+                    Text("RESET ALL", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showUnlockAllDialog = false }) { Text("Cancel") }
-            }
+                TextButton(onClick = { showUnlockAllDialog = false }) { Text("Abort", color = TextMuted) }
+            },
+            containerColor = CardWhite,
+            shape = RoundedCornerShape(20.dp)
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(scrollState)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp).verticalScroll(scrollState)) {
 
-        // ── Unlock All Controls Banner ──────────────────────────────────────────
+        // --- RESET ALL BANNER ---
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-            elevation = CardDefaults.cardElevation(2.dp)
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Unlock All Controls",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFFBF360C)
-                    )
-                    Text(
-                        "Clears every active restriction at once",
-                        fontSize = 11.sp,
-                        color = Color(0xFFE64A19)
-                    )
+                    Text("Emergency Reset", color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                    Text("Clear all restrictions with one tap", color = Color.White.copy(0.7f), fontSize = 11.sp)
                 }
-                Spacer(Modifier.width(12.dp))
                 Button(
                     onClick = { showUnlockAllDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(
-                        Icons.Default.LockOpen,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("RESET ALL", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("EXECUTE", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }
-        // ───────────────────────────────────────────────────────────────────────
 
-        ControlGroup("Premium Security Controls") {
-            LabeledSwitchItem("Auto-Lock (Offline)", Icons.Default.GppMaybe, device?.controls?.autoLock ?: false, themeColor)
+        PremiumControlGroup("Security System") {
+            PremiumSwitchItem("Auto-Lock (Offline Detection)", Icons.Default.GppMaybe, device?.controls?.autoLock ?: false)
             { viewModel.sendControl(context, imei, "autoLock", it) }
 
-            LabeledSwitchItem("USB Block", Icons.Default.Usb, device?.controls?.usbLock ?: false, themeColor)
+            PremiumSwitchItem("USB Terminal Block", Icons.Default.Usb, device?.controls?.usbLock ?: false)
             { viewModel.sendControl(context, imei, "usbLock", it) }
 
-            LabeledSwitchItem("Camera Block", Icons.Default.CameraAlt, device?.controls?.cameraDisabled ?: false, themeColor)
+            PremiumSwitchItem("Hardware Camera Block", Icons.Default.CameraAlt, device?.controls?.cameraDisabled ?: false)
             { viewModel.sendControl(context, imei, "cameraDisabled", it) }
 
-            LabeledSwitchItem("App Installation Block", Icons.Default.AppRegistration, device?.controls?.installBlocked ?: false, themeColor)
+            PremiumSwitchItem("Application Install Lock", Icons.Default.AppRegistration, device?.controls?.installBlocked ?: false)
             { viewModel.sendControl(context, imei, "installBlocked", it) }
 
-            LabeledSwitchItem("App Uninstallation Block", Icons.Default.DeleteSweep, device?.controls?.uninstallBlocked ?: false, themeColor)
-            { viewModel.sendControl(context, imei, "uninstallBlocked", it) }
-
-            LabeledSwitchItem("Soft Reset Block", Icons.Default.SettingsBackupRestore, device?.controls?.softResetBlocked ?: false, themeColor)
-            { viewModel.sendControl(context, imei, "softResetBlocked", it) }
-
-            LabeledSwitchItem("Soft Boot Block", Icons.Default.RestartAlt, device?.controls?.softBootBlocked ?: false, themeColor)
-            { viewModel.sendControl(context, imei, "softBootBlocked", it) }
-
-            LabeledSwitchItem("Outgoing Calls Block", Icons.Default.Call, device?.controls?.outgoingCallsBlocked ?: false, themeColor)
-            { viewModel.sendControl(context, imei, "outgoingCallsBlocked", it) }
-
-            LabeledSwitchItem("Settings Blocking", Icons.Default.Settings, device?.controls?.settingsBlocked ?: false, themeColor)
+            PremiumSwitchItem("System Settings Lock", Icons.Default.Settings, device?.controls?.settingsBlocked ?: false)
             { viewModel.sendControl(context, imei, "settingsBlocked", it) }
         }
 
-        ControlGroup("Advanced Controls") {
-            ControlActionButton("Warning Audio", Icons.Default.VolumeUp, device?.controls?.warningAudio ?: false, themeColor)
-            { viewModel.sendControl(context, imei, "warningAudio", it) }
-
-            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Wallpaper, null, tint = Color.Gray)
-                Spacer(Modifier.width(12.dp))
-                Text("Warning Wallpaper", modifier = Modifier.weight(1f), fontSize = 14.sp)
-                Button(onClick = { viewModel.sendControl(context, imei, "warningWallpaper", "SET_DEFAULT") }, colors = ButtonDefaults.buttonColors(containerColor = themeColor)) {
-                    Text("SET", fontSize = 12.sp)
-                }
-            }
+        PremiumControlGroup("App Restrictions") {
+            PremiumSwitchItem("Instagram Restrictions", Icons.Default.Camera, device?.appRestrictions?.instagram ?: false) 
+            { viewModel.sendControl(context, imei, "instagram", it) }
+            
+            PremiumSwitchItem("WhatsApp System Block", Icons.Default.Chat, device?.appRestrictions?.whatsapp ?: false) 
+            { viewModel.sendControl(context, imei, "whatsapp", it) }
+            
+            PremiumSwitchItem("YouTube Content Block", Icons.Default.PlayCircle, device?.appRestrictions?.youtube ?: false) 
+            { viewModel.sendControl(context, imei, "youtube", it) }
         }
 
-        ControlGroup("Remote Actions") {
-            ActionButtonItem("Get Device Location", Icons.Default.LocationOn) { viewModel.sendControl(context, imei, "request_location", true) }
-            ActionButtonItem("Get Phone Number", Icons.Default.Phone) { viewModel.sendControl(context, imei, "request_phone", true) }
-            ActionButtonItem("Reset Device Password", Icons.Default.Password) { }
+        PremiumControlGroup("Terminal Utilities") {
+            PremiumActionItem("Ping Last Known Location", Icons.Default.LocationOn) { viewModel.sendControl(context, imei, "request_location", true) }
+            PremiumActionItem("Trigger Warning Audio", Icons.Default.VolumeUp) { viewModel.sendControl(context, imei, "warningAudio", true) }
+            PremiumActionItem("Trigger Warning Wallpaper", Icons.Default.Wallpaper) { viewModel.sendControl(context, imei, "warningWallpaper", "SET_DEFAULT") }
         }
 
-        ControlGroup("Application Control") {
-            LabeledSwitchItem("Instagram Block", Icons.Default.Camera, device?.appRestrictions?.instagram ?: false, themeColor) { viewModel.sendControl(context, imei, "instagram", it) }
-            LabeledSwitchItem("WhatsApp Block", Icons.Default.Chat, device?.appRestrictions?.whatsapp ?: false, themeColor) { viewModel.sendControl(context, imei, "whatsapp", it) }
-            LabeledSwitchItem("Facebook Block", Icons.Default.Public, device?.appRestrictions?.facebook ?: false, themeColor) { viewModel.sendControl(context, imei, "facebook", it) }
-            LabeledSwitchItem("YouTube Block", Icons.Default.PlayCircle, device?.appRestrictions?.youtube ?: false, themeColor) { viewModel.sendControl(context, imei, "youtube", it) }
-        }
-
-        // ── Danger Zone: Release Device ─────────────────────────────────────────
+        // --- Danger Zone ---
         var showReleaseDialog by remember { mutableStateOf(false) }
         var releaseConfirmText by remember { mutableStateOf("") }
 
         if (showReleaseDialog) {
             AlertDialog(
                 onDismissRequest = { showReleaseDialog = false; releaseConfirmText = "" },
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Warning, null, tint = Color(0xFFD32F2F), modifier = Modifier.size(22.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Release Device?", fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
-                    }
-                },
+                title = { Text("Permanently De-register?", fontWeight = FontWeight.Black, color = Color(0xFFDC2626)) },
                 text = {
                     Column {
-                        Text(
-                            "This will:\n• Remove ALL active restrictions\n• Remove Device Admin from the phone\n• Allow the customer to uninstall the app",
-                            fontSize = 13.sp
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Text("Type CONFIRM to proceed:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Spacer(Modifier.height(6.dp))
+                        Text("This terminal will be removed from your secure network and all restrictions will be permanently cleared.")
+                        Spacer(Modifier.height(16.dp))
                         OutlinedTextField(
                             value = releaseConfirmText,
                             onValueChange = { releaseConfirmText = it },
-                            placeholder = { Text("CONFIRM", color = Color.Gray) },
+                            placeholder = { Text("TYPE CONFIRM", fontSize = 12.sp) },
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
                         )
                     }
                 },
@@ -359,186 +359,220 @@ fun ActionTabContent(viewModel: DeviceListViewModel, device: DeviceResponse?, im
                     Button(
                         onClick = {
                             showReleaseDialog = false
-                            releaseConfirmText = ""
                             viewModel.deregisterDevice(context, imei) { onBack() }
                         },
                         enabled = releaseConfirmText.trim().uppercase() == "CONFIRM",
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("RELEASE DEVICE", fontWeight = FontWeight.Bold)
+                        Text("CONFIRM RELEASE")
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showReleaseDialog = false; releaseConfirmText = "" }) {
-                        Text("Cancel")
-                    }
-                }
+                    TextButton(onClick = { showReleaseDialog = false; releaseConfirmText = "" }) { Text("Abort") }
+                },
+                containerColor = CardWhite,
+                shape = RoundedCornerShape(20.dp)
             )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD32F2F).copy(alpha = 0.4f)),
-            elevation = CardDefaults.cardElevation(1.dp)
+            modifier = Modifier.fillMaxWidth().clickable { showReleaseDialog = true },
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+            border = BorderStroke(1.dp, Color(0xFFFCA5A5))
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Dns, null, tint = Color(0xFFDC2626), modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Release Device",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFFD32F2F)
-                    )
-                    Text(
-                        "Remove admin & allow uninstall",
-                        fontSize = 11.sp,
-                        color = Color(0xFFB71C1C)
-                    )
+                    Text("De-register Terminal", color = Color(0xFF991B1B), fontWeight = FontWeight.Black, fontSize = 15.sp)
+                    Text("Permanent release procedure", color = Color(0xFFB91C1C).copy(0.7f), fontSize = 11.sp)
                 }
-                Spacer(Modifier.width(12.dp))
-                Button(
-                    onClick = { showReleaseDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-                ) {
-                    Icon(Icons.Default.NoEncryption, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("RELEASE", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
+                Icon(Icons.Default.Logout, null, tint = Color(0xFFDC2626))
             }
         }
-        Spacer(modifier = Modifier.height(20.dp))
+        
+        Spacer(Modifier.height(40.dp))
     }
 }
 
 @Composable
-fun ActionButtonItem(label: String, icon: ImageVector, onClick: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().padding(16.dp).clickable { onClick() }, verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = Color.Gray.copy(0.6f), modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(12.dp))
-        Text(label, modifier = Modifier.weight(1f), fontSize = 14.sp)
-        Icon(Icons.Default.ChevronRight, null, tint = Color.Gray.copy(0.1f))
-    }
-}
-
-@Composable
-fun ControlActionButton(label: String, icon: ImageVector, initialValue: Boolean, themeColor: Color, onToggle: (Boolean) -> Unit) {
-    var active by remember(initialValue) { mutableStateOf(initialValue) }
-    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = Color.Gray.copy(0.6f), modifier = Modifier.size(24.dp))
-        Spacer(Modifier.width(12.dp))
-        Text(label, modifier = Modifier.weight(1f), fontSize = 14.sp)
-        IconButton(onClick = { active = !active; onToggle(active) }) {
-            Icon(if (active) Icons.Default.StopCircle else Icons.Default.PlayCircle, null, tint = if (active) Color.Red else themeColor, modifier = Modifier.size(32.dp))
-        }
-    }
-}
-
-@Composable
-fun ControlGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Text(title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(12.dp))
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(12.dp), elevation = CardDefaults.cardElevation(1.dp)) {
+fun PremiumControlGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Text(title.uppercase(), fontWeight = FontWeight.Black, fontSize = 11.sp, color = BrandBlue, letterSpacing = 1.sp, modifier = Modifier.padding(top = 28.dp, bottom = 10.dp, start = 4.dp))
+    Card(
+        modifier = Modifier.fillMaxWidth(), 
+        colors = CardDefaults.cardColors(containerColor = CardWhite), 
+        shape = RoundedCornerShape(24.dp), 
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+    ) {
         Column { content() }
     }
 }
 
 @Composable
-fun LabeledSwitchItem(label: String, icon: ImageVector, initialValue: Boolean, themeColor: Color, onToggle: (Boolean) -> Unit) {
+fun PremiumSwitchItem(label: String, icon: ImageVector, initialValue: Boolean, onToggle: (Boolean) -> Unit) {
     var isProcessing by remember { mutableStateOf(false) }
+    LaunchedEffect(initialValue) { isProcessing = false }
 
-    LaunchedEffect(initialValue) {
-        // Jab server se naya state mil jaye toh processing rok do
-        isProcessing = false
-    }
-
-    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = Color.Gray.copy(if (isProcessing) 0.3f else 0.6f), modifier = Modifier.size(24.dp))
-        Spacer(Modifier.width(12.dp))
-        Text(label, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium, fontSize = 14.sp, color = if (isProcessing) Color.Gray else Color.Black)
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { if(!isProcessing) { isProcessing = true; onToggle(!initialValue) } }.padding(16.dp), 
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(color = Color(0xFFF8FAFC), shape = CircleShape, modifier = Modifier.size(40.dp)) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = if (isProcessing) TextMuted else TextTitle, modifier = Modifier.size(20.dp))
+            }
+        }
+        Spacer(Modifier.width(16.dp))
+        Text(label, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = if (isProcessing) TextMuted else TextTitle)
         
         if (isProcessing) {
-            CircularProgressIndicator(modifier = Modifier.size(24.dp).padding(end = 4.dp), strokeWidth = 2.dp, color = themeColor)
+            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = BrandBlue)
         } else {
-            Row(modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Color(0xFFEEEEEE)).padding(2.dp)) {
-                Surface(onClick = { 
-                    if (!initialValue) return@Surface
-                    isProcessing = true
-                    onToggle(false) 
-                }, color = if (!initialValue) Color(0xFF4CAF50) else Color.Transparent, shape = RoundedCornerShape(10.dp)) {
-                    Icon(Icons.Default.LockOpen, null, modifier = Modifier.padding(10.dp).size(16.dp), tint = if(!initialValue) Color.White else Color.Gray)
-                }
-                Surface(onClick = { 
-                    if (initialValue) return@Surface
-                    isProcessing = true
-                    onToggle(true) 
-                }, color = if (initialValue) Color(0xFFD32F2F) else Color.Transparent, shape = RoundedCornerShape(10.dp)) {
-                    Icon(Icons.Default.Lock, null, modifier = Modifier.padding(10.dp).size(16.dp), tint = if(initialValue) Color.White else Color.Gray)
-                }
+            Switch(
+                checked = initialValue,
+                onCheckedChange = { isProcessing = true; onToggle(it) },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = BrandBlue,
+                    uncheckedTrackColor = Color(0xFFE2E8F0),
+                    uncheckedBorderColor = Color.Transparent
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun PremiumActionItem(label: String, icon: ImageVector, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(16.dp), 
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(color = Color(0xFFF8FAFC), shape = CircleShape, modifier = Modifier.size(40.dp)) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = TextTitle, modifier = Modifier.size(20.dp))
+            }
+        }
+        Spacer(Modifier.width(16.dp))
+        Text(label, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = TextTitle)
+        Icon(Icons.Default.ChevronRight, null, tint = Color(0xFFCBD5E1), modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+fun SmsTabContent(device: DeviceResponse?) {
+    val context = LocalContext.current
+    val customerPhone = device?.phoneNumber ?: ""
+    val lockCode      = device?.smsCodes?.lockCode   ?: ""
+    val unlockCode    = device?.smsCodes?.unlockCode ?: ""
+
+    fun openSms(body: String) {
+        if (customerPhone.isBlank()) { Toast.makeText(context, "Phone Missing", Toast.LENGTH_SHORT).show(); return }
+        context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$customerPhone")).apply { putExtra("sms_body", body) })
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4))) {
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Verified, null, tint = Color(0xFF16A34A))
+                Spacer(Modifier.width(12.dp))
+                Text("Direct Terminal Connection Active. SMS protocols bypassed cloud requirements.", fontSize = 12.sp, color = Color(0xFF16A34A), fontWeight = FontWeight.Bold)
+            }
+        }
+
+        PremiumControlGroup("Offline SMS Commands") {
+            SmsActionButton("SEND LOCK SMS", Icons.Default.Lock, Color(0xFFDC2626)) { openSms("LOCK#$lockCode") }
+            HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(horizontal = 20.dp))
+            SmsActionButton("SEND UNLOCK SMS", Icons.Default.LockOpen, BrandBlue) { openSms("UNLOCK#$unlockCode") }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = CardWhite), border = BorderStroke(1.dp, Color(0xFFF1F5F9))) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("SECURITY KEYS (OFFLINE)", fontWeight = FontWeight.Black, fontSize = 11.sp, color = BrandBlue, letterSpacing = 1.sp)
+                Spacer(Modifier.height(16.dp))
+                SmsKeyRow("LOCK_KEY", lockCode)
+                Spacer(Modifier.height(8.dp))
+                SmsKeyRow("UNLOCK_KEY", unlockCode)
             }
         }
     }
 }
 
 @Composable
-fun SmsTabContent(themeColor: Color) {
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("SMS commands work without internet.", fontSize = 12.sp, color = Color.Gray)
-        Spacer(Modifier.height(16.dp))
-        SmsActionButton("LOCK BY SMS", Icons.Default.Lock, themeColor)
-        SmsActionButton("UNLOCK BY SMS", Icons.Default.LockOpen, themeColor)
-        SmsActionButton("GET LOCATION", Icons.Default.LocationOn, themeColor)
+fun SmsActionButton(text: String, icon: ImageVector, color: Color, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(60.dp).padding(6.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = color),
+        shape = RoundedCornerShape(14.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+    ) {
+        Icon(icon, null, modifier = Modifier.size(20.dp), tint = Color.White)
+        Spacer(Modifier.width(10.dp))
+        Text(text, fontWeight = FontWeight.Black, fontSize = 14.sp, color = Color.White)
     }
 }
 
 @Composable
-fun SmsActionButton(label: String, icon: ImageVector, themeColor: Color) {
-    Button(onClick = { }, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = themeColor), shape = RoundedCornerShape(12.dp)) {
-        Icon(icon, null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(label, fontWeight = FontWeight.Bold)
+fun SmsKeyRow(label: String, code: String) {
+    Surface(color = Color(0xFFF8FAFC), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, fontSize = 10.sp, fontWeight = FontWeight.Black, color = TextMuted, modifier = Modifier.weight(1f))
+            Text(if(code.length > 20) code.take(18) + "..." else code, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextTitle, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+        }
     }
 }
 
 @Composable
-fun DeviceDetailTab(imei: String) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        DetailRowItem("Model", "TECNO CL6")
-        DetailRowItem("IMEI", imei)
-        DetailRowItem("Android", "14")
-        DetailRowItem("Status", "Connected")
+fun HardwareTechTab(device: DeviceResponse?) {
+    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PremiumInfoCard("Model Identifier", "${device?.brand} ${device?.model ?: "Generic"}", Icons.Default.Smartphone)
+        PremiumInfoCard("System Version", "Android ${device?.androidVersion ?: "14.x"}", Icons.Default.Android)
+        PremiumInfoCard("IMEI / Serial", device?.imei ?: "N/A", Icons.Default.QrCodeScanner)
     }
 }
 
 @Composable
-fun CustomerDetailTab(name: String) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        DetailRowItem("Customer", name)
-        DetailRowItem("Phone", "0313-XXXXXXX")
+fun CustomerProfileTab(device: DeviceResponse?) {
+    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PremiumInfoCard("Account Holder", device?.customerName ?: "N/A", Icons.Default.Person)
+        PremiumInfoCard("Primary Contact", device?.phoneNumber ?: "N/A", Icons.Default.Call)
+        PremiumInfoCard("Identity (CNIC)", device?.cnic ?: "N/A", Icons.Default.Badge)
     }
 }
 
 @Composable
-fun EmiDetailTab() {
-    Column(modifier = Modifier.padding(16.dp)) {
-        DetailRowItem("Price", "45,000 PKR")
-        DetailRowItem("Remaining", "15,000 PKR")
+fun EmiLedgerTab(device: DeviceResponse?) {
+    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PremiumInfoCard("Total Credit", "PKR ${device?.totalPrice ?: "0"}", Icons.Default.AccountBalance)
+        PremiumInfoCard("Monthly Installment", "PKR ${device?.emiAmount ?: "0"}/mo", Icons.Default.Payments)
+        PremiumInfoCard("Remaining Tenure", "${device?.emiTenure ?: "0"} Months", Icons.Default.Schedule)
     }
 }
 
 @Composable
-fun DetailRowItem(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = Color.Gray, fontSize = 14.sp)
-        Text(value, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+fun PremiumInfoCard(label: String, value: String, icon: ImageVector) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = CardWhite),
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+    ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = Color(0xFFEFF6FF), shape = CircleShape, modifier = Modifier.size(40.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(icon, null, tint = BrandBlue, modifier = Modifier.size(18.dp))
+                }
+            }
+            Spacer(Modifier.width(16.dp))
+            Column {
+                Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextMuted)
+                Text(value, fontSize = 15.sp, fontWeight = FontWeight.Black, color = TextTitle)
+            }
+        }
     }
 }

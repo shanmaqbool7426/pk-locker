@@ -14,6 +14,9 @@ import com.example.pklocker.data.Guarantor
 import com.example.pklocker.util.LockManager
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import kotlinx.coroutines.launch
+import android.net.Uri
+import android.util.Base64
+import java.io.InputStream
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -42,6 +45,8 @@ class RegistrationViewModel : ViewModel() {
     var guarantorName by mutableStateOf("")
     var guarantorPhone by mutableStateOf("")
     var guarantorAddress by mutableStateOf("")
+    var customerCnicImage by mutableStateOf<String?>(null) // Base64
+    var guarantorCnicImage by mutableStateOf<String?>(null) // Base64
 
     var isLoading by mutableStateOf(false)
     var message by mutableStateOf<String?>(null)
@@ -79,18 +84,7 @@ class RegistrationViewModel : ViewModel() {
             return
         }
 
-        if (!lockManager.isAdminActive()) {
-            message = "Please enable Admin Permission first!"
-            lockManager.requestAdminPermission()
-            return
-        }
-
-        if (!lockManager.canDrawOverlays()) {
-            message = "Please enable Overlay Permission first!"
-            lockManager.requestOverlayPermission()
-            return
-        }
-
+        // Shopkeeper doesn't need these permissions on their own terminal to register a client
         if (!validateInputs()) return
 
         viewModelScope.launch {
@@ -121,27 +115,25 @@ class RegistrationViewModel : ViewModel() {
                     guarantor = Guarantor(
                         name = guarantorName,
                         mobile = guarantorPhone,
-                        address = guarantorAddress
-                    )
+                        address = guarantorAddress,
+                        cnicProofImage = guarantorCnicImage
+                    ),
+                    cnicProofImage = customerCnicImage
                 )
                 
                 val response = apiService.registerDevice("Bearer $token", request)
                 
                 if (response.isSuccessful && response.body()?.success == true) {
                     
-                    // SAVE IMEI LOCALLY SO APP CAN IDENTIFY ITSELF
-                    sharedPrefs.edit().putString("device_imei", imei).apply()
-
-                    // Sync FCM Token
+                    // FCM Token sync for the newly registered IMEI if needed 
+                    // (But usually this happens on the actual customer device)
                     if (fcmToken.isNotEmpty()) {
                         apiService.updateFcmToken("Bearer $token", mapOf("imei" to imei, "fcmToken" to fcmToken))
                     }
 
                     isSuccess = true
                     message = "Device Registered successfully!"
-                    // Mark as customer so locker services start working
-                    sharedPrefs.edit().putBoolean("is_customer", true).commit()
-
+                    // CRITICAL: DO NOT set is_customer = true here, as this is the shopkeeper's phone.
                 } else {
                     isSuccess = false
                     message = "Failed: ${response.body()?.message ?: response.message()}"
@@ -177,5 +169,17 @@ class RegistrationViewModel : ViewModel() {
             return false
         }
         return true
+    }
+
+    fun convertUriToBase64(context: Context, uri: Uri): String? {
+        return try {
+            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+            val bytes = inputStream?.readBytes()
+            if (bytes != null) {
+                Base64.encodeToString(bytes, Base64.DEFAULT)
+            } else null
+        } catch (e: Exception) {
+            null
+        }
     }
 }
