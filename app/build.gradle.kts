@@ -57,6 +57,9 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation(libs.play.services.code.scanner)
+    implementation(libs.play.services.location)
+    implementation(libs.play.services.maps)
+    implementation(libs.maps.compose)
 
     // Firebase
     implementation(platform(libs.firebase.bom))
@@ -68,6 +71,8 @@ dependencies {
 
     // Coil for Image Loading
     implementation(libs.coil.compose)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.zxing.core)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

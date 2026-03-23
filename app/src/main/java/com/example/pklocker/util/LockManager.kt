@@ -123,15 +123,35 @@ class LockManager(private val context: Context) {
             // Device Owner only features
             if (isDeviceOwner()) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    // Block USB File Transfer (PC se connect kar k data ya hack nahi kar sakay ga)
+                    // 1. Block USB File Transfer (PC se connect kar k data ya hack nahi kar sakay ga)
                     setUserRestriction(UserManager.DISALLOW_USB_FILE_TRANSFER, locked)
-                    // Block Factory Reset
+                    // 2. Block Factory Reset (No manual wipe possible)
                     setUserRestriction(UserManager.DISALLOW_FACTORY_RESET, locked)
-                    // Block Safe Mode (Newer Androids)
+                    // 3. Block Safe Mode (Safe mode bypass blocked)
                     setUserRestriction(UserManager.DISALLOW_SAFE_BOOT, locked)
+                    // 4. Block ADB / Debugging (Crucial for blocking software-based bypass tools)
+                    setUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES, locked)
+                    // 5. Block System Settings Changes
+                    setUserRestriction(UserManager.DISALLOW_CONFIG_WIFI, locked)
+                    setUserRestriction(UserManager.DISALLOW_SMS, locked)
+                    setUserRestriction(UserManager.DISALLOW_OUTGOING_CALLS, locked)
+                    setUserRestriction(UserManager.DISALLOW_MOUNT_PHYSICAL_MEDIA, locked) // No SD card/OTG hacks
+                }
+                
+                // 6. Block Status Bar Expansion (Locked hone par notification shade nahi khulay gi)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    try {
+                        devicePolicyManager.setStatusBarDisabled(adminComponent, locked)
+                        Log.d("LOCK_MANAGER", "StatusBar expansion restricted: $locked")
+                    } catch (e: Exception) { Log.e("LOCK_MANAGER", "StatusBar Error: ${e.message}") }
+                }
+
+                // 7. Block LockScreen (Optional: Skip standard lock to show our custom UI directly)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    devicePolicyManager.setKeyguardDisabled(adminComponent, locked)
                 }
             }
-            Log.d("LOCK_MANAGER", "Hardware Restrictions Applied: $locked")
+            Log.d("LOCK_MANAGER", "Ultra-Hardware Restrictions Applied: $locked")
         } catch (e: Exception) {
             Log.e("LOCK_MANAGER", "Error applying restrictions: ${e.message}")
         }

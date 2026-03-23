@@ -195,6 +195,46 @@ fun RegistrationScreen(
                         Box(modifier = Modifier.weight(1f)) { ModernTextField(viewModel.downPayment, { viewModel.downPayment = it }, "Down Payment", keyboardType = KeyboardType.Decimal) }
                     }
                     ModernTextField(viewModel.emiTenure, { viewModel.emiTenure = it }, "Tenure (Months)", keyboardType = KeyboardType.Number)
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // --- DYNAMIC PAYMENT SUMMARY (Real-time auto calculation) ---
+                    val total = viewModel.totalPrice.toDoubleOrNull() ?: 0.0
+                    val down = viewModel.downPayment.toDoubleOrNull() ?: 0.0
+                    val balance = (total - down).coerceAtLeast(0.0)
+                    val tenure = viewModel.emiTenure.toIntOrNull() ?: 0
+                    val emiAmount = if (tenure > 0) balance / tenure else 0.0
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFEFF6FF), // Light Blue Background
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Calculate, null, tint = BrandAccent, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("AUTO-COMPUTED SCHEDULE", fontSize = 11.sp, fontWeight = FontWeight.Black, color = BrandAccent)
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column {
+                                    Text("Remaining Balance", fontSize = 12.sp, color = TextMuted)
+                                    Text("Rs. ${balance.toInt()}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextDark)
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("Monthly Installment", fontSize = 12.sp, color = TextMuted)
+                                    Text(
+                                        text = "Rs. ${emiAmount.toInt()} /mo", 
+                                        fontSize = 18.sp, 
+                                        fontWeight = FontWeight.ExtraBold, 
+                                        color = Color(0xFF16A34A) // Green text for output
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

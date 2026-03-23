@@ -15,6 +15,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -128,11 +130,23 @@ fun MainAppEntryPoint() {
         smsPermissionMissing = !granted
     }
 
+    var locationPermissionMissing by remember {
+        mutableStateOf(
+            isCustomer && androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { map ->
+        val fineGranted = map[android.Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        locationPermissionMissing = !fineGranted
+    }
+
     // Jab bhi app foreground mein aaye, dobara check karo
     LaunchedEffect(isCustomer) {
         if (isCustomer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             overlayPermissionMissing = !Settings.canDrawOverlays(context)
             smsPermissionMissing = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECEIVE_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            locationPermissionMissing = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED
         }
     }
 
@@ -218,17 +232,56 @@ fun MainAppEntryPoint() {
         return
     }
 
-    // Professional FCM Token Sync with Server
+    if (locationPermissionMissing && isCustomer) {
+        AlertDialog(
+            onDismissRequest = { },
+            icon = { Icon(Icons.Default.LocationOn, null, tint = Color(0xFF388E3C), modifier = Modifier.size(40.dp)) },
+            title = { Text("Location Sync Required", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Background location is required for periodic security status updates and EMI compliance verification.",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { 
+                        locationPermissionLauncher.launch(arrayOf(
+                            android.Manifest.permission.ACCESS_FINE_LOCATION,
+                            android.Manifest.permission.ACCESS_COARSE_LOCATION
+                        )) 
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C))
+                ) {
+                    Text("ALLOW LOCATION", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+        return
+    }
+
+    // ─── BACKGROUND SYNC TRIGGER ──────────────────────────────────────────
     LaunchedEffect(isCustomer, deviceImei) {
-        if (isCustomer) {
-            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val token = task.result
-                    fcmToken = token
-                    sharedPrefs.edit().putString("fcm_token", token).apply()
-                    
-                    if (!deviceImei.isNullOrBlank()) {
-                        syncTokenToServer(deviceImei!!, token)
+        if (isCustomer && !deviceImei.isNullOrBlank() && !locationPermissionMissing) {
+            scheduleLocationSync(context)
+        }
+    }
+
+    // Professional FCM Token Sync with Server
+    LaunchedEffect(isCustomer, deviceImei, isUserLoggedIn) {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result
+                fcmToken = token
+                sharedPrefs.edit().putString("fcm_token", token).apply()
+                
+                if (isCustomer && !deviceImei.isNullOrBlank()) {
+                    syncTokenToServer(deviceImei!!, token)
+                } else if (!isCustomer && isUserLoggedIn) {
+                    // Update Shopkeeper's token
+                    val authToken = sharedPrefs.getString("auth_token", null)
+                    if (authToken != null) {
+                        syncShopkeeperTokenToServer(authToken, token)
                     }
                 }
             }
@@ -251,10 +304,28 @@ fun MainAppEntryPoint() {
     }
 
     if (isCustomer) {
-        val lockManagerForReset = remember { com.example.pklocker.util.LockManager(context) }
+        val lockManager = remember { com.example.pklocker.util.LockManager(context) }
+        
+        // ── ACTUAL LOCK/UNLOCK TRIGGER ─────────────────────────────────────
+        LaunchedEffect(isLocked) {
+            if (isLocked) {
+                lockManager.lockDevice()
+            } else {
+                lockManager.unlockDevice()
+                // Move app to background so user sees Home Screen on Unlock
+                try {
+                    val intent = Intent(Intent.ACTION_MAIN).apply {
+                        addCategory(Intent.CATEGORY_HOME)
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(intent)
+                } catch (e: Exception) { }
+            }
+        }
+
         val doFullReset: () -> Unit = {
             // Remove Device Admin/Owner FIRST so app can be uninstalled
-            lockManagerForReset.selfDeactivate()
+            lockManager.selfDeactivate()
             sharedPrefs.edit().clear().apply()
             isCustomer = false
             isUserLoggedIn = false
@@ -305,6 +376,36 @@ private fun syncTokenToServer(imei: String, token: String) {
             Log.d("SYNC_TOKEN", "Token synced for IMEI: $imei")
         } catch (e: Exception) {
             Log.e("SYNC_TOKEN", "Failed to sync: ${e.message}")
+        }
+    }
+}
+
+private fun scheduleLocationSync(context: Context) {
+    val workRequest = androidx.work.PeriodicWorkRequestBuilder<com.example.pklocker.worker.LocationWorker>(
+        30, java.util.concurrent.TimeUnit.MINUTES
+    ).build()
+    
+    androidx.work.WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+        "LocationSync",
+        androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+        workRequest
+    )
+    Log.d("LOCATION_SYNC", "Location sync scheduled for every 30 mins")
+}
+
+private fun syncShopkeeperTokenToServer(authToken: String, token: String) {
+    val retrofit = Retrofit.Builder()
+        .baseUrl(com.example.pklocker.util.Constants.BASE_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+    val apiService = retrofit.create(ApiService::class.java)
+
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            apiService.updateShopkeeperFcmToken("Bearer $authToken", mapOf("fcmToken" to token))
+            Log.d("SYNC_TOKEN", "Shopkeeper token synced")
+        } catch (e: Exception) {
+            Log.e("SYNC_TOKEN", "Failed to sync shopkeeper token: ${e.message}")
         }
     }
 }
@@ -414,31 +515,45 @@ fun CustomerStatusScreen(
         }
     }
 
-    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF5F5F5)) {
+    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0A0A0A)) {
         Column(
             modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(40.dp))
-            Surface(shape = CircleShape, color = SuccessGreen.copy(alpha = 0.1f), modifier = Modifier.size(100.dp)) {
-                Icon(Icons.Default.Shield, null, modifier = Modifier.padding(24.dp).size(50.dp), tint = SuccessGreen)
+            
+            // --- Premium Header ---
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(120.dp)) {
+                Surface(
+                    shape = CircleShape, 
+                    color = Color(0xFF22C55E).copy(alpha = 0.05f), 
+                    border = BorderStroke(1.dp, Color(0xFF22C55E).copy(0.2f)),
+                    modifier = Modifier.fillMaxSize()
+                ) {}
+                Icon(
+                    Icons.Default.Shield, 
+                    null, 
+                    modifier = Modifier.size(50.dp), 
+                    tint = Color(0xFF22C55E)
+                )
             }
+            
             Spacer(modifier = Modifier.height(24.dp))
-            Text("DEVICE PROTECTED", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = PrimaryDark)
-            Text("Security protocol active", fontSize = 14.sp, color = Color.Gray)
+            Text("DEVICE PROTECTED", fontSize = 26.sp, fontWeight = FontWeight.Black, color = Color.White)
+            Text("Security protocol actively monitoring", fontSize = 13.sp, color = Color.Gray)
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
             // ─── PERMISSION CHECKLIST ───────────────────────────────────────
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(2.dp),
-                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, Color(0xFF333333)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("REQUIRED PERMISSIONS", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = PrimaryDark)
-                    Spacer(modifier = Modifier.height(12.dp))
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("CRITICAL PERMISSIONS", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color.Gray, letterSpacing = 2.sp)
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     PermissionItem(
                         title = "Device Owner Status",
@@ -449,21 +564,20 @@ fun CustomerStatusScreen(
                         }
                     )
                     
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color(0xFFEEEEEE))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFF333333))
 
                     PermissionItem(
-                        title = "Display over other apps",
-                        subtitle = null,
+                        title = "Display Over Other Apps",
                         isActive = isOverlayActive,
                         onClick = { lockManager.requestOverlayPermission() }
                     )
                     PermissionItem(
-                        title = "Device Admin",
+                        title = "Device Admin (Active)",
                         isActive = isAdminActive,
                         onClick = { lockManager.requestAdminPermission() }
                     )
                     PermissionItem(
-                        title = "Anti-Uninstall (Accessibility)",
+                        title = "Anti-Uninstall Guard",
                         isActive = isAccessibilityActive,
                         onClick = {
                             val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
@@ -473,40 +587,53 @@ fun CustomerStatusScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(2.dp)
+            // --- Device Meta Card ---
+            Surface(
+                color = Color(0xFF1A1A1A).copy(0.5f),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color(0xFF333333).copy(0.5f)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text("DEVICE INFO", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = PrimaryDark)
-                    Text("IMEI: $imei", fontSize = 11.sp, color = Color.Gray)
-                    Text("FCM ACTIVE: ${if (token.length > 10) "YES" else "CONNECTING..."}", fontSize = 11.sp, color = if(token.length > 10) SuccessGreen else Color.Red)
-                    Text("DEVICE OWNER: ${if (lockManager.isDeviceOwner()) "ACTIVE (UNSTOPPABLE)" else "NOT SET"}", 
-                        fontSize = 11.sp, 
-                        fontWeight = FontWeight.Bold,
-                        color = if(lockManager.isDeviceOwner()) SuccessGreen else Color.Gray)
+                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("TERMINAL IMEI", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text(imei, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .background(if(token.length > 10) Color(0xFF22C55E).copy(0.1f) else Color.Red.copy(0.1f), CircleShape)
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            if (token.length > 10) "FCM SYNCED" else "OFFLINE",
+                            color = if(token.length > 10) Color(0xFF22C55E) else Color.Red,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
+            // --- Test Button ---
             Button(
                 onClick = onManualLock,
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
-                modifier = Modifier.fillMaxWidth().height(50.dp)
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier.fillMaxWidth().height(60.dp)
             ) {
-                Icon(Icons.Default.Lock, null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("TEST LOCK NOW", fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Lock, null, tint = Color.Black, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("TEST LOCK PROTOCOL", fontWeight = FontWeight.Black, fontSize = 15.sp, color = Color.Black)
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(48.dp))
 
             TextButton(onClick = onReset) {
-                Text("RESET CUSTOMER MODE", color = Color.Red.copy(alpha = 0.5f), fontSize = 12.sp)
+                Text("RESET SYSTEM", color = Color.White.copy(alpha = 0.2f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

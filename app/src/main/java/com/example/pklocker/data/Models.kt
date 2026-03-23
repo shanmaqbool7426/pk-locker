@@ -20,9 +20,26 @@ data class SignupResponse(val success: Boolean, val message: String, val shopkee
 
 // --- Dashboard Stats ---
 data class StatsResponse(val success: Boolean, val data: DashboardData)
-data class DashboardData(val android: PlatformKeys, val ios: PlatformKeys, val devices: DeviceStats)
+data class DashboardData(
+    val android: PlatformKeys, 
+    val ios: PlatformKeys, 
+    val devices: DeviceStats,
+    val analytics: DashboardAnalytics? = null
+)
 data class PlatformKeys(val totalKeys: Int, val usedKeys: Int, val availableKeys: Int)
 data class DeviceStats(val total: Int, val locked: Int, val deregistered: Int)
+
+data class DashboardAnalytics(
+    val monthlyCollection: Double,
+    val collectionRate: String,
+    val highRiskCount: Int,
+    val overdueTrend: List<OverdueEntry>,
+    val bestCustomers: List<BestCustomerEntry>,
+    val deviceStats: AnalyticsDeviceStats
+)
+data class OverdueEntry(val month: Int, val count: Int)
+data class BestCustomerEntry(val name: String, val amount: Double)
+data class AnalyticsDeviceStats(val locked: Int, val unlocked: Int)
 
 // --- Devices ---
 data class DeviceListResponse(val success: Boolean, val count: Int, val data: List<DeviceResponse>)
@@ -43,7 +60,10 @@ data class DeviceResponse(
     @SerializedName("registeredAt") val registeredAt: String? = null,
     @SerializedName("smsCodes") val smsCodes: SmsCodes? = null,
     @SerializedName("controls") val controls: DeviceControls? = null,
-    @SerializedName("appRestrictions") val appRestrictions: AppRestrictions? = null
+    @SerializedName("appRestrictions") val appRestrictions: AppRestrictions? = null,
+    @SerializedName("location") val location: LocationData? = null,
+    @SerializedName("geofence") val geofence: GeofenceData? = null,
+    @SerializedName("locationHistory") val locationHistory: List<LocationEntry>? = null
 )
 
 data class DeviceControls(
@@ -54,6 +74,7 @@ data class DeviceControls(
     @SerializedName("settingsBlocked") val settingsBlocked: Boolean = false,
     @SerializedName("debuggingBlocked") val debuggingBlocked: Boolean = false,
     @SerializedName("autoLock") val autoLock: Boolean = false,
+    @SerializedName("autoLockOnSimChange") val autoLockOnSimChange: Boolean = false, // NEW
     @SerializedName("softResetBlocked") val softResetBlocked: Boolean = false,
     @SerializedName("softBootBlocked") val softBootBlocked: Boolean = false,
     @SerializedName("outgoingCallsBlocked") val outgoingCallsBlocked: Boolean = false,
@@ -68,6 +89,52 @@ data class AppRestrictions(
     @SerializedName("youtube") val youtube: Boolean = false,
     @SerializedName("chrome") val chrome: Boolean = false,
     @SerializedName("telegram") val telegram: Boolean = false
+)
+
+data class LocationData(
+    val lat: Double,
+    val lng: Double,
+    val updatedAt: String? = null
+)
+
+data class GeofenceData(
+    val lat: Double? = null,
+    val lng: Double? = null,
+    val radius: Double = 5.0,
+    val isEnabled: Boolean = false,
+    val lastBreachAt: String? = null
+)
+
+data class LocationEntry(
+    val lat: Double,
+    val lng: Double,
+    val timestamp: String? = null
+)
+
+// --- EMI Schedule Details ---
+data class DeviceEmiScheduleResponse(val success: Boolean, val data: EmiScheduleData)
+data class EmiScheduleData(
+    val imei: String,
+    val customerName: String,
+    val totalPrice: Double,
+    val downPayment: Double,
+    val balance: Double,
+    val summary: EmiScheduleSummary,
+    val schedule: List<EmiInstallmentItem>
+)
+data class EmiScheduleSummary(
+    val total: Int,
+    val paid: Int,
+    val unpaid: Int,
+    val paidTotal: Double,
+    val unpaidTotal: Double
+)
+data class EmiInstallmentItem(
+    val _id: String,
+    val installmentNumber: Int,
+    val dueDate: String,
+    val amount: Double,
+    val status: String // "Paid" or "Unpaid"
 )
 
 // --- Customer Specific Details ---

@@ -71,6 +71,9 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     "auto_lock" -> {
                         prefs.edit().putBoolean("auto_lock_enabled", state).commit()
                     }
+                    "autoLockOnSimChange", "auto_lock_sim" -> {
+                        prefs.edit().putBoolean("auto_lock_sim_change_enabled", state).commit()
+                    }
                     "alarm" -> lockManager.toggleWarningAlarm(state)
                     "install" -> lockManager.setAppInstallDisabled(state)
                     "uninstall" -> lockManager.setAppUninstallDisabled(state)

@@ -52,6 +52,23 @@ class LoginViewModel : ViewModel() {
                         putString("auth_token", loginData?.token)
                         apply()
                     }
+
+                    // Update Shopkeeper's FCM Token for notifications
+                    com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            val fcmToken = task.result
+                            val authToken = loginData?.token
+                            if (fcmToken != null && authToken != null) {
+                                viewModelScope.launch {
+                                    try {
+                                        apiService.updateShopkeeperFcmToken("Bearer $authToken", mapOf("fcmToken" to fcmToken))
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("LOGIN", "Failed to update shopkeeper token", e)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else {
                     errorMessage = response.body()?.message ?: "Invalid credentials"
                 }

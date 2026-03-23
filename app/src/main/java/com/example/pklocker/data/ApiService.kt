@@ -38,6 +38,11 @@ interface ApiService {
         @Header("Authorization") token: String
     ): Response<StatsResponse>
 
+    @GET("devices/dashboard-analytics")
+    suspend fun getDashboardAnalytics(
+        @Header("Authorization") token: String
+    ): Response<StatsResponse>
+
     @POST("devices/{imei}/lock")
     suspend fun lockDevice(
         @Header("Authorization") token: String,
@@ -63,6 +68,24 @@ interface ApiService {
         @Body body: Map<String, String>
     ): Response<RegistrationResponse>
 
+    @POST("devices/update-shopkeeper-token")
+    suspend fun updateShopkeeperFcmToken(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, String>
+    ): Response<RegistrationResponse>
+
+    @POST("devices/{imei}/sim-changed")
+    suspend fun notifySimChanged(
+        @Path("imei") imei: String,
+        @Body body: Map<String, String>
+    ): Response<RegistrationResponse>
+
+    @POST("devices/{imei}/location")
+    suspend fun notifyLocation(
+        @Path("imei") imei: String,
+        @Body body: Map<String, String>
+    ): Response<RegistrationResponse>
+
     @POST("devices/{imei}/unlock-all")
     suspend fun unlockAllControls(
         @Header("Authorization") token: String,
@@ -84,4 +107,33 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Path("imei") imei: String
     ): Response<CustomerDeviceResponse>
+
+    // --- EMI Management ---
+    @GET("emis/device/{imei}")
+    suspend fun getDeviceEmiSchedule(
+        @Header("Authorization") token: String,
+        @Path("imei") imei: String
+    ): Response<DeviceEmiScheduleResponse>
+
+    @POST("emis/{emiId}/mark-paid")
+    suspend fun markEmiAsPaid(
+        @Header("Authorization") token: String,
+        @Path("emiId") emiId: String
+    ): Response<RegistrationResponse>
+
+    @PUT("emis/device/{imei}")
+    suspend fun rescheduleEmiPlan(
+        @Header("Authorization") token: String,
+        @Path("imei") imei: String,
+        @Body request: RescheduleEmiRequest
+    ): Response<RegistrationResponse>
 }
+
+data class RescheduleEmiRequest(
+    val emiTenure: Int,
+    val emiAmount: Double,
+    val totalPrice: Double,
+    val downPayment: Double,
+    val balance: Double,
+    val emiStartDate: String? = null
+)

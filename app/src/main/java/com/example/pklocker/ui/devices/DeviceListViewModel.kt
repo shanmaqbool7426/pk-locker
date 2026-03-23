@@ -63,6 +63,83 @@ class DeviceListViewModel : ViewModel() {
         }
     }
 
+    // --- EMI SCHEDULE MANAGEMENT ---
+    var selectedEmiSchedule by mutableStateOf<com.example.pklocker.data.EmiScheduleData?>(null)
+    var isFetchingEmi by mutableStateOf(false)
+
+    fun fetchEmiSchedule(context: Context, imei: String) {
+        val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        val token = sharedPrefs.getString("auth_token", "") ?: ""
+        if (token.isEmpty()) return
+
+        viewModelScope.launch {
+            isFetchingEmi = true
+            try {
+                val response = apiService.getDeviceEmiSchedule("Bearer $token", imei)
+                if (response.isSuccessful && response.body()?.success == true) {
+                    selectedEmiSchedule = response.body()?.data
+                } else {
+                    errorMessage = "Failed to load EMI schedule"
+                }
+            } catch (e: Exception) {
+                Log.e("EMI_FETCH_ERROR", "Error: ${e.message}")
+                errorMessage = "Connection error while fetching EMIs"
+            } finally {
+                isFetchingEmi = false
+            }
+        }
+    }
+
+    fun markEmiAsPaid(context: Context, emiId: String, imei: String) {
+        val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        val token = sharedPrefs.getString("auth_token", "") ?: ""
+        if (token.isEmpty()) return
+
+        viewModelScope.launch {
+            isFetchingEmi = true // show loader in bottom sheet
+            try {
+                val response = apiService.markEmiAsPaid("Bearer $token", emiId)
+                if (response.isSuccessful && response.body()?.success == true) {
+                    // Refresh EMI schedule
+                    fetchEmiSchedule(context, imei)
+                    // Also refresh the main list softly so total prices/etc update if needed
+                    fetchDevices(context)
+                } else {
+                    errorMessage = "Failed to mark as paid: ${response.body()?.message}"
+                }
+            } catch (e: Exception) {
+                Log.e("EMI_PAY_ERROR", "Error: ${e.message}")
+                errorMessage = "Connection error"
+            } finally {
+                isFetchingEmi = false
+            }
+        }
+    }
+
+    fun rescheduleEmiPlan(context: Context, imei: String, request: com.example.pklocker.data.RescheduleEmiRequest) {
+        val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        val token = sharedPrefs.getString("auth_token", "") ?: ""
+        if (token.isEmpty()) return
+
+        viewModelScope.launch {
+            isFetchingEmi = true
+            try {
+                val response = apiService.rescheduleEmiPlan("Bearer $token", imei, request)
+                if (response.isSuccessful && response.body()?.success == true) {
+                    fetchEmiSchedule(context, imei)
+                    fetchDevices(context)
+                } else {
+                    errorMessage = "Failed to restructure EMI: ${response.body()?.message}"
+                }
+            } catch (e: Exception) {
+                Log.e("EMI_RESCHEDULE_ERROR", "Error: ${e.message}")
+                errorMessage = "Connection error"
+            } finally {
+                isFetchingEmi = false
+            }
+        }
+    }
+
     fun toggleLock(context: Context, imei: String, targetLockState: Boolean) {
         val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
         val token = sharedPrefs.getString("auth_token", "") ?: ""
