@@ -70,18 +70,7 @@
             </intent-filter>
         </service>
 
-        <service
-            android:name=".service.AntiUninstallService"
-            android:label="PK Locker Anti-Uninstall"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
-        </service>
+        <!-- AntiUninstallService Removed: Device Owner implicitly blocks uninstalls natively without triggering Play Protect. -->
 
         <receiver
             android:name=".receiver.AdminReceiver"
@@ -92,6 +81,7 @@
                 android:resource="@xml/device_admin_policies" />
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
             </intent-filter>
         </receiver>
 

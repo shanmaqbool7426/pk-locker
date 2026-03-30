@@ -48,6 +48,10 @@ class LoginViewModel : ViewModel() {
                     sharedPrefs.edit().apply {
                         putBoolean("is_admin", true)
                         putBoolean("is_logged_in", true)
+                        putBoolean("is_customer", false) // Reset customer status for admin device
+                        putBoolean("is_locked", false)   // NEVER lock an admin device
+                        putBoolean("settings_blocked", false)
+                        putBoolean("auto_lock_enabled", false)
                         putString("shop_name", loginData?.shopkeeper?.shopName ?: "Shopkeeper")
                         putString("auth_token", loginData?.token)
                         apply()

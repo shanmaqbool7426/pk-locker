@@ -37,6 +37,13 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
         val lockManager = LockManager(applicationContext)
 
+        // ─── ADMIN PROTECTION ──────────────────────────────────────────────────
+        // Administrative devices must NEVER be affected by remote locking commands
+        if (prefs.getBoolean("is_admin", false)) {
+            Log.d("FCM_LOG", "Ignored lock signal for administrative device")
+            return
+        }
+
         when (command) {
             "lock", "state_change", "lock_toggle" -> {
                 // Agar purana lock_toggle hai to state hi targetState hai

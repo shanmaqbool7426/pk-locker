@@ -33,23 +33,31 @@ fun ProvisioningQrScreen(
     isForInstallation: Boolean = false,
     onBack: () -> Unit
 ) {
-    val apkUrl = Constants.BASE_URL.replace("/api/", "/dl/app.apk")
+    // APK URL: This must be the actual APK path
+    val apkUrl = "https://pk-locker-api.vercel.app/dl/app.apk"
     
-    // ── STEP 1: Generate Content (JSON for Provisioning, Raw URL for Install) ──
     val qrContent = remember {
         if (isForInstallation) {
             apkUrl
         } else {
             val json = JSONObject()
+            // 1. Component Name (Correct Package/Receiver)
             json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME", "com.example.pklocker/com.example.pklocker.receiver.AdminReceiver")
+            
+            // 2. Download Location
             json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION", apkUrl)
-            json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM", "I6S9bI9X9Z-n2bI9V9Z-n2bI9V9Z-n2bI9V9Z-o=") 
+            
+            // 3. CORRECT Signature Checksum (SHA-256 to URL-safe Base64)
+            json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM", "TRUc8VW4MZjcNajo3pFnxmR6vY3sOmmrpPmu6HvUtwY")
+            
+            // 4. Critical Provisioning Flags
             json.put("android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED", true)
+            json.put("android.app.extra.PROVISIONING_SKIP_ENCRYPTION", true)
+            
             json.toString()
         }
     }
 
-    // ── STEP 2: Generate QR Bitmap ──────────────────────────────────────────
     val qrBitmap = remember(qrContent) {
         try {
             val writer = QRCodeWriter()
@@ -74,11 +82,7 @@ fun ProvisioningQrScreen(
                 title = { 
                     Column {
                         Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                        Text(
-                            if (isForInstallation) "Quick App Install" else "Enterprise Enrollment",
-                            color = Color.White.copy(0.7f),
-                            fontSize = 11.sp
-                        )
+                        Text("Enterprise Enrollment", color = Color.White.copy(0.7f), fontSize = 11.sp)
                     }
                 },
                 navigationIcon = {
@@ -92,19 +96,12 @@ fun ProvisioningQrScreen(
         containerColor = Color(0xFFF8FAFC)
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 32.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // --- PREMIUM SCANNABLE CARD ---
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .padding(vertical = 16.dp),
+                modifier = Modifier.fillMaxWidth().aspectRatio(1f).padding(vertical = 16.dp),
                 shape = RoundedCornerShape(32.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
@@ -125,43 +122,26 @@ fun ProvisioningQrScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- INSTRUCTIONS HUB ---
             Surface(
-                color = if (isForInstallation) Color(0xFFF0FDF4) else Color(0xFFEFF6FF),
+                color = Color(0xFFEFF6FF),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        if (isForInstallation) Icons.Default.Download else Icons.Default.Info,
-                        null,
-                        tint = if (isForInstallation) Color(0xFF16A34A) else Color(0xFF3B82F6)
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        text = if (isForInstallation) {
-                            "Simply scan this with any phone camera to download and install the PK Locker app instantly."
-                        } else {
-                            "Tap 6 times on a New Tablet's welcome screen to open the scanner, then scan this code."
-                        },
-                        fontSize = 13.sp,
-                        color = if (isForInstallation) Color(0xFF166534) else Color(0xFF1E40AF),
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 18.sp
-                    )
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Info, null, tint = Color(0xFF3B82F6))
+                        Spacer(Modifier.width(12.dp))
+                        Text("PROVISIONING GUIDE", fontWeight = FontWeight.Black, fontSize = 12.sp, color = Color(0xFF1E40AF))
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("1. Factory Reset Target Phone", fontSize = 13.sp, color = Color.DarkGray)
+                    Text("2. Tap 6 times on Welcome Screen", fontSize = 13.sp, color = Color.DarkGray)
+                    Text("3. Connect WiFi & Scan this QR", fontSize = 13.sp, color = Color.DarkGray)
                 }
             }
-
+            
             Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Target APK: $apkUrl",
-                fontSize = 11.sp,
-                color = Color.Gray,
-                textAlign = TextAlign.Center,
-                fontWeight = FontWeight.Medium
-            )
+            Text("Target Link: $apkUrl", fontSize = 10.sp, color = Color.Gray)
         }
     }
 }
-

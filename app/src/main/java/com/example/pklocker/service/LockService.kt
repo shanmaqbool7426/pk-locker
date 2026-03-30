@@ -44,6 +44,16 @@ class LockService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        
+        // ─── ADMIN PROTECTION ──────────────────────────────────────────────────
+        // Ensure this service NEVER runs for a shopkeeper/admin
+        val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("is_admin", false)) {
+            Log.w("LOCK_SERVICE", "Service started on ADMIN device — stopping immediately")
+            stopSelf()
+            return
+        }
+
         createNotificationChannel()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

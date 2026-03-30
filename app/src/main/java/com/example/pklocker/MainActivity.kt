@@ -130,6 +130,19 @@ fun MainAppEntryPoint() {
     var fcmToken by remember { mutableStateOf(sharedPrefs.getString("fcm_token", "Fetching...")) }
     var deviceImei by remember { mutableStateOf(sharedPrefs.getString("device_imei", "")) }
 
+    // ─── ADMIN PROTECTION ──────────────────────────────────────────────────
+    // Admin ka phone kabhi b "locked" state me nahi hona chahiye.
+    // Agar previous testing se flags reh gaye hain, toh unhe force clean karo.
+    val lockManager = remember { com.example.pklocker.util.LockManager(context) }
+    val isAdmin = sharedPrefs.getBoolean("is_admin", false)
+    if (isAdmin && isCustomer) {
+        sharedPrefs.edit().putBoolean("is_customer", false).putBoolean("is_locked", false).apply()
+        isCustomer = false
+        isLocked = false
+        // System level unlock bhi lazmi hy
+        lockManager.unlockDevice()
+    }
+
     // isCustomer is now set EXPLICITLY via the LoginScreen "Setup" flow.
     // Removed LaunchedEffect(deviceImei) that used to auto-set isCustomer = true.
 
@@ -380,7 +393,12 @@ fun MainAppEntryPoint() {
             isAdmin = true, 
             onLogout = {
                 isUserLoggedIn = false
-                sharedPrefs.edit().remove("is_logged_in").remove("auth_token").remove("shop_name").apply()
+                sharedPrefs.edit()
+                    .remove("is_logged_in")
+                    .remove("is_admin")
+                    .remove("auth_token")
+                    .remove("shop_name")
+                    .apply()
             }
         )
     }
@@ -521,12 +539,7 @@ fun CustomerStatusScreen(
     var isOverlayActive by remember { mutableStateOf(lockManager.canDrawOverlays()) }
     var isDeviceOwner by remember { mutableStateOf(lockManager.isDeviceOwner()) }
 
-    // Accessibility check
-    val isAccessibilityActive = remember {
-        val service = context.packageName + "/" + com.example.pklocker.service.AntiUninstallService::class.java.canonicalName
-        val enabledServices = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-        enabledServices?.contains(service) == true
-    }
+    // Accessibility check removed.
 
     // Refresh states when returning to app
     LaunchedEffect(Unit) {
@@ -599,14 +612,7 @@ fun CustomerStatusScreen(
                         isActive = isAdminActive,
                         onClick = { lockManager.requestAdminPermission() }
                     )
-                    PermissionItem(
-                        title = "Anti-Uninstall Guard",
-                        isActive = isAccessibilityActive,
-                        onClick = {
-                            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                            context.startActivity(intent)
-                        }
-                    )
+                    // Anti-Uninstall Guard removed because Device Owner naturally handles this.
                 }
             }
 
