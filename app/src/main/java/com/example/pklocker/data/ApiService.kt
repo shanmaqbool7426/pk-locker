@@ -121,13 +121,82 @@ interface ApiService {
         @Path("emiId") emiId: String
     ): Response<RegistrationResponse>
 
-    @PUT("emis/device/{imei}")
+    @POST("emis/device/{imei}")
     suspend fun rescheduleEmiPlan(
         @Header("Authorization") token: String,
         @Path("imei") imei: String,
         @Body request: RescheduleEmiRequest
     ): Response<RegistrationResponse>
+
+    // --- Key Management ---
+    @POST("key-orders/checkout-safepay")
+    suspend fun checkoutKeys(
+        @Header("Authorization") token: String,
+        @Body request: Map<String, String> // e.g. ["numKeys" to "10", "platform" to "android"]
+    ): Response<KeyCheckoutResponse>
+
+    @POST("key-orders/verify-safepay")
+    suspend fun verifyPayment(
+        @Header("Authorization") token: String,
+        @Body request: Map<String, String> // e.g. ["tracker" to "...", "orderId" to "..."]
+    ): Response<RegistrationResponse>
+
+    @POST("key-orders/free-test-keys")
+    suspend fun allocateFreeKeys(
+        @Header("Authorization") token: String,
+        @Body request: Map<String, String> // e.g. ["numKeys" to "10"]
+    ): Response<RegistrationResponse>
+
+    @POST("key-orders/wallet-pay")
+    suspend fun walletPay(
+        @Header("Authorization") token: String,
+        @Body request: WalletPayRequest
+    ): Response<WalletPayResponse>
+
+    @GET("key-orders/history")
+    suspend fun getKeyHistory(
+        @Header("Authorization") token: String
+    ): Response<KeyHistoryResponse>
 }
+
+data class WalletPayRequest(
+    val mobileNumber: String,
+    val method: String, // "EasyPaisa" or "JazzCash"
+    val numKeys: String,
+    val platform: String = "android"
+)
+
+data class WalletPayResponse(
+    val success: Boolean,
+    val message: String,
+    val transactionId: String,
+    val availableKeys: Int? = null
+)
+
+data class KeyCheckoutResponse(
+    val success: Boolean,
+    val data: SafepayData
+)
+
+data class SafepayData(
+    val orderId: String,
+    val amount: Double,
+    val tracker: String,
+    val checkoutUrl: String
+)
+
+data class KeyHistoryResponse(
+    val success: Boolean,
+    val data: List<KeyOrderData>
+)
+
+data class KeyOrderData(
+    val _id: String,
+    val numKeys: Int,
+    val totalAmount: Double,
+    val status: String,
+    val createdAt: String
+)
 
 data class RescheduleEmiRequest(
     val emiTenure: Int,

@@ -219,6 +219,7 @@ fun DashboardScreen(
             ActionData("Upcoming EMIs", stats?.devices?.total?.toString() ?: "0", Icons.Default.CalendarToday, Color(0xFFFFF7ED), Color(0xFFEA580C)),
             ActionData("Active Customers", stats?.devices?.total?.toString() ?: "0", Icons.Default.PeopleAlt, Color(0xFFECFDF5), Color(0xFF059669)),
             ActionData("Deregistered", stats?.devices?.deregistered?.toString() ?: "0", Icons.Default.PersonOff, Color(0xFFFEF2F2), Color(0xFFDC2626)),
+            ActionData("Buy Keys", stats?.android?.availableKeys?.toString() ?: "0", Icons.Default.Key, Color(0xFFFDF2F8), Color(0xFFDB2777)),
             ActionData("QR Code", "4", Icons.Default.QrCodeScanner, Color(0xFFEFF6FF), Color(0xFF2563EB)),
             ActionData("Phone QR", "5", Icons.Default.PhoneAndroid, Color(0xFFF5F3FF), Color(0xFF7C3AED)),
             ActionData("Video Help", "6", Icons.Default.OndemandVideo, Color(0xFFF0FDF4), Color(0xFF16A34A))

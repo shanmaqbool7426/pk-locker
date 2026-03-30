@@ -61,6 +61,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleIntent(intent)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
@@ -93,6 +94,28 @@ class MainActivity : ComponentActivity() {
         // Agar customer locked hai toh back mat karne do
         if (isCustomer && isLocked) return
         super.onBackPressed()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        intent?.data?.let { uri ->
+            if (uri.scheme == "pklocker" && uri.host == "payment-result") {
+                val status = uri.getQueryParameter("status")
+                val orderId = uri.getQueryParameter("orderId")
+                
+                val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+                prefs.edit()
+                    .putString("last_payment_status", status)
+                    .putString("last_payment_order_id", orderId)
+                    .apply()
+                
+                Log.d("PAYMENT_LINK", "Deep link received: status=$status, orderId=$orderId")
+            }
+        }
     }
 }
 
@@ -860,6 +883,7 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                                 "Phone QR" -> currentDestination = AppDestinations.PHONE_QR
                                 "Video Help" -> currentDestination = AppDestinations.VIDEO_HELP
                                 "Register Device" -> currentDestination = AppDestinations.REGISTRATION
+                                "Buy Keys" -> currentDestination = AppDestinations.BUY_KEYS
                             }
                         })
                         AppDestinations.REGISTRATION -> if (isAdmin) RegistrationScreen()
@@ -882,11 +906,15 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                         )
                         AppDestinations.PHONE_QR -> if (isAdmin) ProvisioningQrScreen(
                             title = "Running Phone QR",
+                            isForInstallation = true,
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
                         AppDestinations.VIDEO_HELP -> if (isAdmin) Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("Video Tutorials Coming Soon")
                         }
+                        AppDestinations.BUY_KEYS -> if (isAdmin) com.example.pklocker.ui.keys.BuyKeysScreen(
+                            onBack = { currentDestination = AppDestinations.HOME }
+                        )
                         AppDestinations.PROFILE -> com.example.pklocker.ui.profile.ProfileScreen(
                             onLogout = onLogout
                         )
@@ -901,6 +929,7 @@ enum class AppDestinations(val label: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home),
     REGISTRATION("Register", Icons.Default.AppRegistration),
     LIST("Devices", Icons.Default.List),
+    BUY_KEYS("Buy Keys", Icons.Default.Key),
     EMI_LIST("EMIs", Icons.Default.CalendarMonth),
     DEREGISTER_LIST("Deregistered", Icons.Default.PersonRemove),
     PROVISIONING_QR("QR Code", Icons.Default.QrCode),

@@ -22,6 +22,7 @@ import com.example.pklocker.util.Constants
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import android.graphics.Bitmap
+import androidx.compose.material.icons.filled.Download
 import android.graphics.Color as AndroidColor
 import org.json.JSONObject
 
@@ -29,26 +30,30 @@ import org.json.JSONObject
 @Composable
 fun ProvisioningQrScreen(
     title: String,
+    isForInstallation: Boolean = false,
     onBack: () -> Unit
 ) {
     val apkUrl = Constants.BASE_URL.replace("/api/", "/dl/app.apk")
     
-    // ── STEP 1: Generate Metadata JSON ──────────────────────────────────────
-    val provisioningJson = remember {
-        val json = JSONObject()
-        json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME", "com.example.pklocker/com.example.pklocker.receiver.AdminReceiver")
-        json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION", apkUrl)
-        // Hardcoded checksum for the current build (Should be dynamic in CI/CD)
-        json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM", "I6S9bI9X9Z-n2bI9V9Z-n2bI9V9Z-n2bI9V9Z-o=") 
-        json.put("android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED", true)
-        json.toString()
+    // ── STEP 1: Generate Content (JSON for Provisioning, Raw URL for Install) ──
+    val qrContent = remember {
+        if (isForInstallation) {
+            apkUrl
+        } else {
+            val json = JSONObject()
+            json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME", "com.example.pklocker/com.example.pklocker.receiver.AdminReceiver")
+            json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION", apkUrl)
+            json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM", "I6S9bI9X9Z-n2bI9V9Z-n2bI9V9Z-n2bI9V9Z-o=") 
+            json.put("android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED", true)
+            json.toString()
+        }
     }
 
     // ── STEP 2: Generate QR Bitmap ──────────────────────────────────────────
-    val qrBitmap = remember(provisioningJson) {
+    val qrBitmap = remember(qrContent) {
         try {
             val writer = QRCodeWriter()
-            val bitMatrix = writer.encode(provisioningJson, BarcodeFormat.QR_CODE, 512, 512)
+            val bitMatrix = writer.encode(qrContent, BarcodeFormat.QR_CODE, 512, 512)
             val width = bitMatrix.width
             val height = bitMatrix.height
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
@@ -69,7 +74,11 @@ fun ProvisioningQrScreen(
                 title = { 
                     Column {
                         Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                        Text("Enterprise Enrollment", color = Color.White.copy(0.7f), fontSize = 11.sp)
+                        Text(
+                            if (isForInstallation) "Quick App Install" else "Enterprise Enrollment",
+                            color = Color.White.copy(0.7f),
+                            fontSize = 11.sp
+                        )
                     }
                 },
                 navigationIcon = {
@@ -104,7 +113,7 @@ fun ProvisioningQrScreen(
                     if (qrBitmap != null) {
                         Image(
                             bitmap = qrBitmap.asImageBitmap(),
-                            contentDescription = "Provisioning QR",
+                            contentDescription = "QR Code",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit
                         )
@@ -118,17 +127,25 @@ fun ProvisioningQrScreen(
 
             // --- INSTRUCTIONS HUB ---
             Surface(
-                color = Color(0xFFEFF6FF),
+                color = if (isForInstallation) Color(0xFFF0FDF4) else Color(0xFFEFF6FF),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Info, null, tint = Color(0xFF3B82F6))
+                    Icon(
+                        if (isForInstallation) Icons.Default.Download else Icons.Default.Info,
+                        null,
+                        tint = if (isForInstallation) Color(0xFF16A34A) else Color(0xFF3B82F6)
+                    )
                     Spacer(Modifier.width(12.dp))
                     Text(
-                        text = "Tap 6 times on a New Tablet's welcome screen to open the scanner, then scan this code.",
+                        text = if (isForInstallation) {
+                            "Simply scan this with any phone camera to download and install the PK Locker app instantly."
+                        } else {
+                            "Tap 6 times on a New Tablet's welcome screen to open the scanner, then scan this code."
+                        },
                         fontSize = 13.sp,
-                        color = Color(0xFF1E40AF),
+                        color = if (isForInstallation) Color(0xFF166534) else Color(0xFF1E40AF),
                         fontWeight = FontWeight.Bold,
                         lineHeight = 18.sp
                     )
@@ -147,3 +164,4 @@ fun ProvisioningQrScreen(
         }
     }
 }
+
