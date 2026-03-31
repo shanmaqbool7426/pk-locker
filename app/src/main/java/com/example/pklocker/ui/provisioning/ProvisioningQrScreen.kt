@@ -33,26 +33,25 @@ fun ProvisioningQrScreen(
     isForInstallation: Boolean = false,
     onBack: () -> Unit
 ) {
-    // APK URL: This must be the actual APK path
-    val apkUrl = "https://pk-locker-api.vercel.app/dl/app.apk"
+    // ── THE SOURCE OF TRUTH ──
+    // Vercel cache is bypassed by uploading the file specifically as "v6_app.apk"
+    val apkUrl = "https://pk-locker-api.vercel.app/dl/v6_app.apk"
     
     val qrContent = remember {
         if (isForInstallation) {
             apkUrl
         } else {
             val json = JSONObject()
-            // 1. Component Name (Correct Package/Receiver)
-            json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME", "com.example.pklocker/com.example.pklocker.receiver.AdminReceiver")
             
-            // 2. Download Location
+            // 1. Mandatory Enrollment Fields
+            json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME", "com.pklocker.enterprise/com.example.pklocker.receiver.AdminReceiver")
             json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION", apkUrl)
             
-            // 3. CORRECT Signature Checksum (SHA-256 to URL-safe Base64)
-            json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM", "TRUc8VW4MZjcNajo3pFnxmR6vY3sOmmrpPmu6HvUtwY")
+            // 2. FINAL VERIFIED Checksums (DO NOT CHANGE THESE)
+            json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM", "1iQjA_ONpwgKEiR-LCCgmPBPxvn2jcou3qfwciD5r1Q")
             
-            // 4. Critical Provisioning Flags
+            // 3. Setup Flags
             json.put("android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED", true)
-            json.put("android.app.extra.PROVISIONING_SKIP_ENCRYPTION", true)
             
             json.toString()
         }
@@ -108,40 +107,21 @@ fun ProvisioningQrScreen(
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize().padding(32.dp)) {
                     if (qrBitmap != null) {
-                        Image(
-                            bitmap = qrBitmap.asImageBitmap(),
-                            contentDescription = "QR Code",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
-                        )
-                    } else {
-                        CircularProgressIndicator(color = Color(0xFF3B82F6))
+                        Image(bitmap = qrBitmap.asImageBitmap(), contentDescription = "QR Code", modifier = Modifier.fillMaxSize())
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            Surface(
-                color = Color(0xFFEFF6FF),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Surface(color = Color(0xFFEFF6FF), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, null, tint = Color(0xFF3B82F6))
-                        Spacer(Modifier.width(12.dp))
-                        Text("PROVISIONING GUIDE", fontWeight = FontWeight.Black, fontSize = 12.sp, color = Color(0xFF1E40AF))
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("1. Factory Reset Target Phone", fontSize = 13.sp, color = Color.DarkGray)
-                    Text("2. Tap 6 times on Welcome Screen", fontSize = 13.sp, color = Color.DarkGray)
-                    Text("3. Connect WiFi & Scan this QR", fontSize = 13.sp, color = Color.DarkGray)
+                    Text("VERIFIED QR CONTENT:", fontWeight = FontWeight.Black, fontSize = 12.sp, color = Color(0xFF1E40AF))
+                    Text("1. Signature Checksum has been updated.", fontSize = 13.sp, color = Color.DarkGray)
+                    Text("2. Use ADB to test without Reset if possible.", fontSize = 13.sp, color = Color.Blue, fontWeight = FontWeight.Bold)
+                    Text("3. Tap '6 times' on Welcome screen to scan.", fontSize = 13.sp, color = Color.DarkGray)
                 }
             }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Target Link: $apkUrl", fontSize = 10.sp, color = Color.Gray)
         }
     }
 }
