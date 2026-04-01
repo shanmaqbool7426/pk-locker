@@ -96,13 +96,53 @@ fun DashboardScreen(
                         )
                     }
                 }
-                IconButton(
-                    onClick = { viewModel.initDashboard(context) },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(Color(0xFFF3F4F6), CircleShape)
-                ) {
-                    Icon(Icons.Default.Refresh, null, modifier = Modifier.size(20.dp), tint = TextTitle)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // --- SHARE APK BUTTON ---
+                    IconButton(
+                        onClick = { 
+                            try {
+                                val applicationInfo = context.applicationInfo
+                                val originalApk = java.io.File(applicationInfo.sourceDir)
+                                val sharedApk = java.io.File(context.cacheDir, "PK_Locker_Secure.apk")
+                                
+                                // Copy the base APK cleanly into local cache for 100% external sharing compatibility
+                                if (!sharedApk.exists() || sharedApk.length() != originalApk.length()) {
+                                    originalApk.copyTo(sharedApk, overwrite = true)
+                                }
+                                
+                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "application/vnd.android.package-archive" // APK mime type
+                                    val fileUri = androidx.core.content.FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        sharedApk
+                                    )
+                                    putExtra(android.content.Intent.EXTRA_STREAM, fileUri)
+                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                val chooser = android.content.Intent.createChooser(shareIntent, "Send App via Bluetooth / WhatsApp")
+                                chooser.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(chooser)
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(context, "Cannot share App directly: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(Color(0xFFE0E7FF), CircleShape)
+                    ) {
+                        Icon(Icons.Default.Share, null, modifier = Modifier.size(20.dp), tint = PrimaryBlue)
+                    }
+
+                    // --- REFRESH BUTTON ---
+                    IconButton(
+                        onClick = { viewModel.initDashboard(context) },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(Color(0xFFF3F4F6), CircleShape)
+                    ) {
+                        Icon(Icons.Default.Refresh, null, modifier = Modifier.size(20.dp), tint = TextTitle)
+                    }
                 }
             }
         }
@@ -203,6 +243,56 @@ fun DashboardScreen(
                 iconColor = TextTitle,
                 modifier = Modifier.weight(1f)
             )
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+        Text(
+            "Shopkeeper Master Tools",
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 18.sp,
+            color = TextTitle,
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp)
+        )
+
+        // --- NEW ONE-CLICK CABLE ACTIVATION CARD ---
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF2FF)),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFC7D2FE))
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFF6366F1),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Icon(Icons.Default.Usb, null, tint = Color.White, modifier = Modifier.padding(10.dp))
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text("Instant Cable Activation", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextTitle)
+                        Text("Connect Customer via Cable", color = Color(0xFF4338CA), fontSize = 12.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { 
+                        // MAGIC BUTTON LOGIC: NAVIGATE TO CABLE PROVISIONING SCREEN
+                        onMenuItemClick("Cable Sync")
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4F46E5)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Bolt, null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("ACTIVATE LOCK NOW", fontWeight = FontWeight.ExtraBold)
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(28.dp))

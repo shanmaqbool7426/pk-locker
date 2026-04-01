@@ -865,6 +865,7 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                     it != AppDestinations.EMI_LIST && 
                     it != AppDestinations.DEREGISTER_LIST &&
                     it != AppDestinations.PROVISIONING_QR &&
+                    it != AppDestinations.CABLE_SYNC &&
                     it != AppDestinations.PHONE_QR &&
                     it != AppDestinations.VIDEO_HELP
                 }.forEach {
@@ -886,6 +887,7 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                                 "Active Customers" -> currentDestination = AppDestinations.LIST
                                 "Deregistered" -> currentDestination = AppDestinations.DEREGISTER_LIST
                                 "QR Code" -> currentDestination = AppDestinations.PROVISIONING_QR
+                                "Cable Sync" -> currentDestination = AppDestinations.CABLE_SYNC
                                 "Phone QR" -> currentDestination = AppDestinations.PHONE_QR
                                 "Video Help" -> currentDestination = AppDestinations.VIDEO_HELP
                                 "Register Device" -> currentDestination = AppDestinations.REGISTRATION
@@ -908,6 +910,9 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                         )
                         AppDestinations.PROVISIONING_QR -> if (isAdmin) ProvisioningQrScreen(
                             title = "Provisioning QR",
+                            onBack = { currentDestination = AppDestinations.HOME }
+                        )
+                        AppDestinations.CABLE_SYNC -> if (isAdmin) com.example.pklocker.ui.provisioning.ProvisioningCableScreen(
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
                         AppDestinations.PHONE_QR -> if (isAdmin) ProvisioningQrScreen(
@@ -942,4 +947,5 @@ enum class AppDestinations(val label: String, val icon: ImageVector) {
     PHONE_QR("Phone QR", Icons.Default.StayCurrentPortrait),
     VIDEO_HELP("Help", Icons.Default.PlayCircle),
     PROFILE("Profile", Icons.Default.Person),
+    CABLE_SYNC("Cable Sync", Icons.Default.Usb),
 }

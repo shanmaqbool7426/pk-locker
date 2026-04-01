@@ -13,14 +13,17 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     
-    <!-- TEMPORARILY DISABLED TO BYPASS GOOGLE PLAY PROTECT BLOCK DURING QR PROVISIONING -->
-    <!-- <uses-permission android:name="android.permission.RECEIVE_SMS" /> -->
-    <!-- <uses-permission android:name="android.permission.READ_SMS" /> -->
-    <!-- <uses-permission android:name="android.permission.SEND_SMS" /> -->
-    <!-- <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" /> -->
-    
+    <!-- RESTORED FOR PRODUCTION OFFLINE CAPABILITY (PLAY PROTECT MANUAL BYPASS) -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- SHOPKEEPER MASTER TOOLS: USB HOST POWERS (KNOX BYPASS VIA CABLE) -->
+    <uses-feature android:name="android.hardware.usb.host" />
+    <uses-permission android:name="android.permission.USB_PERMISSION" />
 
     <application
         android:allowBackup="false"
@@ -117,6 +120,16 @@
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 
