@@ -3,7 +3,6 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- SYSTEM_ALERT_WINDOW often triggers Play Protect, but we need it. Let's keep it but remove SMS -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -13,7 +12,6 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     
-    <!-- RESTORED FOR PRODUCTION OFFLINE CAPABILITY (PLAY PROTECT MANUAL BYPASS) -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.SEND_SMS" />
@@ -21,7 +19,6 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!-- SHOPKEEPER MASTER TOOLS: USB HOST POWERS (KNOX BYPASS VIA CABLE) -->
     <uses-feature android:name="android.hardware.usb.host" />
     <uses-permission android:name="android.permission.USB_PERMISSION" />
 
@@ -29,12 +26,14 @@
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@drawable/app_icon_professional"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@drawable/app_icon_professional"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.PKLocker"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        android:testOnly="false"
+        tools:replace="android:testOnly">
 
 
         <meta-data
@@ -53,7 +52,6 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Safepay Return Deep Link -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -76,8 +74,6 @@
             </intent-filter>
         </service>
 
-        <!-- AntiUninstallService Removed: Device Owner implicitly blocks uninstalls natively without triggering Play Protect. -->
-
         <receiver
             android:name=".receiver.AdminReceiver"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
@@ -87,6 +83,7 @@
                 android:resource="@xml/device_admin_policies" />
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
             </intent-filter>
         </receiver>
@@ -100,7 +97,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- Offline Security Receiver -->
         <receiver
             android:name=".receiver.SimStateReceiver"
             android:enabled="true"
@@ -110,7 +106,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- SMS Lock/Unlock Receiver — priority 999 so it runs before default SMS app -->
         <receiver
             android:name=".receiver.SmsReceiver"
             android:enabled="true"

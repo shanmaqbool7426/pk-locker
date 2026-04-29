@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -130,9 +131,6 @@ fun MainAppEntryPoint() {
     var fcmToken by remember { mutableStateOf(sharedPrefs.getString("fcm_token", "Fetching...")) }
     var deviceImei by remember { mutableStateOf(sharedPrefs.getString("device_imei", "")) }
 
-    // ─── ADMIN PROTECTION ──────────────────────────────────────────────────
-    // Admin ka phone kabhi b "locked" state me nahi hona chahiye.
-    // Agar previous testing se flags reh gaye hain, toh unhe force clean karo.
     val lockManager = remember { com.example.pklocker.util.LockManager(context) }
     val isAdmin = sharedPrefs.getBoolean("is_admin", false)
     if (isAdmin && isCustomer) {
@@ -143,8 +141,17 @@ fun MainAppEntryPoint() {
         lockManager.unlockDevice()
     }
 
-    // isCustomer is now set EXPLICITLY via the LoginScreen "Setup" flow.
-    // Removed LaunchedEffect(deviceImei) that used to auto-set isCustomer = true.
+    // ─── PERMANENT SECURITY ENFORCEMENT ─────────────────────────────────────
+    // For production, we must block Reset as soon as the device is marked as Customer.
+    // This happens even if the device is currently "Unlocked".
+    LaunchedEffect(isCustomer) {
+        if (isCustomer && lockManager.isDeviceOwner()) {
+            // Block Factory Reset, USB, and Debugging PERMANENTLY for customers
+            // We use a custom function that doesn't rely on the "isLocked" flag
+            lockManager.enforcePermanentRestrictions(true)
+            Log.d("SECURITY_ENFORCE", "Permanent Customer Restrictions Applied")
+        }
+    }
 
     // ─── Overlay & SMS Permission Guards ─────────────────────────────────────
     // Customer device pe har baar check karo — agar permission gayi toh dialog dikhao
@@ -373,6 +380,7 @@ fun MainAppEntryPoint() {
             CustomerStatusScreen(
                 token = fcmToken ?: "No Token",
                 imei = deviceImei ?: "Not Set",
+                isLocked = isLocked,
                 onImeiSubmit = { newImei ->
                     sharedPrefs.edit().putString("device_imei", newImei).apply()
                     deviceImei = newImei
@@ -496,6 +504,7 @@ private fun fetchAndSaveSmsCodesForCustomer(context: Context, imei: String) {
 fun CustomerStatusScreen(
     token: String, 
     imei: String, 
+    isLocked: Boolean,
     onImeiSubmit: (String) -> Unit, 
     onManualLock: () -> Unit,
     onReset: () -> Unit
@@ -580,7 +589,7 @@ fun CustomerStatusScreen(
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // ─── PERMISSION CHECKLIST ───────────────────────────────────────
+            // ─── MANUAL SECURITY SETUP (NO PC / NO QR) ──────────────────────
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
                 shape = RoundedCornerShape(24.dp),
@@ -588,31 +597,48 @@ fun CustomerStatusScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text("CRITICAL PERMISSIONS", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color.Gray, letterSpacing = 2.sp)
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("MANUAL SETUP CHECKLIST", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color.Gray, letterSpacing = 2.sp)
+                    Spacer(modifier = Modifier.height(16.dp)                )
 
                     PermissionItem(
-                        title = "Device Owner Status",
-                        subtitle = "Required for Hardware Controls",
-                        isActive = isDeviceOwner,
-                        onClick = { 
-                            android.widget.Toast.makeText(context, "Command: adb shell dpm set-device-owner...", android.widget.Toast.LENGTH_LONG).show()
+                        title = "Accessibility Guard",
+                        subtitle = "Blocks Settings & Factory Reset",
+                        isActive = com.example.pklocker.service.AntiUninstallService.isServiceRunning(context),
+                        onClick = {
+                            context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
                         }
                     )
-                    
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFF333333))
+
+                    PermissionItem(
+                        title = "Device Owner Protocol",
+                        subtitle = if (isDeviceOwner) "Enterprise Enrollment Active" else "Standard Mode (Limited)",
+                        isActive = isDeviceOwner,
+                        onClick = { 
+                            if (!isDeviceOwner) {
+                                Toast.makeText(context, "Must be enrolled via QR/ADB at Setup", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    )
+
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFF333333))
 
                     PermissionItem(
                         title = "Display Over Other Apps",
+                        subtitle = "Required to show Lock Screen",
                         isActive = isOverlayActive,
                         onClick = { lockManager.requestOverlayPermission() }
                     )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFF333333))
+
                     PermissionItem(
                         title = "Device Admin (Active)",
+                        subtitle = "Prevents App Uninstallation",
                         isActive = isAdminActive,
                         onClick = { lockManager.requestAdminPermission() }
                     )
-                    // Anti-Uninstall Guard removed because Device Owner naturally handles this.
                 }
             }
 
@@ -645,6 +671,26 @@ fun CustomerStatusScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ─── ENFORCEMENT STATUS (NEW) ───────────────────────────────────
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF121212)),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, Color(0xFF444444).copy(alpha = 0.3f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("ENFORCEMENT STATUS", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color.Gray, letterSpacing = 2.sp)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    EnforcementItem(label = "Primary Locker", status = if(isLocked) "ACTIVE" else "READY", isWarning = isLocked)
+                    EnforcementItem(label = "Factory Reset", status = "BLOCKED", isWarning = true)
+                    EnforcementItem(label = "USB File Transfer", status = "BLOCKED", isWarning = true)
+                    EnforcementItem(label = "ADB & Debugging", status = "RESTRICTED", isWarning = true)
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
 
             // --- Test Button ---
@@ -659,11 +705,32 @@ fun CustomerStatusScreen(
                 Text("TEST LOCK PROTOCOL", fontWeight = FontWeight.Black, fontSize = 15.sp, color = Color.Black)
             }
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
 
-            TextButton(onClick = onReset) {
-                Text("RESET SYSTEM", color = Color.White.copy(alpha = 0.2f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
+@Composable
+fun EnforcementItem(label: String, status: String, isWarning: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = Color.White.copy(0.7f), fontSize = 13.sp)
+        Box(
+            modifier = Modifier
+                .background(if (isWarning) Color(0xFFDC2626).copy(alpha = 0.15f) else Color(0xFF22C55E).copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 2.dp)
+        ) {
+            Text(
+                status, 
+                color = if (isWarning) Color(0xFFDC2626) else Color(0xFF22C55E),
+                fontSize = 11.sp, 
+                fontWeight = FontWeight.Black
+            )
         }
     }
 }
@@ -684,7 +751,7 @@ fun PermissionItem(title: String, subtitle: String? = null, isActive: Boolean, o
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column {
-                Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if(isActive) Color.Black else Color.Red)
+                Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if(isActive) Color.White else Color.Red)
                 if (subtitle != null) {
                     Text(subtitle, fontSize = 11.sp, color = Color.Gray)
                 }

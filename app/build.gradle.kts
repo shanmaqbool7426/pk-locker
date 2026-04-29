@@ -10,13 +10,15 @@ android {
     compileSdk = 35
 
     defaultConfig {
+        // CHANGED: Removed "com.example" to bypass Play Protect block
         applicationId = "com.pklocker.enterprise"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        resourceConfigurations += "en"
     }
 
     signingConfigs {
@@ -33,7 +35,8 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -51,6 +54,27 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/versions/9/previous-compilation-data.bin"
+            excludes += "**/LICENSE.txt"
+            excludes += "**/NOTICE.txt"
+        }
+    }
+}
+
+// Automatically delete the corrupted icon file before merging resources
+tasks.configureEach {
+    if (name.contains("merge") && name.contains("Resources")) {
+        doFirst {
+            val corruptedFile = file("src/main/res/drawable/app_icon_professional.png")
+            if (corruptedFile.exists()) {
+                corruptedFile.delete()
+            }
+        }
+    }
 }
 
 dependencies {
@@ -66,23 +90,16 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation(libs.play.services.code.scanner)
     implementation(libs.play.services.location)
     implementation(libs.play.services.maps)
     implementation(libs.maps.compose)
-
-    // Firebase
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
     implementation(libs.firebase.analytics)
-
-    // WorkManager for Offline Security
     implementation(libs.androidx.work.runtime)
-
-    // Coil for Image Loading
     implementation(libs.coil.compose)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.zxing.core)

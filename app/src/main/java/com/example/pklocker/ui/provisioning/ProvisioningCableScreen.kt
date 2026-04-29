@@ -53,7 +53,7 @@ fun ProvisioningCableScreen(onBack: () -> Unit) {
         }
     }
 
-    val adbCommand = "adb shell dpm set-device-owner com.pklocker.enterprise/com.example.pklocker.receiver.AdminReceiver"
+    val adbCommand = "adb shell dpm set-device-owner com.example.pklocker/com.example.pklocker.receiver.AdminReceiver"
 
     val scrollState = rememberScrollState()
 

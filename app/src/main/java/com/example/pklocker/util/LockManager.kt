@@ -258,6 +258,28 @@ class LockManager(private val context: Context) {
 
     // ─── U.S. LOCKER ADVANCED UPDATES ──────────────────────────────────────────
     
+    /**
+     * Enforces critical restrictions that should NEVER be off on a customer device,
+     * even if the device is currently "Unlocked" (EMI is paid).
+     */
+    fun enforcePermanentRestrictions(enforce: Boolean) {
+        if (!isAdminActive() || !isDeviceOwner()) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                // 1. Block Factory Reset (Most Important)
+                setUserRestriction(UserManager.DISALLOW_FACTORY_RESET, enforce)
+                // 2. Block USB File Transfer
+                setUserRestriction(UserManager.DISALLOW_USB_FILE_TRANSFER, enforce)
+                // 3. Block ADB/Debugging
+                setUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES, enforce)
+                
+                Log.d("LOCK_MANAGER", "Permanent Restrictions Enforced: $enforce")
+            }
+        } catch (e: Exception) {
+            Log.e("LOCK_MANAGER", "Permanent Enforce Error: ${e.message}")
+        }
+    }
+    
     private var ringtone: Ringtone? = null
 
     fun toggleWarningAlarm(play: Boolean) {

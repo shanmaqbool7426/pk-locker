@@ -1,29 +1,26 @@
 package com.example.pklocker.ui.provisioning
 
+import android.graphics.Bitmap
+import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.pklocker.util.Constants
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
-import android.graphics.Bitmap
-import androidx.compose.material.icons.filled.Download
-import android.graphics.Color as AndroidColor
 import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,25 +30,64 @@ fun ProvisioningQrScreen(
     isForInstallation: Boolean = false,
     onBack: () -> Unit
 ) {
-    // ── THE SOURCE OF TRUTH ──
-    // Vercel cache is bypassed by uploading the file specifically as "v6_app.apk"
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var apkHash by remember { mutableStateOf("") } // SHA-256 of the APK file
+    
     val apkUrl = "https://pk-locker-api.vercel.app/dl/v6_app.apk"
     
-    val qrContent = remember {
+    val signatureChecksum = remember {
+        try {
+            val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+            }
+
+            val signatures = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                packageInfo?.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                packageInfo?.signatures
+            }
+
+            val signature = signatures?.getOrNull(0)
+            if (signature != null) {
+                val md = java.security.MessageDigest.getInstance("SHA-256")
+                md.update(signature.toByteArray())
+                android.util.Base64.encodeToString(md.digest(), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING)
+            } else {
+                "ERROR"
+            }
+        } catch (e: Exception) {
+            "ERROR"
+        }
+    }
+
+    val qrContent = remember(signatureChecksum, apkHash) {
         if (isForInstallation) {
             apkUrl
         } else {
             val json = JSONObject()
+            val packageName = context.packageName
             
-            // 1. Mandatory Enrollment Fields
-            json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME", "com.pklocker.enterprise/com.example.pklocker.receiver.AdminReceiver")
+            json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME", "$packageName/com.example.pklocker.receiver.AdminReceiver")
             json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION", apkUrl)
+            json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM", signatureChecksum)
             
-            // 2. FINAL VERIFIED Checksums (DO NOT CHANGE THESE)
-            json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM", "1iQjA_ONpwgKEiR-LCCgmPBPxvn2jcou3qfwciD5r1Q")
+            // Critical for Samsung: Add APK File Checksum if provided
+            if (apkHash.isNotBlank()) {
+                json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM", apkHash.trim())
+            }
             
-            // 3. Setup Flags
+            json.put("android.app.extra.PROVISIONING_LOCALE", "en_US")
+            json.put("android.app.extra.PROVISIONING_TIME_ZONE", "Asia/Karachi")
             json.put("android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED", true)
+            json.put("android.app.extra.PROVISIONING_SKIP_ENCRYPTION", true)
+            
+            val extras = JSONObject()
+            extras.put("is_new_enrollment", "true")
+            json.put("android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE", extras)
             
             json.toString()
         }
@@ -95,15 +131,16 @@ fun ProvisioningQrScreen(
         containerColor = Color(0xFFF8FAFC)
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 24.dp).verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(20.dp))
+            
             Card(
-                modifier = Modifier.fillMaxWidth().aspectRatio(1f).padding(vertical = 16.dp),
+                modifier = Modifier.fillMaxWidth().aspectRatio(1f),
                 shape = RoundedCornerShape(32.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize().padding(32.dp)) {
                     if (qrBitmap != null) {
@@ -112,16 +149,35 @@ fun ProvisioningQrScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // APK Hash Input for Samsung strictness
+            OutlinedTextField(
+                value = apkHash,
+                onValueChange = { apkHash = it },
+                label = { Text("APK SHA-256 (Required for Samsung)") },
+                placeholder = { Text("Paste APK Base64 Hash here") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             Surface(color = Color(0xFFEFF6FF), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("VERIFIED QR CONTENT:", fontWeight = FontWeight.Black, fontSize = 12.sp, color = Color(0xFF1E40AF))
-                    Text("1. Signature Checksum has been updated.", fontSize = 13.sp, color = Color.DarkGray)
-                    Text("2. Use ADB to test without Reset if possible.", fontSize = 13.sp, color = Color.Blue, fontWeight = FontWeight.Bold)
-                    Text("3. Tap '6 times' on Welcome screen to scan.", fontSize = 13.sp, color = Color.DarkGray)
+                    Text("SIGNATURE CHECKSUM:", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color(0xFF1E40AF))
+                    Text(signatureChecksum, fontSize = 10.sp, color = Color.DarkGray, modifier = Modifier.padding(top = 4.dp))
+                    
+                    Spacer(Modifier.height(12.dp))
+                    
+                    Text("ENROLLMENT GUIDE:", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color(0xFF1E40AF))
+                    Text("1. Master phone MUST run the Release APK.", fontSize = 12.sp, color = Color.DarkGray)
+                    Text("2. APK URL must be a direct file link.", fontSize = 12.sp, color = Color.DarkGray)
+                    Text("3. Samsung A05 needs the APK Hash above.", fontSize = 12.sp, color = Color.DarkGray)
                 }
             }
+            Spacer(modifier = Modifier.height(40.dp))
         }
     }
 }
