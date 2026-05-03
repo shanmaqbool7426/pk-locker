@@ -1,0 +1,776 @@
+--------- beginning of main
+04-26 01:42:28.319  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:42:28.319  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:28.319  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:28.320  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:29.823  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:29.823  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:29.823  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:29.824  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:30.148  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:42:30.149  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:30.149  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:30.149  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:30.466  2206  2206 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.auth.aang.events.services.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.PersistentApiService }
+04-26 01:42:30.789  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:42:30.789  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:30.789  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:30.790  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:32.200  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:32.200  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:32.200  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:32.202  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:32.253  2206  2206 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.libs.gmscorelogger.service.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.PersistentDirectBootAwareApiService }
+04-26 01:42:33.636  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:33.636  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:33.636  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:33.638  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:33.929  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:42:33.929  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:33.929  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:33.930  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:35.390  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:35.391  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:35.391  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:35.392  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:35.744  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:42:35.744  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:35.744  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:35.745  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:37.001  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:37.001  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:37.001  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:37.002  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:38.781  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:38.781  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:38.781  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:38.782  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:39.078  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:42:39.078  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:39.079  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:39.080  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:40.062  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:40.063  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:40.063  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:40.064  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:42.344  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:42.346  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:42.346  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:42.347  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:42.720  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:42:42.721  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:42.721  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:42.722  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:44.224  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:44.225  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:44.225  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:44.226  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:45.912  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:45.913  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:45.913  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:45.914  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:46.537  1759  2353 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:42:46.538  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:46.538  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:46.538  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:47.971  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:47.971  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:47.972  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:47.973  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:48.349  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:42:48.349  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:48.349  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:48.350  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:49.791  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:49.791  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:49.791  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:49.793  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:51.572  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:51.573  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:51.573  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:51.574  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:51.957  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:42:51.957  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:51.957  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:51.958  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:52.471  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:52.471  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:52.471  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:52.472  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:53.995  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:53.996  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:53.996  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:53.998  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:54.338  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:42:54.338  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:54.338  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:54.340  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:55.736  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:55.737  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:55.737  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:55.739  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:56.120  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:42:56.120  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:56.120  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:56.121  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:56.796  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:56.797  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:56.797  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:56.798  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:57.408  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:42:57.408  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:57.408  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:57.409  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:58.812  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:42:58.813  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:42:58.813  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:42:58.815  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:42:59.030 29216 29216 W libc    : Access denied finding property "persist.log.file.process"
+04-26 01:42:59.032 29216 29216 E HidlServiceManagement: Service vendor.vivo.hardware.biometrics.analysis@1.1::IAnalysis/default must be in VINTF manifest in order to register/get.
+04-26 01:43:00.439  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:00.439  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:00.439  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:00.441  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:00.842  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:00.843  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:00.843  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:00.844  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:02.295  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:02.295  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:02.295  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:02.296  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:03.867  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:03.867  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:03.867  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:03.869  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:04.985  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:04.985  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:04.985  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:04.987  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:05.577 27484 27522 D WM-DelayedWorkTracker: Scheduling work f2201200-6adc-4ddf-93df-ab3e8b1c9ef6
+04-26 01:43:05.578 27484 27522 D WM-GreedyScheduler: Starting tracking for f2201200-6adc-4ddf-93df-ab3e8b1c9ef6
+04-26 01:43:05.579 27484 27507 D WM-WorkConstraintsTrack: NetworkRequestConstraintController send initial capabilities
+04-26 01:43:05.581 27484 27507 D WM-GreedyScheduler: Constraints met: Scheduling work ID WorkGenerationalId(workSpecId=f2201200-6adc-4ddf-93df-ab3e8b1c9ef6, generation=0)
+04-26 01:43:05.584 27484 27507 D WM-Processor: pbq: processing WorkGenerationalId(workSpecId=f2201200-6adc-4ddf-93df-ab3e8b1c9ef6, generation=0)
+04-26 01:43:05.591 27484 27484 D WM-WorkerWrapper: Starting work for com.google.apps.tiktok.contrib.work.TikTokListenableWorker
+04-26 01:43:05.592 27484 27484 D WM-ListenableWorkerImpl: Binding to com.google.android.googlequicksearchbox, com.google.android.libraries.search.integrations.tiktok.RemoteWorkerService_googleapp
+04-26 01:43:05.601 27528 27528 I WM-RemoteWorkerService: Binding to RemoteWorkerService
+04-26 01:43:05.605 27484 27484 D WM-ListenableWorkerImpl: Service connected
+04-26 01:43:05.608 27528 27543 D WM-ListenableWorkerImpl: Executing work request (f2201200-6adc-4ddf-93df-ab3e8b1c9ef6, com.google.apps.tiktok.contrib.work.TikTokListenableWorker)
+04-26 01:43:05.866  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:05.867  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:05.867  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:05.867  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:06.036 27528 27565 I bssg    : #getLastSuccessfulTime
+04-26 01:43:06.042 27528 27558 D AdvertisingIdClient: Creating AdvertisingIdClient
+04-26 01:43:06.043 27528 27558 D AdvertisingIdClient: AdvertisingIdClient already created.
+04-26 01:43:06.045 27528 27558 D AdvertisingIdClient: AdvertisingIdClient is not bounded. Starting to bind it...
+04-26 01:43:06.048 27528 27564 W bspy    : (REDACTED) Invalid int value while parsing string version: %s
+04-26 01:43:06.048 27528 27564 W bspy    : java.text.ParseException: Unparseable number: "ve"
+04-26 01:43:06.048 27528 27564 W bspy    : 	at java.text.NumberFormat.parse(NumberFormat.java:442)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at bsqb.a(PG:245)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at bsri.g(PG:130)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at bspt.invokeSuspend(PG:440)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at bspt.invoke(PG:13)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at ftzq.a(PG:15)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at ftlr.w(PG:53)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at bspy.f(PG:9)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at bspq.invokeSuspend(PG:274)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at bspq.invoke(PG:13)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at ftzq.a(PG:15)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at ftlr.w(PG:53)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at bspy.b(PG:9)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at bspp.invokeSuspend(PG:273)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at ftbr.resumeWith(PG:11)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at ftme.run(PG:115)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at eqof.run(PG:3)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at escv.run(PG:17)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at cums.run(PG:5)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at fayy.run(PG:46)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at cume.run(PG:81)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at java.lang.Thread.run(Thread.java:1563)
+04-26 01:43:06.048 27528 27564 W bspy    : 	at cunw.run(PG:63)
+04-26 01:43:06.049 27528 28052 D MeasurementManager: AdServicesInfo.version=20
+04-26 01:43:06.052 27528 27564 W bspy    : Unknown NetworkInfo.
+04-26 01:43:06.059  2206  2206 D BoundBrokerSvc: onRebind: Intent { act=com.google.android.gms.common.telemetry.service.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.PersistentApiService }
+04-26 01:43:06.064 27528 27558 D AdvertisingIdClient: AdvertisingIdClient is bounded
+04-26 01:43:06.072 27528 27558 I AdvertisingIdClient: shouldSendLog -1
+04-26 01:43:06.074 27528 27558 I AdvertisingIdClient: GetInfoInternal elapse 27ms
+04-26 01:43:06.081 27528 27528 I AdvertisingIdClient: getting error as 17: API: ClientTelemetry.API is not available on this device. Connection failed with: ConnectionResult{statusCode=API_DISABLED_FOR_CONNECTION, resolution=null, message=null, clientMethodKey=null}
+04-26 01:43:06.097 27528 27558 D nativeloader: Load /data/app/~~dfGd8Nq3jPHk8S8RQgGgnQ==/com.google.android.googlequicksearchbox-xfTpxmZBNphHEq3PPM619w==/base.apk!/lib/arm64-v8a/libdatastore_shared_counter.so using class loader ns clns-7 (caller=/data/app/~~dfGd8Nq3jPHk8S8RQgGgnQ==/com.google.android.googlequicksearchbox-xfTpxmZBNphHEq3PPM619w==/base.apk): ok
+04-26 01:43:06.112 27528 27568 D MeasurementManager: AdServicesInfo.version=20
+04-26 01:43:06.113 27528 27558 D AdvertisingIdClient: AdvertisingIdClient already created.
+04-26 01:43:06.114 27528 27564 W bspy    : (REDACTED) Invalid int value while parsing string version: %s
+04-26 01:43:06.114 27528 27564 W bspy    : java.text.ParseException: Unparseable number: "ve"
+04-26 01:43:06.114 27528 27564 W bspy    : 	at java.text.NumberFormat.parse(NumberFormat.java:442)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at bsqb.a(PG:245)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at bsri.g(PG:130)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at bspt.invokeSuspend(PG:440)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at bspt.invoke(PG:13)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at ftzq.a(PG:15)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at ftlr.w(PG:53)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at bspy.f(PG:9)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at bspq.invokeSuspend(PG:274)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at bspq.invoke(PG:13)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at ftzq.a(PG:15)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at ftlr.w(PG:53)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at bspy.b(PG:9)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at bssw.invokeSuspend(PG:277)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at bssw.invoke(PG:13)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at ftzq.a(PG:15)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at ftlr.w(PG:53)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at bssy.c(PG:9)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at bssc.invokeSuspend(PG:87)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at ftbr.resumeWith(PG:11)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at ftme.run(PG:115)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at eqof.run(PG:3)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at escv.run(PG:17)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at cums.run(PG:5)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at fayy.run(PG:46)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at cume.run(PG:81)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at java.lang.Thread.run(Thread.java:1563)
+04-26 01:43:06.114 27528 27564 W bspy    : 	at cunw.run(PG:63)
+04-26 01:43:06.117 27528 27564 W bspy    : Unknown NetworkInfo.
+04-26 01:43:06.117 27528 27558 I AdvertisingIdClient: shouldSendLog 62962084
+04-26 01:43:06.118 27528 27558 I AdvertisingIdClient: GetInfoInternal elapse 3ms
+04-26 01:43:07.027  1759  3027 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:07.027  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:07.028  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:07.029  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:08.071 27528 27588 I cn_CronetUrlRequestContext: destroyNativeStreamLocked android.net.connectivity.org.chromium.net.impl.CronetBidirectionalStream@efb9d25
+04-26 01:43:08.114 27528 27564 I bspe    : (REDACTED) createModel, DataOperations %s
+04-26 01:43:08.115 27528 27564 I bspe    : (REDACTED) Known renderable unit transformers: %s
+04-26 01:43:08.120 27528 27569 W vpd     : No EventLoggerStore set on EventLogger, event will be ignored.Initialize EventLogger in your Application#onCreate method
+04-26 01:43:08.120 27528 27569 W vpd     : fahr: SMALL
+04-26 01:43:08.120 27528 27569 W vpd     : 	at vpd.d(PG:27)
+04-26 01:43:08.120 27528 27569 W vpd     : 	at dnal.apply(PG:78)
+04-26 01:43:08.120 27528 27569 W vpd     : 	at escy.apply(PG:17)
+04-26 01:43:08.120 27528 27569 W vpd     : 	at fcbv.c(PG:3)
+04-26 01:43:08.120 27528 27569 W vpd     : 	at fcbw.run(PG:47)
+04-26 01:43:08.120 27528 27569 W vpd     : 	at cums.run(PG:5)
+04-26 01:43:08.120 27528 27569 W vpd     : 	at fayy.run(PG:46)
+04-26 01:43:08.120 27528 27569 W vpd     : 	at cume.run(PG:81)
+04-26 01:43:08.120 27528 27569 W vpd     : 	at java.lang.Thread.run(Thread.java:1563)
+04-26 01:43:08.120 27528 27569 W vpd     : 	at cunw.run(PG:63)
+04-26 01:43:08.125 27528 27569 I bssg    : (REDACTED) #setLastSuccessfulTime %s
+04-26 01:43:08.132 27528 27564 I btyb    : (REDACTED) #enqueuePeriodicJob: running = %b
+04-26 01:43:08.136 27528 29265 W Glide   : Load failed for [] with dimensions [-2147483648x-2147483648]
+04-26 01:43:08.136 27528 29265 W Glide   : class rdq: Failed to load resource
+04-26 01:43:08.245 27528 27564 I btyx    : FeedSyncWorker refresh result is successful
+04-26 01:43:08.248 27528 27564 I btyb    : (REDACTED) #enqueueNextPeriodicJobUsingRefreshSchedule: running = %b
+04-26 01:43:08.249 27528 27567 I btxl    : (REDACTED) #scheduledConfig, timestampCreated %s, scheduledOffset %s
+04-26 01:43:08.265 27528 27561 I WM-GreedyScheduler: Ignoring schedule request in a secondary process
+04-26 01:43:08.272 27484 27524 D RemoteListenableDelegatingWorker: Cleaning up
+04-26 01:43:08.273 27528 27561 D WM-Processor: Processor cancelling f2201200-6adc-4ddf-93df-ab3e8b1c9ef6
+04-26 01:43:08.274 27528 27561 D WM-Processor: WorkerWrapper could not be found for f2201200-6adc-4ddf-93df-ab3e8b1c9ef6
+04-26 01:43:08.286 27528 27561 I WM-GreedyScheduler: Ignoring schedule request in non-main process
+04-26 01:43:08.305 27528 27561 D WM-SystemJobScheduler: Scheduling work ID 2fc96c1a-3ff4-4ff6-866d-5e7c71edcc3cJob ID 7094
+04-26 01:43:08.310 27528 27561 I WM-GreedyScheduler: Ignoring schedule request in a secondary process
+04-26 01:43:08.322 27484 27484 D WM-Processor: pbq f2201200-6adc-4ddf-93df-ab3e8b1c9ef6 executed; reschedule = false
+04-26 01:43:08.322 27484 27484 D WM-GreedyScheduler: Stopping tracking for WorkGenerationalId(workSpecId=f2201200-6adc-4ddf-93df-ab3e8b1c9ef6, generation=0)
+04-26 01:43:08.325 27484 27524 D WM-GreedyScheduler: Cancelling work ID f2201200-6adc-4ddf-93df-ab3e8b1c9ef6
+04-26 01:43:08.331 27484 27524 D WM-GreedyScheduler: Ignoring {WorkSpec: c06bd6ad-bb49-4b96-be3b-644483354239}. Requires device idle.
+04-26 01:43:08.332 27484 27524 D WM-GreedyScheduler: Ignoring {WorkSpec: ddf648cd-520e-4f3f-ab32-de5844418bf2}. Requires device idle.
+04-26 01:43:08.332 27484 27524 D WM-GreedyScheduler: Starting tracking for 008e6de6-9d03-48af-a9eb-62b216c8a934,bcc73941-b570-413c-9323-6eb603fb54fb,ed77f4c3-9b39-4fe9-8c22-66c729a5ddde
+04-26 01:43:09.502  1759  3027 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:09.502  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:09.502  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:09.503  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:12.259  1759  1897 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:12.260  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:12.260  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:12.261  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:12.823  1759  2801 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:12.823  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:12.823  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:12.825  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:13.148  1759  2801 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:13.148  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:13.148  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:13.149  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:13.405  2206  2206 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.common.telemetry.service.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.PersistentApiService }
+04-26 01:43:14.792  1759  2353 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:14.792  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:14.792  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:14.795  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:15.098  1759  9661 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:15.098  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:15.098  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:15.104  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:16.700  1759  9661 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:16.701  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:16.701  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:16.702  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:16.964  1759  9661 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:16.964  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:16.965  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:16.966  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:18.281  1759  9661 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:18.281  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:18.281  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:18.282  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:18.886  1759  9661 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:18.886  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:18.886  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:18.889  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:20.326  1759  9661 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:20.327  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:20.327  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:20.329  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:20.699  1759  9661 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:20.699  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:20.699  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:20.701  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:22.150  1759  9661 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:22.150  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:22.150  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:22.151  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:23.923  1759  2647 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:23.924  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:23.924  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:23.925  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:24.238  1759  2647 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:24.238  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:24.238  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:24.239  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:25.636  1759  2647 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:25.636  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:25.636  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:25.638  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:26.020  1759  2647 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:26.020  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:26.020  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:26.022  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:27.115  1759  2647 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:27.115  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:27.115  1759  1865 V BatteryStatsService: Got 2 reasons
+04-26 01:43:27.116  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:28.945  1759  9661 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:28.946  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:28.946  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:28.947  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:29.324  1759  9661 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:29.324  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:29.324  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:29.325  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:30.773  1759  9661 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:30.773  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:30.773  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:30.775  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:32.390  1759  9661 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:32.390  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:32.390  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:32.391  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:32.704  1759  9661 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:32.704  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:32.704  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:32.705  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:33.398  1759  9661 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:33.399  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:33.399  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:33.400  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:34.752  1759  9661 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:34.753  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:34.753  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:34.755  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:35.093  1759  9661 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:35.093  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:35.093  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:35.094  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:36.509  1759  9661 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:36.509  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:36.510  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:36.511  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:37.217  1759  9661 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:37.218  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:37.218  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:37.219  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:38.774  1759  9661 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:38.774  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:38.774  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:38.776  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:39.071  1759  2647 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:39.072  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:39.072  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:39.072  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:40.497  1759  2647 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:40.498  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:40.498  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:40.500  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:42.372  1759  2647 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:42.372  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:42.372  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:42.373  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:44.189  1759  2647 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:44.191  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:44.191  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:44.193  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:44.559  1759  2647 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:44.560  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:44.560  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:44.561  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:45.268  1759  2647 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:45.268  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:45.268  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:45.270  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:45.545  1759  2647 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:45.545  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:45.545  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:45.547  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:46.318  1759  9661 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:46.318  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:46.318  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:46.319  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:46.514  2206  2206 I NearbyDiscovery: (REDACTED) FastPairDisplayObserver: %s -> %s
+04-26 01:43:46.527  2206  9723 I NearbyDiscovery: (REDACTED) PureOffloadFastPairScanner: eventType=%s, isInternalReq=%s, isScanning=%s, isScanningAllowed=%s
+04-26 01:43:46.570 22053 22160 E msys    : E[N mns:TigonMNS]_CacheRefreshTimerCallback(855)=>Start active cache refresh DNS resolution
+04-26 01:43:46.574 22053 22160 E msys    : E[N mns:TigonMNS]_CacheRefreshTimerCallback(855)=>Start active cache refresh DNS resolution
+04-26 01:43:46.574 22053 22160 E msys    : E[N mns:TigonMNS]_CacheRefreshTimerCallback(855)=>Start active cache refresh DNS resolution
+04-26 01:43:46.575 22053 22160 E msys    : E[N mns:TigonMNS]_CacheRefreshTimerCallback(855)=>Start active cache refresh DNS resolution
+04-26 01:43:46.575 22053 22160 E msys    : E[N mns:TigonMNS]_CacheRefreshTimerCallback(855)=>Start active cache refresh DNS resolution
+04-26 01:43:46.575 22053 22160 E msys    : E[N mns:TigonMNS]_CacheRefreshTimerCallback(855)=>Start active cache refresh DNS resolution
+04-26 01:43:46.577 22053 22333 E msys    : E[N MQTT]onConnectError(562)=>Connect Error: folly::AsyncSocketException: AsyncSocketException: connect failed, type = Socket not open, errno = 103 (Software caused connection abort)
+04-26 01:43:46.580  2206  9723 I NearbyDiscovery: (REDACTED) ApFastPairScanner: isScreenOn=%s, isLocationEnabled=%s, disableLocationRequirement=%s, isDiscoveryScanningEnabled=%s, during24GhzWifiWarmingUpPeriod=%s
+04-26 01:43:46.581  2206  9723 D BluetoothAdapter: isLeEnabled(): BLE_ON
+04-26 01:43:46.581  2206  9723 I NearbyDiscovery: (REDACTED) ApFastPairScanner: eventType=%s, intReq=%s, scanning=%s, scanAllowed=%s, bleEnabled=%s, lockScanRate=%s, startScanningByLowPowerMode=%s
+04-26 01:43:46.604 22053 22160 E msys    : E[N mns:TigonMNS]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:46.619 22053 22160 E msys    : E[N mns:TigonMNS]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:46.619 22053 22160 E msys    : E[N mns:TigonMNS]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:46.620 22053 22160 E msys    : E[N mns:TigonMNS]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:46.632 22053 22160 E msys    : E[N mns:TigonMNS]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:46.641 22053 22160 E msys    : E[N mns:TigonMNS]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:46.654 22053 22160 E msys    : E[N mns:TigonMNS]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:46.670  2206  2206 D BoundBrokerSvc: onRebind: Intent { act=com.google.android.gms.findmydevice.spot.service.locationreport.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.PersistentApiService }
+04-26 01:43:46.687 22053 22160 E msys    : E[N mns:TigonMNS]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:46.687 22053 22160 E msys    : E[N mns:TigonMNS]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:46.691 22053 22053 E SlowAppComponent: 0ms: FbnsInitBroadcastReceiver instantiating…
+04-26 01:43:46.691 22053 22053 E SlowAppComponent: 45ms: KeepWarmReceiver instantiating…
+04-26 01:43:46.691 22053 22053 E SlowAppComponent: Main thread was blocked for 46ms in the background starting with FbnsInitBroadcastReceiver
+04-26 01:43:46.698 22053 25239 E msys    : E[N mccw.liger]onConnectError(579)=>connect/error - address: 57.144.148.36, port: 80, ex: folly::AsyncSocketException: AsyncSocketException: connect timed out after 9999ms, type = Timed out
+04-26 01:43:46.699 22053 22260 E msys    : E[N WA]_WCCXMPPStreamDisconnectHandler(340)=>xmpp/disconnect - WCIStreamStateErrorCode: 0, domain: WCIStreamState, subdomain: MCCWLigerStream: Error Domain=WCIStreamState Code=0 UserInfo=0xb400006d500695d0 {MCFErrorDirectUnderlyingErrorKey=0xb400006f001164d0 "Error Domain=MCCWLigerStream Code=1 UserInfo=0xb400006d50069760 {MCFErrorDirectLocalizedFailureReasonKey=folly::AsyncSocketException: AsyncSocketException: connect timed out after 9999ms, type = Timed out}"}
+04-26 01:43:46.699 22053 22260 E msys    : E[N WCCConnectionMEM]_WCCConnectionMEMLifecycleEventHandler(2237)=>[INFO] connection/xmpp/lifecycle_event/not-connected, [172.1851s]
+04-26 01:43:46.699 22053 22260 E msys    : E[N WA]_WCCXMPPStreamDoDisconnect(1307)=>xmpp/disconnect - flags: 163
+04-26 01:43:46.699 22053 22260 E msys    : E[N WCCConnectionMEM]_WCCConnectionMEMDisconnectHandler(2269)=>connection/disconnected, backoff on socket failed to connect
+04-26 01:43:46.699 22053 22260 E msys    : E[N WCCConnectionMEM]_WCCConnectionMEMDisconnectHandler(2304)=>connection/disconnected, transport error
+04-26 01:43:46.705 22053 22184 W MqttDozeAwareClientWrapper: Doze mode enabled. Stopping client
+04-26 01:43:46.715 22053 22160 E msys    : E[N mns:TigonMNS]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:46.741 22053 22260 E msys    : E[C 1]_MCCLogErrorInternal(330)=>8/1066/2864/0
+04-26 01:43:46.742 22053 22260 E msys    : E[N WCCConnectionMEM]_WCCConnectionMEMDisconnectHandler(2335)=>connection/disconnected, handshake failure
+04-26 01:43:46.742 22053 22260 E msys    : E[N WCCConnectionMEM]_WCCConnectionMEMEmitStateChange(3250)=>[INFO] connection/new_state/not-connected [connection_id=348887615, wcc_source=1, wcc_reason=0]
+04-26 01:43:46.742 22053 22260 E msys    : E[C MEMConnectionManager]_MEMConnectionManagerStateChangeHandler(595)=>[Critical] MEMConnectionState updated to ID: 0 with connectionId: 348887615
+04-26 01:43:46.776 28998 29204 D VivoJavaJsonManager: failed to find appName:com.vivo.vivo3rdalgoservice from config key:mProtakePackages
+04-26 01:43:46.792 13241 13257 D VivoJavaJsonManager: failed to find appName:com.google.android.gms from config key:mProtakePackages
+04-26 01:43:46.794 22053 22184 W RealtimeClientManager: Channel state: MqttChannelState{mConnectionState=DISCONNECTED, mDisconnectionReason=null, mLastConnectionMs=62265956, mLastDisconnectMs=63002806}
+04-26 01:43:46.799 22053 22184 W RealtimeClientManager: Channel state: MqttChannelState{mConnectionState=DISCONNECTED, mDisconnectionReason=null, mLastConnectionMs=62265956, mLastDisconnectMs=63002809}
+04-26 01:43:46.802  8889  8889 I PkDeviceHelper: PkDeviceHelper.refreshDevices():87 refreshing devices
+04-26 01:43:46.803  8889  8889 I PkDeviceHelper: PkDeviceHelper.refreshDevices():87 refreshing devices
+04-26 01:43:46.804 22053 22184 W RealtimeClientManager: Channel state: MqttChannelState{mConnectionState=DISCONNECTED, mDisconnectionReason=null, mLastConnectionMs=62265956, mLastDisconnectMs=63002816}
+04-26 01:43:46.804  8889 29523 I DeviceStatusMonitor: DeviceStatusMonitor.handleBroadcast():135 onReceive() : Action = android.intent.action.SCREEN_ON
+04-26 01:43:46.806  8889 29523 I DeviceStatusMonitor: DeviceStatusMonitor.updateCountryInfo():151 updateCountryInfo(), notifyAnyway = false
+04-26 01:43:46.807  8889  8889 I InputBundle: InputBundle.switchToKeyboardDirectly():529 switchToKeyboardDirectly(): ocu[keyboardType=prime, payload=null]
+04-26 01:43:46.808  8889  8889 I InputBundle: InputBundle.switchToKeyboardDirectly():529 switchToKeyboardDirectly(): ocu[keyboardType=prime, payload=null]
+04-26 01:43:46.808  8889  8889 I InputBundle: InputBundle.switchToKeyboardDirectly():529 switchToKeyboardDirectly(): ocu[keyboardType=prime, payload=null]
+04-26 01:43:46.808  8889  8889 I InputBundle: InputBundle.switchToKeyboardDirectly():529 switchToKeyboardDirectly(): ocu[keyboardType=prime, payload=null]
+04-26 01:43:46.808  8889  8889 I InputBundle: InputBundle.switchToKeyboardDirectly():529 switchToKeyboardDirectly(): ocu[keyboardType=prime, payload=null]
+04-26 01:43:46.808  8889  8889 I InputBundle: InputBundle.switchToKeyboardDirectly():529 switchToKeyboardDirectly(): ocu[keyboardType=prime, payload=null]
+04-26 01:43:46.815 22053 22188 E msys    : E[N mns:DGWClient]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:46.832 22053 22188 E msys    : E[N mns:DGWClient]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:46.841 22053 22188 E msys    : E[N mns:DGWClient]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:46.841 22053 22188 E msys    : E[N mns:DGWClient]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:46.869 13241 13241 D BoundBrokerSvc: onBind: Intent { act=com.google.android.gms.onboardingconsent.api.ConsentManagerApiService.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.GmsApiService }
+04-26 01:43:46.869 13241 13241 D BoundBrokerSvc: Loading bound service for intent: Intent { act=com.google.android.gms.onboardingconsent.api.ConsentManagerApiService.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.GmsApiService }
+04-26 01:43:46.891 13241 13257 W ConsentManagerApiServic: Consent Manager API is not enabled. [CONTEXT service_id=460 ]
+04-26 01:43:46.894  2206  9558 I ActivityScheduler: nextTriggerTime: 63142893, in 139987ms, detectorType: 39, FULL_TYPE alarmWindowMillis: 30000
+04-26 01:43:46.989  2206  9723 I NearbyDiscovery: (REDACTED) ApFastPairScanner: isScreenOn=%s, isLocationEnabled=%s, disableLocationRequirement=%s, isDiscoveryScanningEnabled=%s, during24GhzWifiWarmingUpPeriod=%s
+04-26 01:43:46.989  2206  9723 I NearbyDiscovery: (REDACTED) ApFastPairScanner: Start scanning internally, %s
+04-26 01:43:46.989  2206  9723 D BluetoothAdapter: isLeEnabled(): BLE_ON
+04-26 01:43:47.009  2206 29524 W DatabaseProcessor: processLocalDevices: failed to get the network info with non-null networkId.
+04-26 01:43:47.030  2206 19626 D BluetoothLeScanner: onScannerRegistered() - status=0 scannerId=1 mScannerId=0
+04-26 01:43:47.031  2206  2206 I BatchScanningManager: Batch scanner stopped/cancelled (if it was running/scheduled). [CONTEXT service_id=284 ]
+04-26 01:43:47.054  2206  2206 I CastMediaRouteProvider: Published 0 routes
+04-26 01:43:47.056  2206 11638 D BluetoothAdapter: isLeEnabled(): BLE_ON
+04-26 01:43:47.105  2206  9723 I NearbyDiscovery: (REDACTED) ApFastPairScanner: Start scanning, mode=%s
+04-26 01:43:47.108  2206  9723 I NearbyDiscovery: (REDACTED) FastPairHandler: Received action %s
+04-26 01:43:47.109  2206  9723 I NearbyDiscovery: (REDACTED) PureOffloadFastPairScanner: eventType=%s, isInternalReq=%s, isScanning=%s, isScanningAllowed=%s
+04-26 01:43:47.109  2206  9723 I NearbyDiscovery: (REDACTED) ApFastPairScanner: isScreenOn=%s, isLocationEnabled=%s, disableLocationRequirement=%s, isDiscoveryScanningEnabled=%s, during24GhzWifiWarmingUpPeriod=%s
+04-26 01:43:47.109  2206  9723 D BluetoothAdapter: isLeEnabled(): BLE_ON
+04-26 01:43:47.110  2206  9723 I NearbyDiscovery: (REDACTED) ApFastPairScanner: eventType=%s, intReq=%s, scanning=%s, scanAllowed=%s, bleEnabled=%s, lockScanRate=%s, startScanningByLowPowerMode=%s
+04-26 01:43:47.110  2206  9723 I NearbyDiscovery: FastPairController: onSystemStateChanged: skip due to flag disabled [CONTEXT service_id=265 ]
+04-26 01:43:47.234  2206 16251 I NullBinder: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl, calling uid: 1000, calling pid: 0
+04-26 01:43:47.234  2206 16251 W .gms.persistent: Large reply transaction of 1056768 bytes, interface descriptor , code 1
+04-26 01:43:47.243  2206  4336 I MdnsServiceBrowser: (REDACTED) registering %s
+04-26 01:43:47.266  2206 16251 I NullBinder: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl, calling uid: 1000, calling pid: 0
+04-26 01:43:47.267  2206 16251 W .gms.persistent: Large reply transaction of 1056768 bytes, interface descriptor , code 1
+04-26 01:43:47.278  2206 16251 I NullBinder: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl, calling uid: 1000, calling pid: 0
+04-26 01:43:47.289  2206 16251 W .gms.persistent: Large reply transaction of 1056768 bytes, interface descriptor , code 1
+04-26 01:43:47.549 28201 28201 D CellBroadcastReceiver: onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+04-26 01:43:47.550 28201 28201 D CellBroadcastReceiver: onServiceStateChanged, ss: 0
+04-26 01:43:47.553 28201 28201 D CellBroadcastReceiver: networkOperator: 41001
+04-26 01:43:47.560 28201 28201 D CellBroadcastReceiver: update supported roaming operator as 
+04-26 01:43:47.698  2206 11638 I NearbySharing: Network state changed: NetworkState(isRestricted=false, isOnline=true, isCongested=false, isMetered=false, isWifiConnected=true)
+04-26 01:43:47.888 22053 22188 E msys    : E[N mns:DGWClient]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:47.906 22053 22188 E msys    : E[N mns:DGWClient]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:47.942 22053 22260 E msys    : E[N WCCConnectionMEM]_WCCConnectionMEMEmitStateChange(3250)=>[INFO] connection/new_state/connecting [connection_id=348887617, wcc_source=1, wcc_reason=0]
+04-26 01:43:47.942 22053 22260 E msys    : E[C MEMConnectionManager]_MEMConnectionManagerStateChangeHandler(595)=>[Critical] MEMConnectionState updated to ID: 1 with connectionId: 348887617
+04-26 01:43:47.950 22053 22260 E msys    : E[N WCCConnectionMEM]_WCCConnectionMEMDoConnectWithAuthKeys(1557)=>[INFO] connection/connect/start/[host=z-p42-chat-e2ee-ig.facebook.com port=443]/[57.144.148.36:443]/socketAddressCount=1
+04-26 01:43:47.951 22053 22260 E msys    : E[N WCCConnectionMEM]_WCCConnectionMEMLifecycleEventHandler(2229)=>[INFO] connection/xmpp/lifecycle_event/will-connect
+04-26 01:43:47.951 22053 22260 E msys    : E[A WA]WCCHandshakeCreate(191)=>handshake/create, pq mode:0
+04-26 01:43:47.979 22053 25904 W secondary_dns: I/O Exception while trying to resolve z-p42-chat-e2ee-ig.facebook.com
+04-26 01:43:47.979 22053 25904 W secondary_dns: java.io.IOException: sendto failed: EPERM (Operation not permitted)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at libcore.io.IoBridge.maybeThrowAfterSendto(IoBridge.java:721)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at libcore.io.IoBridge.sendto(IoBridge.java:688)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at java.net.PlainDatagramSocketImpl.send(PlainDatagramSocketImpl.java:126)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at java.net.DatagramSocket.send(DatagramSocket.java:723)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at X.0Fnu.A00(Unknown Source:534)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at X.06PT.call(Unknown Source:6)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at X.00GY.run(Unknown Source:2)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at X.01ms.run(:25)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1154)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:652)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at X.01mx.run(:113)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at java.lang.Thread.run(Thread.java:1563)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at X.01my.run(:8)
+04-26 01:43:47.979 22053 25904 W secondary_dns: Caused by: android.system.ErrnoException: sendto failed: EPERM (Operation not permitted)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at libcore.io.Linux.sendtoBytes(Native Method)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at libcore.io.Linux.sendto(Linux.java:276)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at libcore.io.ForwardingOs.sendto(ForwardingOs.java:729)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at libcore.io.BlockGuardOs.sendto(BlockGuardOs.java:398)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at libcore.io.ForwardingOs.sendto(ForwardingOs.java:729)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	at libcore.io.IoBridge.sendto(IoBridge.java:686)
+04-26 01:43:47.979 22053 25904 W secondary_dns: 	... 12 more
+04-26 01:43:47.985 22053 25904 W secondary_dns: I/O Exception while trying to resolve z-p42-chat-e2ee-ig.facebook.com
+04-26 01:43:47.985 22053 25904 W secondary_dns: java.io.IOException: sendto failed: EPERM (Operation not permitted)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at libcore.io.IoBridge.maybeThrowAfterSendto(IoBridge.java:721)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at libcore.io.IoBridge.sendto(IoBridge.java:688)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at java.net.PlainDatagramSocketImpl.send(PlainDatagramSocketImpl.java:126)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at java.net.DatagramSocket.send(DatagramSocket.java:723)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at X.0Fnu.A00(Unknown Source:534)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at X.06PT.call(Unknown Source:6)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at X.00GY.run(Unknown Source:2)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at X.01ms.run(:25)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1154)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:652)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at X.01mx.run(:113)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at java.lang.Thread.run(Thread.java:1563)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at X.01my.run(:8)
+04-26 01:43:47.985 22053 25904 W secondary_dns: Caused by: android.system.ErrnoException: sendto failed: EPERM (Operation not permitted)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at libcore.io.Linux.sendtoBytes(Native Method)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at libcore.io.Linux.sendto(Linux.java:276)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at libcore.io.ForwardingOs.sendto(ForwardingOs.java:729)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at libcore.io.BlockGuardOs.sendto(BlockGuardOs.java:398)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at libcore.io.ForwardingOs.sendto(ForwardingOs.java:729)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	at libcore.io.IoBridge.sendto(IoBridge.java:686)
+04-26 01:43:47.985 22053 25904 W secondary_dns: 	... 12 more
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : Exception thrown during refresh
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : java.util.concurrent.ExecutionException: java.net.UnknownHostException: I/O Exception while trying to resolve z-p42-chat-e2ee-ig.facebook.com
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at com.google.common.util.concurrent.AbstractFuture.A03(Unknown Source:21)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at com.google.common.util.concurrent.AbstractFuture.get(:268435506)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.02yi.A00(:1)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.0FwQ.A06(Unknown Source:0)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.06PW.run(Unknown Source:10)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.02yv.execute(:0)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at com.google.common.util.concurrent.AbstractFuture.A06(Unknown Source:0)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at com.google.common.util.concurrent.AbstractFuture.A05(Unknown Source:88)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at com.google.common.util.concurrent.AbstractFuture.setException(Unknown Source:20)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.04MO.run(Unknown Source:90)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.02yv.execute(:0)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.09Qp.A00(Unknown Source:0)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.09Qp.A01(Unknown Source:31)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.06PU.done(Unknown Source:2)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at java.util.concurrent.FutureTask.finishCompletion(FutureTask.java:434)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at java.util.concurrent.FutureTask.setException(FutureTask.java:303)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at java.util.concurrent.FutureTask.run(FutureTask.java:322)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.00GY.run(Unknown Source:2)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.01ms.run(:25)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1154)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:652)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.01mx.run(:113)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at java.lang.Thread.run(Thread.java:1563)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.01my.run(:8)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : Caused by: java.net.UnknownHostException: I/O Exception while trying to resolve z-p42-chat-e2ee-ig.facebook.com
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.0Fnu.A00(Unknown Source:1315)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at X.06PT.call(Unknown Source:6)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+04-26 01:43:47.987 22053 25904 W X.0FpQ  : 	... 7 more
+04-26 01:43:48.029 22053 22188 E msys    : E[N mns:DGWClient]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:48.037 22053 22188 E msys    : E[N mns:DGWClient]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:48.205 22053 22188 E msys    : E[N mns:DGWClient]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:48.214 22053 22188 E msys    : E[N mns:DGWClient]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:48.808  2206  9718 I FontLog : (REDACTED) Received query %s, URI %s
+04-26 01:43:48.808  2206  9881 I FontLog : (REDACTED) Received query %s, URI %s
+04-26 01:43:48.808  2206  9718 I FontLog : (REDACTED) Query [%s] resolved to %s
+04-26 01:43:48.808  2206  9881 I FontLog : (REDACTED) Query [%s] resolved to %s
+04-26 01:43:48.812  2206  9718 I FontLog : (REDACTED) Fetch %s end status %s
+04-26 01:43:48.813  2206  9881 I FontLog : (REDACTED) Fetch %s end status %s
+04-26 01:43:48.816  2206  9881 I FontLog : (REDACTED) Pulling font file for id = %d, cache size = %d
+04-26 01:43:48.819  2206  9881 I FontLog : (REDACTED) Pulling font file for id = %d, cache size = %d
+04-26 01:43:48.848  2206  9718 I FontLog : (REDACTED) Pulling font file for id = %d, cache size = %d
+04-26 01:43:48.848  2206  9718 I FontLog : (REDACTED) Pulling font file for id = %d, cache size = %d
+04-26 01:43:48.945 22053 22188 E msys    : E[N mns:DGWClient]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:48.951 22053 22188 E msys    : E[N mns:DGWClient]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:49.027  2206 28167 E IPCThreadState: Process seems to be sending too many oneway calls.
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #00 pc 0000000000065ce8  /system/lib64/libbinder.so (android::BpBinder::transact(unsigned int, android::Parcel const&, android::Parcel*, unsigned int)+168) (BuildId: e6789d7a053384b012bb31ba99f3834a)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #01 pc 00000000001a6be8  /system/lib64/libandroid_runtime.so (android_os_BinderProxy_transact(_JNIEnv*, _jobject*, int, _jobject*, _jobject*, int)+152) (BuildId: 635d7301f9bd1eff559880fa80d7c2af)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #02 pc 000000000194305c  /data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot.oat (art_jni_trampoline+140)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #03 pc 0000000000e9e36c  /data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot.oat (android.os.BinderProxy.transact+1260)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #04 pc 00000000019c3f58  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (ezna.g+472)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #05 pc 00000000023b9030  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (ezog.i+176)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #06 pc 0000000000b62f80  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (eznp.h+368)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #07 pc 0000000000b62d44  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (eznp.f+244)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #08 pc 00000000009e0344  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (cwyw.fF+52)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #09 pc 0000000000b18b34  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (cwzh.run+1748)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #10 pc 0000000000c86648  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (halr.run+760)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #11 pc 0000000000a5dadc  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (bjnb.c+300)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #12 pc 0000000000a5e48c  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (bjnb.run+1548)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #13 pc 00000000006cc724  /data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot.oat (java.util.concurrent.ThreadPoolExecutor.runWorker+1044)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #14 pc 00000000006d1230  /data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot.oat (java.util.concurrent.ThreadPoolExecutor$Worker.run+64)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #15 pc 00000000016421d8  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (bjss.run+88)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #16 pc 000000000053e058  /data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot.oat (java.lang.Thread.run+72)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #17 pc 00000000002cdd94  /apex/com.android.art/lib64/libart.so (art_quick_invoke_stub+612) (BuildId: be34fbe63ff357beb403f9cb39923ea7)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #18 pc 000000000026e624  /apex/com.android.art/lib64/libart.so (art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char const*)+220) (BuildId: be34fbe63ff357beb403f9cb39923ea7)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #19 pc 00000000004c3f30  /apex/com.android.art/lib64/libart.so (art::Thread::CreateCallback(void*)+1184) (BuildId: be34fbe63ff357beb403f9cb39923ea7)
+04-26 01:43:49.311  2206 28167 E oneway spamming:   #20 pc 00000000000bc37c  /apex/com.android.runtime/lib64/bionic/libc.so (__pthread_start(void*)+220) (BuildId: 0f222e2a58494f70cc94744d361eaf74)
+04-26 01:43:49.312  2206 28167 E oneway spamming:   #21 pc 00000000000ad600  /apex/com.android.runtime/lib64/bionic/libc.so (__start_thread+64) (BuildId: 0f222e2a58494f70cc94744d361eaf74)
+04-26 01:43:49.312  2206 28167 W BpBinder: Large outgoing transaction of 455988 bytes, interface descriptor , code 4
+04-26 01:43:49.915 13241 15278 D VivoJavaJsonManager: failed to find appName:com.google.android.gms from config key:mProtakePackages
+04-26 01:43:49.916 28998 29204 D VivoJavaJsonManager: failed to find appName:com.vivo.vivo3rdalgoservice from config key:mProtakePackages
+04-26 01:43:50.572 29701 29701 W libc    : Access denied finding property "persist.log.file.process"
+04-26 01:43:50.574 29701 29701 E HidlServiceManagement: Service vendor.vivo.hardware.biometrics.analysis@1.1::IAnalysis/default must be in VINTF manifest in order to register/get.
+04-26 01:43:51.902 13241 13241 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.onboardingconsent.api.ConsentManagerApiService.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.GmsApiService }
+04-26 01:43:53.229  2206  9718 I NullBinder: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl, calling uid: 1000, calling pid: 0
+04-26 01:43:53.229  2206  9718 W .gms.persistent: Large reply transaction of 1056768 bytes, interface descriptor , code 1
+04-26 01:43:53.236  2206  9718 I NullBinder: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl, calling uid: 1000, calling pid: 0
+04-26 01:43:53.236  2206  9718 W .gms.persistent: Large reply transaction of 1056768 bytes, interface descriptor , code 1
+04-26 01:43:53.238  2206  9718 I NullBinder: NullBinder for android.net.action.RECOMMEND_NETWORKS triggering remote TransactionTooLargeException due to Service without Chimera impl, calling uid: 1000, calling pid: 0
+04-26 01:43:53.238  2206  9718 W .gms.persistent: Large reply transaction of 1056768 bytes, interface descriptor , code 1
+04-26 01:43:53.655  2206  2206 I NearbyDiscovery: (REDACTED) FastPairDisplayObserver: %s -> %s
+04-26 01:43:53.656  2206  9723 I NearbyDiscovery: (REDACTED) PureOffloadFastPairScanner: eventType=%s, isInternalReq=%s, isScanning=%s, isScanningAllowed=%s
+04-26 01:43:53.672  8889  8889 I PkDeviceHelper: PkDeviceHelper.refreshDevices():87 refreshing devices
+04-26 01:43:53.674  8889  8889 I PkDeviceHelper: PkDeviceHelper.refreshDevices():87 refreshing devices
+04-26 01:43:53.680  2206  9723 I NearbyDiscovery: (REDACTED) ApFastPairScanner: isScreenOn=%s, isLocationEnabled=%s, disableLocationRequirement=%s, isDiscoveryScanningEnabled=%s, during24GhzWifiWarmingUpPeriod=%s
+04-26 01:43:53.680  2206  9723 D BluetoothAdapter: isLeEnabled(): BLE_ON
+04-26 01:43:53.681  2206  9723 I NearbyDiscovery: (REDACTED) ApFastPairScanner: eventType=%s, intReq=%s, scanning=%s, scanAllowed=%s, bleEnabled=%s, lockScanRate=%s, startScanningByLowPowerMode=%s
+04-26 01:43:53.681  2206  9723 I NearbyDiscovery: (REDACTED) ApFastPairScanner: Stopping scan, %s
+04-26 01:43:53.681  2206  9723 D BluetoothAdapter: isLeEnabled(): BLE_ON
+04-26 01:43:53.728  2206 17426 I NearbySharing: Network state changed: NetworkState(isRestricted=false, isOnline=true, isCongested=false, isMetered=false, isWifiConnected=true)
+04-26 01:43:53.983  8889 29712 I DeviceStatusMonitor: DeviceStatusMonitor.handleBroadcast():135 onReceive() : Action = android.intent.action.SCREEN_OFF
+04-26 01:43:53.983  8889 29712 I DeviceStatusMonitor: DeviceStatusMonitor.updateCountryInfo():151 updateCountryInfo(), notifyAnyway = false
+04-26 01:43:53.987  8889  8889 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():103 repeatCheckTimes = 0, locked = true
+04-26 01:43:53.987  8889  8889 I InputBundle: InputBundle.consumeEvent():1047 Skip consuming an event as imeStatus is INACTIVE
+04-26 01:43:53.988  8889  8889 I InputBundle: InputBundle.switchToKeyboardDirectly():529 switchToKeyboardDirectly(): ocu[keyboardType=prime, payload=null]
+04-26 01:43:53.988  8889  8889 I InputBundle: InputBundle.switchToKeyboardDirectly():529 switchToKeyboardDirectly(): ocu[keyboardType=prime, payload=null]
+04-26 01:43:53.988  8889  8889 I InputBundle: InputBundle.switchToKeyboardDirectly():529 switchToKeyboardDirectly(): ocu[keyboardType=prime, payload=null]
+04-26 01:43:53.989  8889  8889 I InputBundle: InputBundle.switchToKeyboardDirectly():529 switchToKeyboardDirectly(): ocu[keyboardType=prime, payload=null]
+04-26 01:43:53.989  8889  8889 I InputBundle: InputBundle.switchToKeyboardDirectly():529 switchToKeyboardDirectly(): ocu[keyboardType=prime, payload=null]
+04-26 01:43:53.989  8889  8889 I InputBundle: InputBundle.switchToKeyboardDirectly():529 switchToKeyboardDirectly(): ocu[keyboardType=prime, payload=null]
+04-26 01:43:54.021  2206  9558 I ActivityScheduler: nextTriggerTime: 63202893, in 192860ms, detectorType: 39, FULL_TYPE alarmWindowMillis: 100000
+04-26 01:43:54.024  2206  9723 I NearbyDiscovery: (REDACTED) FastPairHandler: Received action %s
+04-26 01:43:54.024  2206  9723 I NearbyDiscovery: (REDACTED) PureOffloadFastPairScanner: eventType=%s, isInternalReq=%s, isScanning=%s, isScanningAllowed=%s
+04-26 01:43:54.025  2206  9723 I NearbyDiscovery: (REDACTED) ApFastPairScanner: isScreenOn=%s, isLocationEnabled=%s, disableLocationRequirement=%s, isDiscoveryScanningEnabled=%s, during24GhzWifiWarmingUpPeriod=%s
+04-26 01:43:54.026  2206  9723 D BluetoothAdapter: isLeEnabled(): BLE_ON
+04-26 01:43:54.026  2206  9723 I NearbyDiscovery: (REDACTED) ApFastPairScanner: eventType=%s, intReq=%s, scanning=%s, scanAllowed=%s, bleEnabled=%s, lockScanRate=%s, startScanningByLowPowerMode=%s
+04-26 01:43:54.027  2206  9723 I NearbyDiscovery: FastPairController: onSystemStateChanged: skip due to flag disabled [CONTEXT service_id=265 ]
+04-26 01:43:54.042  2206  2206 I BatchScanningManager: (REDACTED) Starting batch scanner in %d seconds.
+04-26 01:43:54.055 22053 22188 E msys    : E[N mns:DGWClient]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:54.060 22053 22188 E msys    : E[N mns:DGWClient]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:54.061 22053 22188 E msys    : E[N mns:DGWClient]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:54.063 22053 22188 E msys    : E[N mns:DGWClient]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:55.018 22053 22188 E msys    : E[N mns:DGWClient]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:55.024 22053 22188 E msys    : E[N mns:DGWClient]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:55.053  1759  1898 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:55.053  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:55.053  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:55.055  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:55.151 22053 22188 E msys    : E[N mns:DGWClient]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:55.162 22053 22188 E msys    : E[N mns:DGWClient]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:55.563  2206  2206 D BoundBrokerSvc: onRebind: Intent { act=com.google.android.gms.time.trustedtime.service.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.PersistentDirectBootAwareApiService }
+04-26 01:43:55.582  1759  1898 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:43:55.582  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:55.582  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:55.583  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:55.597  2206  2206 D BoundBrokerSvc: onBind: Intent { act=com.google.android.gms.time.trustedtime.singleuserapi.service.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.PersistentSingleUserInternalApiService }
+04-26 01:43:55.597  2206  2206 D BoundBrokerSvc: Loading bound service for intent: Intent { act=com.google.android.gms.time.trustedtime.singleuserapi.service.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.PersistentSingleUserInternalApiService }
+04-26 01:43:55.619  2206  2206 D BoundBrokerSvc: onRebind: Intent { act=com.google.android.gms.common.telemetry.service.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.PersistentApiService }
+04-26 01:43:55.910 22053 22188 E msys    : E[N mns:DGWClient]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:55.919 22053 22188 E msys    : E[N mns:DGWClient]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:56.488 22053 22188 E msys    : E[N mns:DGWClient]_OnDiskCacheGetData(1091)=>Start post callback cache refresh DNS resolution
+04-26 01:43:56.494 22053 22188 E msys    : E[N mns:DGWClient]_LogError(280)=>Failed to resolve using system DNS resolver, getaddrinfo(): No address associated with hostname
+04-26 01:43:58.017  1759  2542 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:58.017  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:58.017  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:58.018  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:43:58.252 22053 25239 E msys    : E[N mccw.liger]onConnectError(579)=>connect/error - address: 57.144.148.36, port: 5222, ex: folly::AsyncSocketException: AsyncSocketException: connect timed out after 9999ms, type = Timed out
+04-26 01:43:58.501 22053 25239 E msys    : E[N mccw.liger]onConnectError(579)=>connect/error - address: 57.144.148.36, port: 443, ex: folly::AsyncSocketException: AsyncSocketException: connect timed out after 9999ms, type = Timed out
+04-26 01:43:59.965  1759  2523 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:43:59.965  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:43:59.965  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:43:59.967  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:44:00.264  1759  2523 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:44:00.264  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:44:00.264  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:44:00.265  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:44:01.687  1759  2523 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:44:01.688  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:44:01.688  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:44:01.689  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:44:01.853  2206  2206 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.common.telemetry.service.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.PersistentApiService }
+04-26 01:44:02.593  1759  2523 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:44:02.593  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:44:02.593  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:44:02.594  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:44:03.067  2206  2206 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.findmydevice.spot.service.locationreport.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.PersistentApiService }
+04-26 01:44:04.773  1759  2523 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:44:04.773  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:44:04.774  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:44:04.774  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:44:05.078  1759  2523 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:44:05.078  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:44:05.078  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:44:05.079  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:44:06.696  1759  2523 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:44:06.696  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:44:06.696  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:44:06.697  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:44:07.048 13241 13241 D BoundBrokerSvc: onBind: Intent { act=com.google.android.gms.auth.service.START pkg=com.google.android.gms }
+04-26 01:44:07.049 13241 13241 D BoundBrokerSvc: Loading bound service for intent: Intent { act=com.google.android.gms.auth.service.START pkg=com.google.android.gms }
+04-26 01:44:07.126  2206 11638 I NearbyPresence: (REDACTED) %s verified [==] new request %s equals to the old request
+04-26 01:44:07.148 13241 13241 D BoundBrokerSvc: onBind: Intent { act=com.google.android.gms.notifications.capping.api.NotificationsCappingApiService.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.GmsApiService }
+04-26 01:44:07.148 13241 13241 D BoundBrokerSvc: Loading bound service for intent: Intent { act=com.google.android.gms.notifications.capping.api.NotificationsCappingApiService.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.GmsApiService }
+04-26 01:44:07.275  2206 28167 E IPCThreadState: Process seems to be sending too many oneway calls.
+04-26 01:44:07.393  2206  2206 D BoundBrokerSvc: onRebind: Intent { act=com.google.android.gms.common.telemetry.service.START dat=chimera-action:/... cmp=com.google.android.gms/.chimera.PersistentApiService }
+04-26 01:44:07.411  2206 28167 E oneway spamming:   #00 pc 0000000000065ce8  /system/lib64/libbinder.so (android::BpBinder::transact(unsigned int, android::Parcel const&, android::Parcel*, unsigned int)+168) (BuildId: e6789d7a053384b012bb31ba99f3834a)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #01 pc 00000000001a6be8  /system/lib64/libandroid_runtime.so (android_os_BinderProxy_transact(_JNIEnv*, _jobject*, int, _jobject*, _jobject*, int)+152) (BuildId: 635d7301f9bd1eff559880fa80d7c2af)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #02 pc 000000000194305c  /data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot.oat (art_jni_trampoline+140)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #03 pc 0000000000e9e36c  /data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot.oat (android.os.BinderProxy.transact+1260)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #04 pc 00000000019c3f58  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (ezna.g+472)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #05 pc 00000000023b9030  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (ezog.i+176)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #06 pc 0000000000b62f80  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (eznp.h+368)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #07 pc 0000000000b62d44  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (eznp.f+244)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #08 pc 00000000009e0344  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (cwyw.fF+52)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #09 pc 0000000000b18b34  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (cwzh.run+1748)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #10 pc 0000000000c86648  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (halr.run+760)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #11 pc 0000000000a5dadc  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (bjnb.c+300)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #12 pc 0000000000a5e48c  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (bjnb.run+1548)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #13 pc 00000000006cc724  /data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot.oat (java.util.concurrent.ThreadPoolExecutor.runWorker+1044)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #14 pc 00000000006d1230  /data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot.oat (java.util.concurrent.ThreadPoolExecutor$Worker.run+64)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #15 pc 00000000016421d8  /data/app/~~PYnKU5Z599psWWlvPhrNLw==/com.google.android.gms-FH-toDp1zafYzagLL2dA_Q==/oat/arm64/base.odex (bjss.run+88)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #16 pc 000000000053e058  /data/misc/apexdata/com.android.art/dalvik-cache/arm64/boot.oat (java.lang.Thread.run+72)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #17 pc 00000000002cdd94  /apex/com.android.art/lib64/libart.so (art_quick_invoke_stub+612) (BuildId: be34fbe63ff357beb403f9cb39923ea7)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #18 pc 000000000026e624  /apex/com.android.art/lib64/libart.so (art::ArtMethod::Invoke(art::Thread*, unsigned int*, unsigned int, art::JValue*, char const*)+220) (BuildId: be34fbe63ff357beb403f9cb39923ea7)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #19 pc 00000000004c3f30  /apex/com.android.art/lib64/libart.so (art::Thread::CreateCallback(void*)+1184) (BuildId: be34fbe63ff357beb403f9cb39923ea7)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #20 pc 00000000000bc37c  /apex/com.android.runtime/lib64/bionic/libc.so (__pthread_start(void*)+220) (BuildId: 0f222e2a58494f70cc94744d361eaf74)
+04-26 01:44:07.412  2206 28167 E oneway spamming:   #21 pc 00000000000ad600  /apex/com.android.runtime/lib64/bionic/libc.so (__start_thread+64) (BuildId: 0f222e2a58494f70cc94744d361eaf74)
+04-26 01:44:07.412  2206 28167 W BpBinder: Large outgoing transaction of 455988 bytes, interface descriptor , code 4
+04-26 01:44:07.553  2206  4083 I .gms.persistent: Background young concurrent copying GC freed 6396KB AllocSpace bytes, 14(632KB) LOS objects, 21% free, 24MB/30MB, paused 5.801ms,145us total 116.819ms
+04-26 01:44:07.756 13241 13241 D BoundBrokerSvc: onBind: Intent { act=com.google.android.mobstore.service.START pkg=com.google.android.gms }
+04-26 01:44:07.756 13241 13241 D BoundBrokerSvc: Loading bound service for intent: Intent { act=com.google.android.mobstore.service.START pkg=com.google.android.gms }
+04-26 01:44:09.157  1759  1777 V BatteryStatsService: In wakeup_callback: resumed from suspend
+04-26 01:44:09.158  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:44:09.158  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:44:09.159  1759  1865 V BatteryStatsService: Waiting for wakeup...
+04-26 01:44:09.656  1759  1777 V BatteryStatsService: In wakeup_callback: suspend aborted
+04-26 01:44:09.656  1759  1865 V BatteryStatsService: Reading wakeup reasons
+04-26 01:44:09.656  1759  1865 V BatteryStatsService: Got 1 reasons
+04-26 01:44:09.657  1759  1865 V BatteryStatsService: Waiting for wakeup...

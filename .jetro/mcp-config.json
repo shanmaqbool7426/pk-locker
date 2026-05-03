@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "jetro": {
+      "command": "C:\\Users\\shanm\\.jetro\\runtime\\node-win32-x64.exe",
+      "args": [
+        "C:\\Users\\shanm\\.jetro\\mcp-server\\index.js"
+      ],
+      "env": {
+        "JET_WORKSPACE": "d:\\personal-projects\\pk-locker\\PKlocker",
+        "JET_API_URL": "https://api.jetro.ai",
+        "PATH": "C:\\Users\\shanm\\.jetro\\runtime;C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.18.8-hotspot\\bin;C:\\Windows\\system32;C:\\Windows;C:\\Windows\\System32\\Wbem;C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\;C:\\Windows\\System32\\OpenSSH\\;C:\\Program Files\\nodejs\\;C:\\Program Files\\Git\\cmd;C:\\Program Files\\Java\\jdk-17\\bin;C:\\Users\\shanm\\.local\\bin;C:\\Users\\shanm\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Users\\shanm\\AppData\\Roaming\\npm;C:\\Users\\shanm\\AppData\\Local\\Programs\\Antigravity\\bin;C:\\Users\\shanm\\AppData\\Local\\Programs\\cursor\\resources\\app\\bin;C:\\Program Files\\Java\\jdk-17;"
+      }
+    }
+  }
+}

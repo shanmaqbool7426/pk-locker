@@ -6,6 +6,14 @@
         <entry key="Firebase Crashlytics">
           <value>
             <InsightsFilterSettings>
+              <option name="connection">
+                <ConnectionSetting>
+                  <option name="appId" value="com.pksafe.lock.manager" />
+                  <option name="mobileSdkAppId" value="1:67959442232:android:e66e56e0e4d67caab04fcd" />
+                  <option name="projectId" value="pk-locker" />
+                  <option name="projectNumber" value="67959442232" />
+                </ConnectionSetting>
+              </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
               <option name="timeIntervalDays" value="THIRTY_DAYS" />
               <option name="visibilityType" value="ALL" />

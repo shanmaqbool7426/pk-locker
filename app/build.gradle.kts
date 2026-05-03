@@ -6,16 +6,17 @@ plugins {
 }
 
 android {
-    namespace = "com.example.pklocker"
+    // CHANGED: Matching namespace to avoid "example" triggers
+    namespace = "com.pksafe.lock.manager"
     compileSdk = 35
 
     defaultConfig {
-        // CHANGED: Removed "com.example" to bypass Play Protect block
-        applicationId = "com.pklocker.enterprise"
+        // CHANGED: New professional ID to clear Play Protect history
+        applicationId = "com.pksafe.lock.manager"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations += "en"
@@ -103,6 +104,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.zxing.core)
+    implementation(libs.nanohttpd)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

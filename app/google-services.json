@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "67959442232",
+    "project_id": "pk-locker",
+    "storage_bucket": "pk-locker.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:67959442232:android:b3d59e7443d2eabeb04fcd",
+        "android_client_info": {
+          "package_name": "com.example.pklocker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDAVgP-Um43p1wK-XCEW0YnILv-7rexZKA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:67959442232:android:9b2a31dfa35b4773b04fcd",
+        "android_client_info": {
+          "package_name": "com.pklocker.enterprise"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDAVgP-Um43p1wK-XCEW0YnILv-7rexZKA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:67959442232:android:e66e56e0e4d67caab04fcd",
+        "android_client_info": {
+          "package_name": "com.pksafe.lock.manager"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDAVgP-Um43p1wK-XCEW0YnILv-7rexZKA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

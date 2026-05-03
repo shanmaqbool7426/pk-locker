@@ -19,6 +19,7 @@ workRuntime = "2.10.0"
 coil = "2.7.0"
 foundation = "1.7.5"
 zxing = "3.5.3"
+nanohttpd = "2.3.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -52,6 +53,7 @@ play-services-location = { group = "com.google.android.gms", name = "play-servic
 play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version = "19.0.0" }
 maps-compose = { group = "com.google.maps.android", name = "maps-compose", version = "6.1.2" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanohttpd" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

