@@ -34,124 +34,148 @@ fun SignupScreen(
     if (viewModel.isSignupSuccess) {
         AlertDialog(
             onDismissRequest = { viewModel.isSignupSuccess = false; onBackToLogin() },
-            title = { Text("Success") },
+            title = { Text("Success", fontWeight = FontWeight.Bold) },
             text = { Text(viewModel.message ?: "Account created successfully") },
             confirmButton = {
-                Button(onClick = { viewModel.isSignupSuccess = false; onBackToLogin() }) {
-                    Text("Go to Login")
+                Button(onClick = { viewModel.isSignupSuccess = false; onBackToLogin() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))) {
+                    Text("Go to Login", fontWeight = FontWeight.Bold)
                 }
-            }
+            },
+            shape = RoundedCornerShape(16.dp),
+            containerColor = Color.White
         )
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(Color(0xFF8D6E63), Color(0xFFF5F7FA))
-                )
-            )
+            .background(Color(0xFFF8FAFC))
     ) {
+        // Subtle Background Design Element
+        Box(
+            modifier = Modifier
+                .size(400.dp)
+                .offset(y = (-200).dp, x = 100.dp)
+                .background(Brush.radialGradient(listOf(Color(0xFF2563EB).copy(0.08f), Color.Transparent)))
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .padding(24.dp),
+                .padding(28.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(40.dp))
             
             Text(
-                text = "Join PK Locker",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color.White
+                text = "PK LOCKER",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Black,
+                color = Color(0xFF0F172A),
+                letterSpacing = 2.sp
             )
             Text(
-                text = "Create Shopkeeper Account",
-                fontSize = 16.sp,
-                color = Color.White.copy(alpha = 0.8f)
+                text = "SHOPKEEPER REGISTRATION",
+                fontSize = 11.sp,
+                color = Color(0xFF2563EB),
+                fontWeight = FontWeight.Black,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(top = 4.dp)
             )
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(32.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(8.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    OutlinedTextField(
+                    // --- FREE KEYS BANNER ---
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 24.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.CardGiftcard, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(28.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Sign Up Bonus!", fontWeight = FontWeight.ExtraBold, color = Color(0xFFB45309), fontSize = 16.sp)
+                                Text("Get 5 FREE keys instantly.", color = Color(0xFF92400E), fontSize = 13.sp)
+                            }
+                        }
+                    }
+
+                    LoginInput(
                         value = viewModel.name,
                         onValueChange = { viewModel.name = it },
-                        label = { Text("Full Name") },
-                        modifier = Modifier.fillMaxWidth(),
-                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                        shape = RoundedCornerShape(12.dp)
+                        label = "FULL NAME",
+                        icon = Icons.Default.Person
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    OutlinedTextField(
+                    LoginInput(
                         value = viewModel.shopName,
                         onValueChange = { viewModel.shopName = it },
-                        label = { Text("Shop Name") },
-                        modifier = Modifier.fillMaxWidth(),
-                        leadingIcon = { Icon(Icons.Default.Storefront, contentDescription = null) },
-                        shape = RoundedCornerShape(12.dp)
+                        label = "SHOP NAME",
+                        icon = Icons.Default.Storefront
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    OutlinedTextField(
+                    LoginInput(
                         value = viewModel.email,
                         onValueChange = { viewModel.email = it },
-                        label = { Text("Email Address") },
-                        modifier = Modifier.fillMaxWidth(),
-                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                        shape = RoundedCornerShape(12.dp)
+                        label = "EMAIL ADDRESS",
+                        icon = Icons.Default.Email,
+                        keyboardType = KeyboardType.Email
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    OutlinedTextField(
+                    LoginInput(
                         value = viewModel.phone,
                         onValueChange = { viewModel.phone = it },
-                        label = { Text("Phone Number") },
-                        modifier = Modifier.fillMaxWidth(),
-                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        shape = RoundedCornerShape(12.dp)
+                        label = "PHONE NUMBER",
+                        icon = Icons.Default.Phone,
+                        keyboardType = KeyboardType.Phone
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    var passwordVisible by remember { mutableStateOf(false) }
-
-                    OutlinedTextField(
+                    LoginInput(
                         value = viewModel.password,
                         onValueChange = { viewModel.password = it },
-                        label = { Text("Password") },
-                        modifier = Modifier.fillMaxWidth(),
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                        trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(
-                                    imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                                )
-                            }
-                        },
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        shape = RoundedCornerShape(12.dp)
+                        label = "PASSWORD",
+                        icon = Icons.Default.Lock,
+                        isPassword = true
                     )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    LoginInput(
+                        value = viewModel.referredByPhone,
+                        onValueChange = { viewModel.referredByPhone = it },
+                        label = "REFERRER'S PHONE (OPTIONAL)",
+                        icon = Icons.Default.GroupAdd,
+                        keyboardType = KeyboardType.Phone
+                    )
+                    
+                    Text("Enter the phone number of the person who referred you.", fontSize = 10.sp, color = Color(0xFF64748B), modifier = Modifier.padding(top = 4.dp).align(Alignment.Start))
 
                     Spacer(modifier = Modifier.height(32.dp))
 
@@ -159,29 +183,39 @@ fun SignupScreen(
                         onClick = { viewModel.onSignupClick() },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
+                            .height(60.dp),
                         enabled = !viewModel.isLoading,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8D6E63))
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                     ) {
                         if (viewModel.isLoading) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
                         } else {
-                            Text("Register Account", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text("CREATE ACCOUNT", fontSize = 15.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                         }
                     }
 
                     viewModel.message?.let {
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(text = it, color = if (viewModel.isSignupSuccess) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error)
+                        Text(
+                            text = it, 
+                            color = if (viewModel.isSignupSuccess) Color(0xFF059669) else Color(0xFFDC2626),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            TextButton(onClick = onBackToLogin) {
-                Text("Already have an account? Login", color = Color(0xFF8D6E63), fontWeight = FontWeight.Bold)
+            // BACK TO LOGIN SECTION
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Already have an account?", fontSize = 13.sp, color = Color(0xFF64748B))
+                TextButton(onClick = onBackToLogin) {
+                    Text("Sign In", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+                }
             }
             
             Spacer(modifier = Modifier.height(48.dp))

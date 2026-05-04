@@ -15,7 +15,7 @@ data class Shopkeeper(
 data class LoginRequest(val email: String, val password: String)
 data class LoginResponse(val success: Boolean, val message: String, val token: String? = null, val shopkeeper: Shopkeeper? = null)
 
-data class SignupRequest(val name: String, val email: String, val password: String, val phone: String, val shopName: String, val role: String = "shopkeeper")
+data class SignupRequest(val name: String, val email: String, val password: String, val phone: String, val shopName: String, val role: String = "shopkeeper", val referredByPhone: String? = null)
 data class SignupResponse(val success: Boolean, val message: String, val shopkeeper: Shopkeeper? = null)
 
 // --- Dashboard Stats ---
@@ -46,17 +46,24 @@ data class DeviceListResponse(val success: Boolean, val count: Int, val data: Li
 
 data class DeviceResponse(
     @SerializedName("imei") val imei: String,
+    @SerializedName("imei2") val imei2: String? = null,
     @SerializedName("customerName") val customerName: String,
     @SerializedName("cnic") val cnic: String,
     @SerializedName("phoneNumber") val phoneNumber: String,
+    @SerializedName("profilePicture") val profilePicture: String? = null,
+    @SerializedName("cnicProofImage") val cnicProofImage: String? = null,
     @SerializedName("brand") val brand: String? = null,
     @SerializedName("model") val model: String? = null,
     @SerializedName("androidVersion") val androidVersion: String? = null,
     @SerializedName("status") val status: String = "Unlocked",
+    @SerializedName("productName") val productName: String? = null,
+    @SerializedName("totalPrice") val totalPrice: Double = 0.0,
+    @SerializedName("downPayment") val downPayment: Double = 0.0,
+    @SerializedName("balance") val balance: Double = 0.0,
     @SerializedName("emiTenure") val emiTenure: Int = 0,
     @SerializedName("emiAmount") val emiAmount: Double = 0.0,
-    @SerializedName("totalPrice") val totalPrice: Double = 0.0,
     @SerializedName("emiStartDate") val emiStartDate: String? = null,
+    @SerializedName("guarantor") val guarantor: Guarantor? = null,
     @SerializedName("registeredAt") val registeredAt: String? = null,
     @SerializedName("smsCodes") val smsCodes: SmsCodes? = null,
     @SerializedName("controls") val controls: DeviceControls? = null,
@@ -176,6 +183,7 @@ data class DeviceRegistrationRequest(
     val emiAmount: Double = 0.0,
     val fcmToken: String? = null,
     val guarantor: Guarantor? = null,
+    val profilePicture: String? = null, // NEW: Customer Profile Photo
     val cnicProofImage: String? = null // NEW: Customer CNIC Proof
 )
 
@@ -188,3 +196,33 @@ data class Guarantor(
 data class RegistrationResponse(val success: Boolean, val message: String, val device: DeviceSummary? = null)
 data class DeviceSummary(val id: String, val imei: String, val customerName: String, val smsCodes: SmsCodes? = null)
 data class AdvancedControlRequest(val action: String, val state: Any)
+
+// --- Key Orders ---
+data class KeyOrder(
+    @SerializedName("_id") val id: String,
+    @SerializedName("shopkeeper") val shopkeeper: ShopkeeperSummary?,
+    @SerializedName("platform") val platform: String,
+    @SerializedName("numKeys") val numKeys: Int,
+    @SerializedName("unitPrice") val unitPrice: Double,
+    @SerializedName("totalAmount") val totalAmount: Double,
+    @SerializedName("status") val status: String, // Pending, Approved, Rejected
+    @SerializedName("paymentProofImage") val paymentProofImage: String? = null,
+    @SerializedName("createdAt") val createdAt: String
+)
+
+data class ShopkeeperSummary(
+    @SerializedName("_id") val id: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("email") val email: String,
+    @SerializedName("phone") val phone: String,
+    @SerializedName("shopName") val shopName: String
+)
+
+data class KeyOrderListResponse(val success: Boolean, val data: List<KeyOrder>)
+data class GenericResponse(val success: Boolean, val message: String)
+
+data class KeyRequest(
+    val numKeys: Int,
+    val paymentProofImage: String,
+    val platform: String = "android"
+)

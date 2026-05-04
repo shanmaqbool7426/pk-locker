@@ -157,6 +157,31 @@ interface ApiService {
     suspend fun getKeyHistory(
         @Header("Authorization") token: String
     ): Response<KeyHistoryResponse>
+
+    // --- Admin Key Management ---
+    @GET("admin/key-orders")
+    suspend fun getAdminKeyOrders(
+        @Header("Authorization") token: String
+    ): Response<KeyOrderListResponse>
+
+    @POST("key-orders/request")
+    suspend fun submitKeyRequest(
+        @Header("Authorization") token: String,
+        @Body request: KeyRequest
+    ): Response<KeyOrderListResponse>
+
+    @POST("admin/key-orders/{id}/approve")
+    suspend fun approveKeyOrder(
+        @Header("Authorization") token: String,
+        @Path("id") id: String
+    ): Response<GenericResponse>
+
+    @POST("admin/key-orders/{id}/reject")
+    suspend fun rejectKeyOrder(
+        @Header("Authorization") token: String,
+        @Path("id") id: String,
+        @Body body: Map<String, String> // ["notes" to "..."]
+    ): Response<GenericResponse>
 }
 
 data class WalletPayRequest(

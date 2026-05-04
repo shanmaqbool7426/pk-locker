@@ -26,18 +26,19 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pksafe.lock.manager.ui.theme.BrandBlue
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 // Consistent Premium Theme Colors
 private val SoftBg = Color(0xFFF8FAFC)
 private val CardWhite = Color.White
-private val BrandBlue = Color(0xFF2563EB)
 private val TextTitle = Color(0xFF0F172A)
 private val TextMuted = Color(0xFF64748B)
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
+    onNavigateToSignup: () -> Unit,
     viewModel: LoginViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -150,14 +151,14 @@ fun LoginScreen(
 
             Text(
                 text = "PK LOCKER",
-                fontSize = 24.sp,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Black,
                 color = TextTitle,
-                letterSpacing = 4.sp
+                letterSpacing = 2.sp
             )
             Text(
-                text = "SECURE ADMINISTRATIVE TERMINAL",
-                fontSize = 10.sp,
+                text = "SECURE DEVICE MANAGEMENT",
+                fontSize = 11.sp,
                 color = BrandBlue,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 1.sp,
@@ -175,15 +176,15 @@ fun LoginScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
-                    Text("Administrative Access", fontWeight = FontWeight.Black, fontSize = 20.sp, color = TextTitle)
-                    Text("Enter valid clearance credentials.", fontSize = 13.sp, color = TextMuted)
+                    Text("Shopkeeper Login", fontWeight = FontWeight.Black, fontSize = 22.sp, color = TextTitle)
+                    Text("Enter your email and password to access dashboard.", fontSize = 13.sp, color = TextMuted)
                     
                     Spacer(modifier = Modifier.height(32.dp))
                     
                     LoginInput(
                         value = viewModel.email,
                         onValueChange = { viewModel.email = it },
-                        label = "ACCESS EMAIL",
+                        label = "EMAIL ADDRESS",
                         icon = Icons.Default.Email
                     )
 
@@ -192,7 +193,7 @@ fun LoginScreen(
                     LoginInput(
                         value = viewModel.password,
                         onValueChange = { viewModel.password = it },
-                        label = "SECURITY PASSWORD",
+                        label = "PASSWORD",
                         icon = Icons.Default.PhonelinkLock,
                         isPassword = true
                     )
@@ -210,7 +211,7 @@ fun LoginScreen(
                         if (viewModel.isLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp, color = Color.White)
                         } else {
-                            Text("SIGN IN TO TERMINAL", fontWeight = FontWeight.Black, fontSize = 15.sp, letterSpacing = 1.sp)
+                            Text("SIGN IN", fontWeight = FontWeight.Black, fontSize = 15.sp, letterSpacing = 1.sp)
                         }
                     }
                     
@@ -227,10 +228,22 @@ fun LoginScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(60.dp))
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // SIGN UP SECTION
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("New to PK Locker?", fontSize = 13.sp, color = TextMuted)
+                TextButton(onClick = onNavigateToSignup) {
+                    Text("Create Account", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = BrandBlue)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Divider(color = Color(0xFFE2E8F0), modifier = Modifier.padding(horizontal = 40.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             
-            // Subtle Setup Area
-            Text("NOT AN ADMINISTRATOR?", fontSize = 11.sp, fontWeight = FontWeight.Black, color = TextMuted, letterSpacing = 1.sp)
+            // Subtle Setup Area (For Customers)
+            Text("NOT A SHOPKEEPER?", fontSize = 11.sp, fontWeight = FontWeight.Black, color = TextMuted, letterSpacing = 1.sp)
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedButton(
@@ -242,7 +255,7 @@ fun LoginScreen(
             ) {
                 Icon(Icons.Default.Dns, null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(12.dp))
-                Text("SETUP INDIVIDUAL TERMINAL", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text("SETUP CUSTOMER LOCK SCREEN", fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
 
             Spacer(modifier = Modifier.height(40.dp))

@@ -2,6 +2,7 @@ package com.pksafe.lock.manager.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+val BrandBlue = Color(0xFF2563EB)
 val PrimaryDark = Color(0xFF1A1A1A)
 val AccentOrange = Color(0xFFF57C00)
 val BackgroundGray = Color(0xFFF8F9FA)

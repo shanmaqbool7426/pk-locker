@@ -47,6 +47,7 @@ class RegistrationViewModel : ViewModel() {
     var guarantorAddress by mutableStateOf("")
     var customerCnicImage by mutableStateOf<String?>(null) // Base64
     var guarantorCnicImage by mutableStateOf<String?>(null) // Base64
+    var profilePicture by mutableStateOf<String?>(null) // Base64
 
     var isLoading by mutableStateOf(false)
     var message by mutableStateOf<String?>(null)
@@ -90,10 +91,15 @@ class RegistrationViewModel : ViewModel() {
         viewModelScope.launch {
             isLoading = true
             try {
-                val total = totalPrice.toDoubleOrNull() ?: 0.0
-                val down = downPayment.toDoubleOrNull() ?: 0.0
+                // Clean numeric inputs (remove commas/spaces)
+                val cleanTotalStr = totalPrice.replace(",", "").trim()
+                val cleanDownStr = downPayment.replace(",", "").trim()
+                val cleanTenureStr = emiTenure.replace(",", "").trim()
+
+                val total = cleanTotalStr.toDoubleOrNull() ?: 0.0
+                val down = cleanDownStr.toDoubleOrNull() ?: 0.0
                 val balance = total - down
-                val tenureInt = emiTenure.toIntOrNull() ?: 0
+                val tenureInt = cleanTenureStr.toIntOrNull() ?: 0
                 val emiAmount = if (tenureInt > 0) balance / tenureInt else 0.0
 
                 val request = DeviceRegistrationRequest(
@@ -118,6 +124,7 @@ class RegistrationViewModel : ViewModel() {
                         address = guarantorAddress,
                         cnicProofImage = guarantorCnicImage
                     ),
+                    profilePicture = profilePicture,
                     cnicProofImage = customerCnicImage
                 )
                 
@@ -176,7 +183,8 @@ class RegistrationViewModel : ViewModel() {
             val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
             val bytes = inputStream?.readBytes()
             if (bytes != null) {
-                Base64.encodeToString(bytes, Base64.DEFAULT)
+                // Use NO_WRAP to avoid newlines in the base64 string
+                Base64.encodeToString(bytes, Base64.NO_WRAP)
             } else null
         } catch (e: Exception) {
             null

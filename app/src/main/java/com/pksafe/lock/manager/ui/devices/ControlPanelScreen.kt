@@ -41,6 +41,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pksafe.lock.manager.data.DeviceResponse
 import com.pksafe.lock.manager.ui.theme.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import coil.compose.AsyncImage
 
 // Consistent Premium Theme Colors
 private val SoftBg = Color(0xFFF8FAFC)
@@ -634,28 +635,95 @@ fun SmsKeyRow(label: String, code: String) {
 
 @Composable
 fun HardwareTechTab(device: DeviceResponse?) {
-    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(modifier = Modifier.padding(20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("DEVICE IDENTITY", fontWeight = FontWeight.Black, fontSize = 11.sp, color = BrandBlue, letterSpacing = 2.sp)
+        PremiumInfoCard("Product Name", device?.productName ?: "N/A", Icons.Default.Inventory2)
         PremiumInfoCard("Model Identifier", "${device?.brand} ${device?.model ?: "Generic"}", Icons.Default.Smartphone)
         PremiumInfoCard("System Version", "Android ${device?.androidVersion ?: "14.x"}", Icons.Default.Android)
-        PremiumInfoCard("IMEI / Serial", device?.imei ?: "N/A", Icons.Default.QrCodeScanner)
+        
+        Spacer(Modifier.height(8.dp))
+        Text("SECURITY IDS", fontWeight = FontWeight.Black, fontSize = 11.sp, color = BrandBlue, letterSpacing = 2.sp)
+        PremiumInfoCard("Primary IMEI", device?.imei ?: "N/A", Icons.Default.QrCodeScanner)
+        PremiumInfoCard("Secondary IMEI (SIM 2)", device?.imei2 ?: "N/A", Icons.Default.SimCard)
     }
 }
 
 @Composable
 fun CustomerProfileTab(device: DeviceResponse?) {
-    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val scrollState = rememberScrollState()
+    Column(modifier = Modifier.padding(20.dp).verticalScroll(scrollState), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        
+        Text("CUSTOMER PROFILE", fontWeight = FontWeight.Black, fontSize = 11.sp, color = BrandBlue, letterSpacing = 2.sp)
+        
+        // Profile Photo if available
+        if (!device?.profilePicture.isNullOrBlank()) {
+            PremiumImageCard("Profile Photo", device!!.profilePicture!!)
+        }
+
         PremiumInfoCard("Account Holder", device?.customerName ?: "N/A", Icons.Default.Person)
         PremiumInfoCard("Primary Contact", device?.phoneNumber ?: "N/A", Icons.Default.Call)
         PremiumInfoCard("Identity (CNIC)", device?.cnic ?: "N/A", Icons.Default.Badge)
+        
+        if (!device?.cnicProofImage.isNullOrBlank()) {
+            PremiumImageCard("Customer CNIC Proof", device!!.cnicProofImage!!)
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Text("GUARANTOR INFORMATION", fontWeight = FontWeight.Black, fontSize = 11.sp, color = BrandBlue, letterSpacing = 2.sp)
+        
+        val guarantor = device?.guarantor
+        PremiumInfoCard("Guarantor Name", guarantor?.name ?: "N/A", Icons.Default.VerifiedUser)
+        PremiumInfoCard("Guarantor Contact", guarantor?.mobile ?: "N/A", Icons.Default.Call)
+        PremiumInfoCard("Guarantor Address", guarantor?.address ?: "N/A", Icons.Default.Home)
+        
+        if (!guarantor?.cnicProofImage.isNullOrBlank()) {
+            PremiumImageCard("Guarantor CNIC Proof", guarantor!!.cnicProofImage!!)
+        }
+        
+        Spacer(Modifier.height(20.dp))
     }
 }
 
 @Composable
 fun EmiLedgerTab(device: DeviceResponse?) {
-    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        PremiumInfoCard("Total Credit", "PKR ${device?.totalPrice ?: "0"}", Icons.Default.AccountBalance)
+    Column(modifier = Modifier.padding(20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("FINANCIAL SUMMARY", fontWeight = FontWeight.Black, fontSize = 11.sp, color = BrandBlue, letterSpacing = 2.sp)
+        
+        PremiumInfoCard("Total Credit Price", "PKR ${device?.totalPrice ?: "0"}", Icons.Default.AccountBalance)
+        PremiumInfoCard("Down Payment Received", "PKR ${device?.downPayment ?: "0"}", Icons.Default.PriceCheck)
+        PremiumInfoCard("Remaining Balance", "PKR ${device?.balance ?: "0"}", Icons.Default.Wallet)
+        
+        Spacer(Modifier.height(12.dp))
+        Text("REPAYMENT PLAN", fontWeight = FontWeight.Black, fontSize = 11.sp, color = BrandBlue, letterSpacing = 2.sp)
+        
         PremiumInfoCard("Monthly Installment", "PKR ${device?.emiAmount ?: "0"}/mo", Icons.Default.Payments)
-        PremiumInfoCard("Remaining Tenure", "${device?.emiTenure ?: "0"} Months", Icons.Default.Schedule)
+        PremiumInfoCard("Total Tenure", "${device?.emiTenure ?: "0"} Months", Icons.Default.Schedule)
+        
+        val startDate = device?.emiStartDate?.take(10) ?: "N/A"
+        PremiumInfoCard("Plan Start Date", startDate, Icons.Default.Event)
+    }
+}
+
+@Composable
+fun PremiumImageCard(label: String, imageUrl: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = CardWhite),
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextMuted, modifier = Modifier.padding(bottom = 8.dp))
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = label,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+            )
+        }
     }
 }
 

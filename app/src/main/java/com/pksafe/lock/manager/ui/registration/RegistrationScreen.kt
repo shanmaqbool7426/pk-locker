@@ -46,11 +46,20 @@ private val TextMuted = Color(0xFF64748B)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegistrationScreen(
-    viewModel: RegistrationViewModel = viewModel()
+    viewModel: RegistrationViewModel = viewModel(),
+    onRegistrationSuccess: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val lockManager = LockManager(context)
+
+    // Automatically navigate back after success
+    LaunchedEffect(viewModel.isSuccess) {
+        if (viewModel.isSuccess) {
+            kotlinx.coroutines.delay(1500) // Let the user see the "Success" card
+            onRegistrationSuccess()
+        }
+    }
 
     // Image Picker Launcher - Customer
     val customerImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -66,6 +75,15 @@ fun RegistrationScreen(
         uri?.let {
             val base64 = viewModel.convertUriToBase64(context, it)
             if (base64 != null) viewModel.guarantorCnicImage = base64
+            else Toast.makeText(context, "Failed to load image", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Image Picker Launcher - Profile
+    val profileImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let {
+            val base64 = viewModel.convertUriToBase64(context, it)
+            if (base64 != null) viewModel.profilePicture = base64
             else Toast.makeText(context, "Failed to load image", Toast.LENGTH_SHORT).show()
         }
     }
@@ -100,28 +118,7 @@ fun RegistrationScreen(
                 .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
             
-            // --- SECURITY PERMISSIONS ---
-            SectionHeader("Security & Permissions", Icons.Default.VerifiedUser)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
-            ) {
-                Column(modifier = Modifier.padding(8.dp)) {
-                    CompactPermissionRow("Device Admin", lockManager.isAdminActive(), Icons.Default.Shield) { lockManager.requestAdminPermission() }
-                    HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(horizontal = 40.dp))
-                    CompactPermissionRow("Overlay Screens", lockManager.canDrawOverlays(), Icons.Default.Layers) { lockManager.requestOverlayPermission() }
-                    HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(horizontal = 40.dp))
-                    CompactPermissionRow("Anti-Uninstall", false, Icons.Default.Security) { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-                    
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(horizontal = 40.dp))
-                        CompactPermissionRow("Notifications", hasNotificationPermission, Icons.Default.Notifications) { notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
-                    }
-                }
-            }
+
 
             // --- DEVICE HARDWARE ---
             SectionHeader("Device Identity", Icons.Default.Smartphone)
@@ -159,8 +156,15 @@ fun RegistrationScreen(
                     ModernTextField(viewModel.cnic, { viewModel.cnic = it }, "CNIC Number", keyboardType = KeyboardType.Number)
                     ModernTextField(viewModel.phone, { viewModel.phone = it }, "Phone Number", Icons.Default.Call, keyboardType = KeyboardType.Phone)
                     
-                    Text("Identity Proof (CNIC)", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextMuted, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
-                    ImagePickerButton(imagePath = viewModel.customerCnicImage, label = "Capture Customer CNIC") { customerImageLauncher.launch("image/*") }
+                    Text("Customer Photos", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextMuted, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            ImagePickerButton(imagePath = viewModel.profilePicture, label = "Customer Photo") { profileImageLauncher.launch("image/*") }
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
+                            ImagePickerButton(imagePath = viewModel.customerCnicImage, label = "Customer CNIC") { customerImageLauncher.launch("image/*") }
+                        }
+                    }
                 }
             }
 
@@ -302,29 +306,7 @@ fun SectionHeader(title: String, icon: ImageVector) {
     }
 }
 
-@Composable
-fun CompactPermissionRow(title: String, isActive: Boolean, icon: ImageVector, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = if (isActive) Color(0xFF16A34A) else Color(0xFF94A3B8), modifier = Modifier.size(22.dp))
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = if (isActive) TextDark else TextMuted)
-        }
-        Text(
-            if (isActive) "ACTIVE" else "GRANT",
-            color = if (isActive) Color(0xFF16A34A) else Color(0xFFEF4444),
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Black
-        )
-    }
-}
+
 
 @Composable
 fun ImagePickerButton(imagePath: String?, label: String, onClick: () -> Unit) {

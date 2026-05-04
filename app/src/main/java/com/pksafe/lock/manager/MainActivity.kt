@@ -391,10 +391,21 @@ fun MainAppEntryPoint() {
             )
         }
     } else if (!isUserLoggedIn) {
-        LoginScreen(onLoginSuccess = { 
-            isUserLoggedIn = true 
-            sharedPrefs.edit().putBoolean("is_logged_in", true).apply()
-        })
+        var isSigningUp by rememberSaveable { mutableStateOf(false) }
+        
+        if (isSigningUp) {
+            com.pksafe.lock.manager.ui.login.SignupScreen(
+                onBackToLogin = { isSigningUp = false }
+            )
+        } else {
+            LoginScreen(
+                onLoginSuccess = { 
+                    isUserLoggedIn = true 
+                    sharedPrefs.edit().putBoolean("is_logged_in", true).apply()
+                },
+                onNavigateToSignup = { isSigningUp = true }
+            )
+        }
     } else {
         PKLockerApp(
             isAdmin = true, 
@@ -915,6 +926,7 @@ fun CustomerLockScreen(onReset: () -> Unit) {
 
 @Composable
 fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), onLogout: () -> Unit) {
+    val context = LocalContext.current
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var selectedDeviceImei by remember { mutableStateOf<String?>(null) }
     var selectedDeviceName by remember { mutableStateOf<String?>(null) }
@@ -936,7 +948,8 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                     it != AppDestinations.PHONE_QR &&
                     it != AppDestinations.EASY_SETUP &&
                     it != AppDestinations.VIDEO_HELP &&
-                    it != AppDestinations.NFC_SETUP
+                    it != AppDestinations.NFC_SETUP &&
+                    it != AppDestinations.ADMIN_KEYS
                 }.forEach {
                     item(
                         icon = { Icon(imageVector = it.icon, contentDescription = it.label) },
@@ -963,9 +976,15 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                                 "Register Device" -> currentDestination = AppDestinations.REGISTRATION
                                 "Buy Keys" -> currentDestination = AppDestinations.BUY_KEYS
                                 "NFC Setup" -> currentDestination = AppDestinations.NFC_SETUP
+                                "Key Requests" -> currentDestination = AppDestinations.ADMIN_KEYS
                             }
                         })
-                        AppDestinations.REGISTRATION -> if (isAdmin) RegistrationScreen()
+                        AppDestinations.REGISTRATION -> if (isAdmin) RegistrationScreen(
+                            onRegistrationSuccess = {
+                                viewModel.fetchDevices(context) // Refresh the list
+                                currentDestination = AppDestinations.LIST // Navigate to Devices tab
+                            }
+                        )
                         AppDestinations.LIST -> if (isAdmin) DeviceListScreen(
                             onDeviceClick = { imei, name ->
                                 selectedDeviceImei = imei
@@ -1001,6 +1020,7 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
                         AppDestinations.NFC_SETUP -> if (isAdmin) NfcSetupScreen(onBack = { currentDestination = AppDestinations.HOME })
+                        AppDestinations.ADMIN_KEYS -> com.pksafe.lock.manager.ui.keys.AdminKeyOrdersScreen(onBack = { currentDestination = AppDestinations.HOME })
                         AppDestinations.PROFILE -> com.pksafe.lock.manager.ui.profile.ProfileScreen(
                             onLogout = onLogout
                         )
@@ -1024,5 +1044,6 @@ enum class AppDestinations(val label: String, val icon: ImageVector) {
     PROFILE("Profile", Icons.Default.Person),
     CABLE_SYNC("Cable Sync", Icons.Default.Usb),
     EASY_SETUP("Easy Setup", Icons.Default.PhoneAndroid),
-    NFC_SETUP("NFC Setup", Icons.Default.TapAndPlay)
+    NFC_SETUP("NFC Setup", Icons.Default.TapAndPlay),
+    ADMIN_KEYS("Key Requests", Icons.Default.AdminPanelSettings)
 }

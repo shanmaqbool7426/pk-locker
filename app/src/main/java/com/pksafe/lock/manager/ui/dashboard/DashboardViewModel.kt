@@ -17,6 +17,7 @@ class DashboardViewModel : ViewModel() {
 
     var dashboardData by mutableStateOf<DashboardData?>(null)
     var shopName by mutableStateOf("Shopkeeper")
+    var isAdmin by mutableStateOf(false)
     var isLoading by mutableStateOf(false)
     var errorMessage by mutableStateOf<String?>(null)
 
@@ -30,6 +31,7 @@ class DashboardViewModel : ViewModel() {
     fun initDashboard(context: Context) {
         val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
         shopName = sharedPrefs.getString("shop_name", "Shopkeeper") ?: "Shopkeeper"
+        isAdmin = sharedPrefs.getBoolean("is_admin", false)
         val token = sharedPrefs.getString("auth_token", "") ?: ""
         
         if (token.isNotEmpty()) {

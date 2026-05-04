@@ -305,7 +305,7 @@ fun DashboardScreen(
         )
 
         // --- Beautiful Grid ---
-        val actions = listOf(
+        val actions = mutableListOf(
             ActionData("Upcoming EMIs", stats?.devices?.total?.toString() ?: "0", Icons.Default.CalendarToday, Color(0xFFFFF7ED), Color(0xFFEA580C)),
             ActionData("Active Customers", stats?.devices?.total?.toString() ?: "0", Icons.Default.PeopleAlt, Color(0xFFECFDF5), Color(0xFF059669)),
             ActionData("Easy Setup", "⚡", Icons.Default.FlashOn, Color(0xFFECFDF5), Color(0xFF059669)),
@@ -315,6 +315,8 @@ fun DashboardScreen(
             ActionData("Buy Keys", stats?.android?.availableKeys?.toString() ?: "0", Icons.Default.Key, Color(0xFFFFF7ED), Color(0xFFEA580C)),
             ActionData("Video Help", "6", Icons.Default.OndemandVideo, Color(0xFFF0FDF4), Color(0xFF16A34A))
         )
+
+        actions.add(0, ActionData("Key Requests", "!", Icons.Default.AdminPanelSettings, Color(0xFFE0E7FF), Color(0xFF3B82F6)))
 
         Column(
             modifier = Modifier.padding(horizontal = 20.dp),

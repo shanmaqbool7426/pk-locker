@@ -27,7 +27,6 @@ import com.pksafe.lock.manager.ui.theme.*
 // Consitant Premium Theme Colors
 private val SoftBg = Color(0xFFF8FAFC)
 private val CardWhite = Color.White
-private val BrandBlue = Color(0xFF2563EB)
 private val TextTitle = Color(0xFF0F172A)
 private val TextMuted = Color(0xFF64748B)
 
