@@ -167,36 +167,48 @@ data class EmiInstallment(
 data class SmsCodes(val lockCode: String? = null, val unlockCode: String? = null)
 
 data class DeviceRegistrationRequest(
-    val imei: String,
-    val imei2: String? = null,
-    val brand: String? = null,
-    val model: String? = null,
-    val androidVersion: String? = null,
-    val customerName: String,
-    val cnic: String,
-    val phoneNumber: String,
-    val productName: String? = null,
-    val emiTenure: Int = 0,
-    val totalPrice: Double = 0.0,
-    val downPayment: Double = 0.0,
-    val balance: Double = 0.0,
-    val emiStartDate: String? = null,
-    val emiAmount: Double = 0.0,
-    val fcmToken: String? = null,
-    val guarantor: Guarantor? = null,
-    val profilePicture: String? = null, // NEW: Customer Profile Photo
-    val cnicProofImage: String? = null // NEW: Customer CNIC Proof
+    @SerializedName("imei") val imei: String,
+    @SerializedName("imei2") val imei2: String? = null,
+    @SerializedName("brand") val brand: String? = null,
+    @SerializedName("model") val model: String? = null,
+    @SerializedName("androidVersion") val androidVersion: String? = null,
+    @SerializedName("customerName") val customerName: String,
+    @SerializedName("cnic") val cnic: String,
+    @SerializedName("phoneNumber") val phoneNumber: String,
+    @SerializedName("productName") val productName: String? = null,
+    @SerializedName("emiTenure") val emiTenure: Int = 0,
+    @SerializedName("totalPrice") val totalPrice: Double = 0.0,
+    @SerializedName("downPayment") val downPayment: Double = 0.0,
+    @SerializedName("balance") val balance: Double = 0.0,
+    @SerializedName("emiStartDate") val emiStartDate: String? = null,
+    @SerializedName("emiAmount") val emiAmount: Double = 0.0,
+    @SerializedName("fcmToken") val fcmToken: String? = null,
+    @SerializedName("guarantor") val guarantor: Guarantor? = null,
+    @SerializedName("profilePicture") val profilePicture: String? = null, // NEW: Customer Profile Photo
+    @SerializedName("cnicProofImage") val cnicProofImage: String? = null // NEW: Customer CNIC Proof
 )
 
 data class Guarantor(
-    val name: String? = null, 
-    val mobile: String? = null, 
-    val address: String? = null,
-    val cnicProofImage: String? = null // NEW: Guarantor CNIC Proof
+    @SerializedName("name") val name: String? = null, 
+    @SerializedName("mobile") val mobile: String? = null, 
+    @SerializedName("address") val address: String? = null,
+    @SerializedName("cnicProofImage") val cnicProofImage: String? = null // NEW: Guarantor CNIC Proof
 )
-data class RegistrationResponse(val success: Boolean, val message: String, val device: DeviceSummary? = null)
-data class DeviceSummary(val id: String, val imei: String, val customerName: String, val smsCodes: SmsCodes? = null)
-data class AdvancedControlRequest(val action: String, val state: Any)
+data class RegistrationResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("message") val message: String,
+    @SerializedName("device") val device: DeviceSummary? = null
+)
+data class DeviceSummary(
+    @SerializedName("id") val id: String,
+    @SerializedName("imei") val imei: String,
+    @SerializedName("customerName") val customerName: String,
+    @SerializedName("smsCodes") val smsCodes: SmsCodes? = null
+)
+data class AdvancedControlRequest(
+    @SerializedName("action") val action: String,
+    @SerializedName("state") val state: Any
+)
 
 // --- Key Orders ---
 data class KeyOrder(
@@ -218,11 +230,17 @@ data class ShopkeeperSummary(
     @SerializedName("shopName") val shopName: String
 )
 
-data class KeyOrderListResponse(val success: Boolean, val data: List<KeyOrder>)
-data class GenericResponse(val success: Boolean, val message: String)
+data class KeyOrderListResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("data") val data: List<KeyOrder>
+)
+data class GenericResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("message") val message: String
+)
 
 data class KeyRequest(
-    val numKeys: Int,
-    val paymentProofImage: String,
-    val platform: String = "android"
+    @SerializedName("numKeys") val numKeys: Int,
+    @SerializedName("paymentProofImage") val paymentProofImage: String,
+    @SerializedName("platform") val platform: String = "android"
 )
