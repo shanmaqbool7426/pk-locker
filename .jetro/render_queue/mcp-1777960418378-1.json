@@ -1,0 +1,19 @@
+{
+  "id": "mcp-1777960418378-1",
+  "type": "note",
+  "data": {
+    "markdown": "# PK Locker: Project Architecture & Data Flow\n\nThis diagram visualizes the core architecture of the PK Locker ecosystem, showing the relationship between the Android Management App, the Node.js Backend, and the Device Security protocols.\n\n```mermaid\ngraph TD\n    subgraph \"Android Management App (PKlocker)\"\n        Dashboard[Dashboard Screen]\n        Login[Login / Auth]\n        Reg[Device Registration]\n        EMI[EMI Collection Hub]\n        Keys[Key Management]\n        \n        Dashboard --> Reg\n        Dashboard --> EMI\n        Dashboard --> Keys\n    end\n\n    subgraph \"Backend API (Node.js/Express)\"\n        AuthAPI[Auth Routes]\n        DeviceAPI[Device Management]\n        EmiAPI[EMI & Penalties]\n        KeyAPI[License Key Engine]\n        AdminAPI[Admin Dashboard]\n        \n        AuthAPI --- DB[(MongoDB)]\n        DeviceAPI --- DB\n        EmiAPI --- DB\n        KeyAPI --- DB\n    end\n\n    subgraph \"Locked Device (Customer)\"\n        LockService[Security Lock Service]\n        StatusCheck[Periodic Status Sync]\n        LockService --- StatusCheck\n    end\n\n    Login <==> AuthAPI\n    Reg <==> DeviceAPI\n    EMI <==> EmiAPI\n    Keys <==> KeyAPI\n    StatusCheck <==> DeviceAPI\n```\n\n### Core Business Logic\n| Module | Responsibility | Primary Data Model |\n| :--- | :--- | :--- |\n| **Authentication** | Shopkeeper login, registration, and token management. | `Shopkeeper` |\n| **Device Hub** | Registering new devices and tracking their online/offline/locked status. | `Device` |\n| **EMI Engine** | Calculating due dates, tracking payments, and triggering remote locks. | `EmiPayment` |\n| **License Keys** | Inventory management for Android/iOS activation licenses. | `Key` & `KeyOrder` |\n\n### Payment Verification Flow (Manual)\n1. **Shopkeeper** requests keys via App.\n2. App shows **Business Till ID / IBAN**.\n3. Shopkeeper uploads **Payment Screenshot**.\n4. **Admin** approves request in Backend.\n5. Keys are allocated to Shopkeeper's quota.\n",
+    "title": "Project Architecture Visualized"
+  },
+  "position": {
+    "x": 400,
+    "y": 40
+  },
+  "size": {
+    "width": 340,
+    "height": 200
+  },
+  "config": {
+    "width": 340
+  }
+}

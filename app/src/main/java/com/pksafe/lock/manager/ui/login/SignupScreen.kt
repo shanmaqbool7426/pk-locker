@@ -137,15 +137,6 @@ fun SignupScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    LoginInput(
-                        value = viewModel.email,
-                        onValueChange = { viewModel.email = it },
-                        label = "EMAIL ADDRESS",
-                        icon = Icons.Default.Email,
-                        keyboardType = KeyboardType.Email
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
 
                     LoginInput(
                         value = viewModel.phone,

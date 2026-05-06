@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,6 +42,7 @@ fun ProfileScreen(onLogout: () -> Unit) {
     val shopName = sharedPrefs.getString("shop_name", "Shopkeeper") ?: "Shopkeeper"
 
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
 
     if (showLogoutDialog) {
         AlertDialog(
@@ -62,6 +65,38 @@ fun ProfileScreen(onLogout: () -> Unit) {
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
                     Text("Cancel", color = TextMuted)
+                }
+            },
+            containerColor = CardWhite,
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
+
+    if (showPrivacyDialog) {
+        AlertDialog(
+            onDismissRequest = { showPrivacyDialog = false },
+            icon = { Icon(Icons.Default.Policy, null, tint = BrandBlue, modifier = Modifier.size(40.dp)) },
+            title = { Text("Legal & Privacy", fontWeight = FontWeight.Black, color = TextTitle) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        "1. Data Collection\nWe collect basic device info to provide locking services. We do not sell your personal data.\n\n" +
+                        "2. Permissions\nThis app requires Device Admin and Accessibility permissions to function properly. Disabling these may lock the device.\n\n" +
+                        "3. Liability\nThe shopkeeper is solely responsible for verifying customer identities. PKLocker is a tool, not a financial entity.\n\n" +
+                        "4. Service Usage\nMisuse of the platform for illegal activities will result in immediate termination of the account.",
+                        fontSize = 13.sp,
+                        color = TextMuted,
+                        lineHeight = 18.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showPrivacyDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("I UNDERSTAND", fontWeight = FontWeight.Bold)
                 }
             },
             containerColor = CardWhite,
@@ -134,29 +169,54 @@ fun ProfileScreen(onLogout: () -> Unit) {
                 
                 SectionTitle("CONTROL ACCOUNT")
                 SettingsCard {
-                    SettingsItem(icon = Icons.Default.AccountCircle, title = "Merchant Details", subtitle = "View shop information") {}
+                    SettingsItem(icon = Icons.Default.AccountCircle, title = "Merchant Details", subtitle = "View shop information") {
+                        android.widget.Toast.makeText(context, "Merchant: $shopName", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                     HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(start = 56.dp))
-                    SettingsItem(icon = Icons.Default.Security, title = "Security Credentials", subtitle = "Update password & keys") {}
+                    SettingsItem(icon = Icons.Default.Security, title = "Security Credentials", subtitle = "Update password & keys") {
+                        android.widget.Toast.makeText(context, "Credential management coming soon", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                 }
 
                 Spacer(Modifier.height(24.dp))
 
                 SectionTitle("PREFERENCES")
                 SettingsCard {
-                    SettingsSwitchItem(icon = Icons.Default.NotificationsActive, title = "Critical Alerts", initialValue = true)
+                    SettingsSwitchItem(
+                        icon = Icons.Default.NotificationsActive, 
+                        title = "Critical Alerts", 
+                        sharedPrefs = sharedPrefs,
+                        prefKey = "pref_critical_alerts",
+                        defaultValue = true
+                    )
                     HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(start = 56.dp))
-                    SettingsSwitchItem(icon = Icons.Default.PhonelinkLock, title = "Auto-Lock Protocol", initialValue = false)
+                    SettingsSwitchItem(
+                        icon = Icons.Default.PhonelinkLock, 
+                        title = "Auto-Lock Protocol", 
+                        sharedPrefs = sharedPrefs,
+                        prefKey = "pref_auto_lock",
+                        defaultValue = false
+                    )
                 }
 
                 Spacer(Modifier.height(24.dp))
 
                 SectionTitle("INFORMATION")
                 SettingsCard {
-                    SettingsItem(icon = Icons.Default.HeadsetMic, title = "Technical Support", subtitle = "Direct line to admin") {}
+                    SettingsItem(icon = Icons.Default.HeadsetMic, title = "Technical Support", subtitle = "Direct line to admin") {
+                        val intent = Intent(Intent.ACTION_DIAL).apply {
+                            data = Uri.parse("tel:+923001234567") // Example support number
+                        }
+                        context.startActivity(intent)
+                    }
                     HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(start = 56.dp))
-                    SettingsItem(icon = Icons.Default.Layers, title = "Legal & Privacy") {}
+                    SettingsItem(icon = Icons.Default.Layers, title = "Legal & Privacy") {
+                        showPrivacyDialog = true
+                    }
                     HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(start = 56.dp))
-                    SettingsItem(icon = Icons.Default.Info, title = "Architecture Build", subtitle = "v1.2.0-stable (104)") {}
+                    SettingsItem(icon = Icons.Default.Info, title = "Architecture Build", subtitle = "v1.2.0-stable (104)") {
+                        android.widget.Toast.makeText(context, "You are on the latest version", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                 }
 
                 Spacer(Modifier.height(40.dp))
@@ -238,12 +298,15 @@ fun SettingsItem(icon: ImageVector, title: String, subtitle: String? = null, onC
 }
 
 @Composable
-fun SettingsSwitchItem(icon: ImageVector, title: String, initialValue: Boolean) {
-    var checked by remember { mutableStateOf(initialValue) }
+fun SettingsSwitchItem(icon: ImageVector, title: String, sharedPrefs: android.content.SharedPreferences, prefKey: String, defaultValue: Boolean) {
+    var checked by remember { mutableStateOf(sharedPrefs.getBoolean(prefKey, defaultValue)) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { checked = !checked }
+            .clickable { 
+                checked = !checked 
+                sharedPrefs.edit().putBoolean(prefKey, checked).apply()
+            }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -260,7 +323,10 @@ fun SettingsSwitchItem(icon: ImageVector, title: String, initialValue: Boolean) 
         Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextTitle, modifier = Modifier.weight(1f))
         Switch(
             checked = checked,
-            onCheckedChange = { checked = it },
+            onCheckedChange = { 
+                checked = it 
+                sharedPrefs.edit().putBoolean(prefKey, checked).apply()
+            },
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = BrandBlue,

@@ -13,7 +13,6 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 class SignupViewModel : ViewModel() {
     var name by mutableStateOf("")
-    var email by mutableStateOf("")
     var password by mutableStateOf("")
     var phone by mutableStateOf("")
     var shopName by mutableStateOf("")
@@ -31,7 +30,7 @@ class SignupViewModel : ViewModel() {
     private val apiService = retrofit.create(ApiService::class.java)
 
     fun onSignupClick() {
-        if (name.isBlank() || email.isBlank() || password.isBlank() || phone.isBlank() || shopName.isBlank()) {
+        if (name.isBlank() || password.isBlank() || phone.isBlank() || shopName.isBlank()) {
             message = "Please fill all required fields"
             return
         }
@@ -42,7 +41,6 @@ class SignupViewModel : ViewModel() {
             try {
                 val request = SignupRequest(
                     name = name, 
-                    email = email, 
                     password = password, 
                     phone = phone, 
                     shopName = shopName,

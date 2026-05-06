@@ -1,0 +1,19 @@
+{
+  "id": "mcp-1777960429749-2",
+  "type": "note",
+  "data": {
+    "markdown": "# Database Schema (ERD)\n\nThe PK Locker database is built on MongoDB, focusing on the hierarchy between the Shopkeeper (Owner) and the assets (Devices, Keys, Payments) they manage.\n\n```mermaid\nerDiagram\n    SHOPKEEPER ||--o{ DEVICE : manages\n    SHOPKEEPER ||--o{ KEY : owns\n    SHOPKEEPER ||--o{ KEY_ORDER : requests\n    DEVICE ||--o{ EMI_PAYMENT : has\n    \n    SHOPKEEPER {\n        string name\n        string email\n        string shopName\n        string role\n        boolean isActive\n    }\n    \n    DEVICE {\n        string imei\n        string model\n        string status \"Active / Locked\"\n        string platform \"Android / iOS\"\n        boolean isDeregistered\n    }\n    \n    EMI_PAYMENT {\n        number amount\n        date dueDate\n        string status \"Paid / Unpaid\"\n        date paidAt\n    }\n    \n    KEY {\n        string platform\n        number totalKeys\n        number usedKeys\n    }\n    \n    KEY_ORDER {\n        number numKeys\n        string platform\n        string status \"Pending / Approved\"\n        string screenshotBase64\n    }\n```\n",
+    "title": "Database Schema Overview"
+  },
+  "position": {
+    "x": 760,
+    "y": 40
+  },
+  "size": {
+    "width": 340,
+    "height": 200
+  },
+  "config": {
+    "width": 340
+  }
+}

@@ -13,7 +13,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 class LoginViewModel : ViewModel() {
-    var email by mutableStateOf("")
+    var phone by mutableStateOf("")
     var password by mutableStateOf("")
     
     var isLoading by mutableStateOf(false)
@@ -28,8 +28,8 @@ class LoginViewModel : ViewModel() {
     private val apiService = retrofit.create(ApiService::class.java)
 
     fun onLoginClick(context: Context) {
-        if (email.isBlank() || password.isBlank()) {
-            errorMessage = "Please enter both email and password"
+        if (phone.isBlank() || password.isBlank()) {
+            errorMessage = "Please enter both phone and password"
             return
         }
 
@@ -37,7 +37,7 @@ class LoginViewModel : ViewModel() {
             isLoading = true
             errorMessage = null
             try {
-                val response = apiService.loginShopkeeper(LoginRequest(email, password))
+                val response = apiService.loginShopkeeper(LoginRequest(phone, password))
                 
                 if (response.isSuccessful && response.body()?.success == true) {
                     val loginData = response.body()

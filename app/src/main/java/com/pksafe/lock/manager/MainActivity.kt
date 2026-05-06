@@ -998,9 +998,9 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                         AppDestinations.DEREGISTER_LIST -> if (isAdmin) DeregisteredListScreen(
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
-                        AppDestinations.PROVISIONING_QR -> if (isAdmin) ProvisioningQrScreen(
-                            title = "Provisioning QR",
-                            onBack = { currentDestination = AppDestinations.HOME }
+                        AppDestinations.PROVISIONING_QR -> if (isAdmin) com.pksafe.lock.manager.ui.dashboard.QrSetupScreen(
+                            onBack = { currentDestination = AppDestinations.HOME },
+                            onProvisioningQr = { currentDestination = AppDestinations.PHONE_QR }
                         )
                         AppDestinations.CABLE_SYNC -> if (isAdmin) com.pksafe.lock.manager.ui.provisioning.ProvisioningCableScreen(
                             onBack = { currentDestination = AppDestinations.HOME }

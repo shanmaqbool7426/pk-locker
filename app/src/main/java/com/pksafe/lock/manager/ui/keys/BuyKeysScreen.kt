@@ -34,6 +34,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pksafe.lock.manager.data.*
 import com.pksafe.lock.manager.util.Constants
 import com.pksafe.lock.manager.ui.dashboard.*
+import com.pksafe.lock.manager.ui.emi.PrimaryBlue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

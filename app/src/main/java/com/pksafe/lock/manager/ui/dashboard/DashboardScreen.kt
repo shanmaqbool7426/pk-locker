@@ -66,19 +66,19 @@ fun DashboardScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Profile Avatar
+                    // Profile Avatar / Logo
                     Box(
                         modifier = Modifier
                             .size(50.dp)
                             .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xFF3B82F6), Color(0xFF1D4ED8)))),
-                        contentAlignment = Alignment.Center
+                            .background(Color.White)
+                            .border(1.dp, Color(0xFFE2E8F0), CircleShape)
                     ) {
-                        Text(
-                            viewModel.shopName.take(1).uppercase(),
-                            color = Color.White,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(id = com.pksafe.lock.manager.R.drawable.app_logo),
+                            contentDescription = "App Logo",
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
                         )
                     }
                     Spacer(modifier = Modifier.width(16.dp))
@@ -304,13 +304,10 @@ fun DashboardScreen(
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp)
         )
 
-        // --- Beautiful Grid ---
         val actions = mutableListOf(
             ActionData("Upcoming EMIs", stats?.devices?.total?.toString() ?: "0", Icons.Default.CalendarToday, Color(0xFFFFF7ED), Color(0xFFEA580C)),
             ActionData("Active Customers", stats?.devices?.total?.toString() ?: "0", Icons.Default.PeopleAlt, Color(0xFFECFDF5), Color(0xFF059669)),
-            ActionData("Easy Setup", "⚡", Icons.Default.FlashOn, Color(0xFFECFDF5), Color(0xFF059669)),
-            ActionData("Cable Sync", "OTG", Icons.Default.Usb, Color(0xFFFDF2F8), Color(0xFFDB2777)),
-            ActionData("QR Code", "Scan", Icons.Default.QrCodeScanner, Color(0xFFEFF6FF), Color(0xFF2563EB)),
+            ActionData("QR Code", "Scan", Icons.Default.QrCodeScanner, Color(0xFFEFF6FF), Color(0xFF2563EB), true),
             ActionData("NFC Setup", "Bump", Icons.Default.TapAndPlay, Color(0xFFF5F3FF), Color(0xFF7C3AED)),
             ActionData("Buy Keys", stats?.android?.availableKeys?.toString() ?: "0", Icons.Default.Key, Color(0xFFFFF7ED), Color(0xFFEA580C)),
             ActionData("Video Help", "6", Icons.Default.OndemandVideo, Color(0xFFF0FDF4), Color(0xFF16A34A))
@@ -425,10 +422,14 @@ fun StatTextRow(label: String, value: String, valueColor: Color, isBold: Boolean
 
 @Composable
 fun ActionGridItem(data: ActionData, modifier: Modifier, onClick: () -> Unit) {
+    val context = LocalContext.current
     Card(
-        modifier = modifier.height(120.dp).clickable { onClick() },
+        modifier = modifier.height(120.dp).clickable { 
+            if (data.isEnabled) onClick() 
+            else android.widget.Toast.makeText(context, "Coming Soon", android.widget.Toast.LENGTH_SHORT).show()
+        },
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = CardSurface),
+        colors = CardDefaults.cardColors(containerColor = if (data.isEnabled) CardSurface else Color(0xFFF9FAFB)),
         border = borderStroke(),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
@@ -439,10 +440,10 @@ fun ActionGridItem(data: ActionData, modifier: Modifier, onClick: () -> Unit) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = data.bgColor,
+                    color = if (data.isEnabled) data.bgColor else Color(0xFFE5E7EB),
                     modifier = Modifier.size(40.dp)
                 ) {
-                    Icon(data.icon, null, modifier = Modifier.padding(8.dp), tint = data.iconColor)
+                    Icon(data.icon, null, modifier = Modifier.padding(8.dp), tint = if (data.isEnabled) data.iconColor else Color(0xFF9CA3AF))
                 }
                 
                 // Value pill
@@ -451,17 +452,17 @@ fun ActionGridItem(data: ActionData, modifier: Modifier, onClick: () -> Unit) {
                     color = Color(0xFFF3F4F6)
                 ) {
                     Text(
-                        data.id, 
-                        color = TextTitle, 
+                        if (data.isEnabled) data.id else "Off", 
+                        color = if (data.isEnabled) TextTitle else Color(0xFF9CA3AF), 
                         fontSize = 12.sp, 
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
-            Text(data.title, color = TextTitle, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(data.title, color = if (data.isEnabled) TextTitle else Color(0xFF9CA3AF), fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
-data class ActionData(val title: String, val id: String, val icon: ImageVector, val bgColor: Color, val iconColor: Color)
+data class ActionData(val title: String, val id: String, val icon: ImageVector, val bgColor: Color, val iconColor: Color, val isEnabled: Boolean = true)

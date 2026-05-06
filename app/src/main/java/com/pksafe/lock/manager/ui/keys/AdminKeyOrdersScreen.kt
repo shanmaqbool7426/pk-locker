@@ -194,7 +194,7 @@ fun KeyOrderAdminCard(order: KeyOrder, viewModel: AdminKeyViewModel) {
                     Text(order.shopkeeper?.shopName ?: "Unknown Shop", fontWeight = FontWeight.Black, fontSize = 16.sp)
                     Text(order.shopkeeper?.name ?: "N/A", fontSize = 12.sp, color = Color.Gray)
                 }
-                StatusBadge(order.status)
+                StatusBadge(order.status ?: "Pending")
             }
 
             Divider(Modifier.padding(vertical = 16.dp), color = Color(0xFFF1F5F9))
@@ -236,7 +236,7 @@ fun KeyOrderAdminCard(order: KeyOrder, viewModel: AdminKeyViewModel) {
                 Spacer(Modifier.height(20.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(
-                        onClick = { viewModel.rejectOrder(context, order.id, "Payment not verified") },
+                                onClick = { viewModel.rejectOrder(context, order.id, "Payment not verified") },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE2E2), contentColor = Color(0xFFEF4444)),
                         shape = RoundedCornerShape(12.dp)

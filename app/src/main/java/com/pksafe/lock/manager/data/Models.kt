@@ -1,21 +1,22 @@
 package com.pksafe.lock.manager.data
 
 import com.google.gson.annotations.SerializedName
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 
 // --- Auth ---
 data class Shopkeeper(
     val id: String,
     val name: String,
-    val email: String,
     val phone: String,
     val shopName: String,
     val role: String
 )
 
-data class LoginRequest(val email: String, val password: String)
+data class LoginRequest(val phone: String, val password: String)
 data class LoginResponse(val success: Boolean, val message: String, val token: String? = null, val shopkeeper: Shopkeeper? = null)
 
-data class SignupRequest(val name: String, val email: String, val password: String, val phone: String, val shopName: String, val role: String = "shopkeeper", val referredByPhone: String? = null)
+data class SignupRequest(val name: String, val password: String, val phone: String, val shopName: String, val role: String = "shopkeeper", val referredByPhone: String? = null)
 data class SignupResponse(val success: Boolean, val message: String, val shopkeeper: Shopkeeper? = null)
 
 // --- Dashboard Stats ---
@@ -141,7 +142,7 @@ data class EmiInstallmentItem(
     val installmentNumber: Int,
     val dueDate: String,
     val amount: Double,
-    val status: String // "Paid" or "Unpaid"
+    val status: String
 )
 
 // --- Customer Specific Details ---
@@ -160,7 +161,7 @@ data class EmiInstallment(
     val installmentNumber: Int,
     val dueDate: String,
     val amount: Double,
-    val status: String // Paid, Unpaid
+    val status: String
 )
 
 data class SmsCodes(val lockCode: String? = null, val unlockCode: String? = null)
@@ -213,7 +214,6 @@ data class KeyOrder(
 data class ShopkeeperSummary(
     @SerializedName("_id") val id: String,
     @SerializedName("name") val name: String,
-    @SerializedName("email") val email: String,
     @SerializedName("phone") val phone: String,
     @SerializedName("shopName") val shopName: String
 )

@@ -126,25 +126,19 @@ fun LoginScreen(
             // Premium Logo Section
             Box(
                 modifier = Modifier
-                    .size(90.dp)
+                    .size(100.dp)
                     .clip(CircleShape)
                     .background(Color.White)
                     .padding(4.dp)
             ) {
-                Box(
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(id = com.pksafe.lock.manager.R.drawable.app_logo),
+                    contentDescription = "App Logo",
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(CircleShape)
-                        .background(Brush.linearGradient(listOf(Color(0xFF3B82F6), BrandBlue))),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Security,
-                        contentDescription = null,
-                        modifier = Modifier.size(44.dp),
-                        tint = Color.White
-                    )
-                }
+                        .clip(CircleShape),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
             }
             
             Spacer(modifier = Modifier.height(24.dp))
@@ -177,15 +171,16 @@ fun LoginScreen(
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     Text("Shopkeeper Login", fontWeight = FontWeight.Black, fontSize = 22.sp, color = TextTitle)
-                    Text("Enter your email and password to access dashboard.", fontSize = 13.sp, color = TextMuted)
+                    Text("Enter your phone number and password to access dashboard.", fontSize = 13.sp, color = TextMuted)
                     
                     Spacer(modifier = Modifier.height(32.dp))
                     
                     LoginInput(
-                        value = viewModel.email,
-                        onValueChange = { viewModel.email = it },
-                        label = "EMAIL ADDRESS",
-                        icon = Icons.Default.Email
+                        value = viewModel.phone,
+                        onValueChange = { viewModel.phone = it },
+                        label = "PHONE NUMBER",
+                        icon = Icons.Default.Phone,
+                        keyboardType = KeyboardType.Phone
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -229,16 +224,6 @@ fun LoginScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-
-            // SIGN UP SECTION
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("New to PK Locker?", fontSize = 13.sp, color = TextMuted)
-                TextButton(onClick = onNavigateToSignup) {
-                    Text("Create Account", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = BrandBlue)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
             Divider(color = Color(0xFFE2E8F0), modifier = Modifier.padding(horizontal = 40.dp))
             Spacer(modifier = Modifier.height(24.dp))
             
