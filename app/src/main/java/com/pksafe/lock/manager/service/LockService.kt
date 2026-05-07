@@ -9,7 +9,9 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -28,6 +30,13 @@ import android.content.IntentFilter
 import android.widget.EditText
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
+import com.pksafe.lock.manager.data.ApiService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class LockService : Service() {
 
@@ -158,20 +167,23 @@ class LockService : Service() {
 
         // --- Dynamic Data Population ---
         val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
-        val shopNameStr = prefs.getString("shop_name", "Ali Mobile Shop") ?: "Ali Mobile Shop"
-        val shopPhoneStr = prefs.getString("shop_phone", "0300-1234567") ?: "0300-1234567"
+        val shopNameStr = prefs.getString("shop_name", "Authorized Dealer") ?: "Authorized Dealer"
+        val shopPhoneStr = prefs.getString("shop_phone", "Contact Provider") ?: "Contact Provider"
+        val emiAmountStr = prefs.getString("emi_amount", "Rs. 2,500") ?: "Rs. 2,500"
+        val emiDueDateStr = prefs.getString("emi_due_date", "20 March") ?: "20 March"
         
-        lockView?.findViewById<TextView>(R.id.tvShopName)?.text = shopNameStr.uppercase()
-        lockView?.findViewById<TextView>(R.id.tvShopPhone)?.text = shopPhoneStr
-        
-        // --- Dial Support Listener ---
-        lockView?.findViewById<Button>(R.id.btnContactSupport)?.setOnClickListener {
-            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$shopPhoneStr")).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(intent)
+        lockView?.findViewById<TextView>(R.id.tvShopName)?.apply {
+            text = shopNameStr.uppercase()
+            visibility = if (shopNameStr.isNotEmpty()) View.VISIBLE else View.GONE
         }
-
+        lockView?.findViewById<TextView>(R.id.tvShopPhone)?.apply {
+            text = "SUPPORT: $shopPhoneStr"
+            visibility = if (shopPhoneStr.isNotEmpty()) View.VISIBLE else View.GONE
+        }
+        
+        lockView?.findViewById<TextView>(R.id.tvEmiAmount)?.text = emiAmountStr
+        lockView?.findViewById<TextView>(R.id.tvDueDate)?.text = emiDueDateStr
+        
         // --- Hidden Unlock Entry Logic ---
         val tvShowUnlock = lockView?.findViewById<TextView>(R.id.tvShowUnlock)
         val unlockContainer = lockView?.findViewById<View>(R.id.unlockContainer)
@@ -198,6 +210,94 @@ class LockService : Service() {
             lockView?.requestFocus()
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+
+        // ─── LIVE REFRESH: Fetch fresh EMI data from server in background ────────
+        // Even if SharedPrefs had stale/empty values, this will update the overlay
+        // with real data from the DB within a few seconds.
+        val imei = prefs.getString("device_imei", null)
+        if (!imei.isNullOrBlank()) {
+            fetchAndRefreshLockData(imei)
+        }
+    }
+
+    /**
+     * Fetch fresh device/EMI info from API and update the lock overlay views.
+     * Runs on IO thread; UI update posted back to main thread via Handler.
+     */
+    private fun fetchAndRefreshLockData(imei: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val retrofit = Retrofit.Builder()
+                    .baseUrl(com.pksafe.lock.manager.util.Constants.BASE_URL)
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+                val api = retrofit.create(ApiService::class.java)
+
+                val response = api.getDeviceStatus("", imei)
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    if (body != null && body.success) {
+                        val device     = body.data.device
+                        val emiSummary = body.data.emiSummary
+
+                        val shopName  = device.shopkeeper?.shopName
+                            ?: device.shopkeeper?.name
+                            ?: "Authorized Dealer"
+                        val shopPhone = device.shopkeeper?.phone ?: "Contact Provider"
+
+                        val rawAmount = emiSummary.nextEmi?.amount ?: device.emiAmount
+                        val emiAmount = "Rs. ${rawAmount.toInt()}"
+
+                        val rawDate = emiSummary.nextEmi?.dueDate ?: ""
+                        val formattedDate: String = if (rawDate.isNotBlank()) {
+                            try {
+                                val inFmt  = java.text.SimpleDateFormat(
+                                    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                                    java.util.Locale.US
+                                ).also { it.timeZone = java.util.TimeZone.getTimeZone("UTC") }
+                                val outFmt = java.text.SimpleDateFormat(
+                                    "dd MMMM",
+                                    java.util.Locale.US
+                                )
+                                val parsed = inFmt.parse(rawDate)
+                                if (parsed != null) outFmt.format(parsed) else rawDate
+                            } catch (e: Exception) { rawDate }
+                        } else "Contact Provider"
+
+                        // Persist so next cold-start of LockService also gets fresh data
+                        val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+                        prefs.edit()
+                            .putString("shop_name",    shopName)
+                            .putString("shop_phone",   shopPhone)
+                            .putString("emi_amount",   emiAmount)
+                            .putString("emi_due_date", formattedDate)
+                            .apply()
+
+                        Log.d("LOCK_REFRESH", "Live data fetched: shop=$shopName emi=$emiAmount due=$formattedDate")
+
+                        // ── Push updates to the overlay on the main thread ────────
+                        withContext(Dispatchers.Main) {
+                            lockView?.let { v ->
+                                v.findViewById<TextView>(R.id.tvShopName)?.apply {
+                                    text = shopName.uppercase()
+                                    visibility = View.VISIBLE
+                                }
+                                v.findViewById<TextView>(R.id.tvShopPhone)?.apply {
+                                    text = "SUPPORT: $shopPhone"
+                                    visibility = View.VISIBLE
+                                }
+                                v.findViewById<TextView>(R.id.tvEmiAmount)?.text = emiAmount
+                                v.findViewById<TextView>(R.id.tvDueDate)?.text  = formattedDate
+                            }
+                        }
+                    }
+                } else {
+                    Log.w("LOCK_REFRESH", "API returned ${response.code()} — keeping cached values")
+                }
+            } catch (e: Exception) {
+                Log.w("LOCK_REFRESH", "Network error — keeping cached values: ${e.message}")
+            }
         }
     }
 

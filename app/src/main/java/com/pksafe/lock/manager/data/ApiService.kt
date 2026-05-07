@@ -102,7 +102,7 @@ interface ApiService {
     // This is called when customer activates their device (enters IMEI).
     // smsCodes (lockCode + unlockCode) are saved to SharedPrefs by MainActivity
     // so SmsReceiver can use them offline without internet.
-    @GET("devices/{imei}")
+    @GET("devices/public/{imei}")
     suspend fun getDeviceStatus(
         @Header("Authorization") token: String,
         @Path("imei") imei: String

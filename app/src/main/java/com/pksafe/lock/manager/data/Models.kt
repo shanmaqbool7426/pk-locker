@@ -6,11 +6,11 @@ import com.google.gson.reflect.TypeToken
 
 // --- Auth ---
 data class Shopkeeper(
-    val id: String,
-    val name: String,
-    val phone: String,
-    val shopName: String,
-    val role: String
+    @SerializedName("_id") val id: String? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("phone") val phone: String? = null,
+    @SerializedName("shopName") val shopName: String? = null,
+    @SerializedName("role") val role: String? = null
 )
 
 data class LoginRequest(val phone: String, val password: String)
@@ -71,7 +71,8 @@ data class DeviceResponse(
     @SerializedName("appRestrictions") val appRestrictions: AppRestrictions? = null,
     @SerializedName("location") val location: LocationData? = null,
     @SerializedName("geofence") val geofence: GeofenceData? = null,
-    @SerializedName("locationHistory") val locationHistory: List<LocationEntry>? = null
+    @SerializedName("locationHistory") val locationHistory: List<LocationEntry>? = null,
+    @SerializedName("shopkeeper") val shopkeeper: Shopkeeper? = null
 )
 
 data class DeviceControls(
@@ -152,11 +153,18 @@ data class CustomerDetailData(
     val emiSummary: EmiSummary
 )
 data class EmiSummary(
-    val total: Int,
-    val paid: Int,
-    val unpaid: Int,
-    val schedule: List<EmiInstallment>
+    @SerializedName("total") val total: Int? = 0,
+    @SerializedName("paid") val paid: Int? = 0,
+    @SerializedName("unpaid") val unpaid: Int? = 0,
+    @SerializedName("schedule") val schedule: List<EmiInstallment>? = null,
+    @SerializedName("nextEmi") val nextEmi: NextEmi? = null
 )
+data class NextEmi(
+    @SerializedName("amount") val amount: Double? = 0.0, 
+    @SerializedName("dueDate") val dueDate: String? = null
+)
+
+
 data class EmiInstallment(
     val installmentNumber: Int,
     val dueDate: String,

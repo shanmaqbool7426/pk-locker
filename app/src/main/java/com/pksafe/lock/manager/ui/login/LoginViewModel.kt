@@ -53,6 +53,7 @@ class LoginViewModel : ViewModel() {
                         putBoolean("settings_blocked", false)
                         putBoolean("auto_lock_enabled", false)
                         putString("shop_name", loginData?.shopkeeper?.shopName ?: "Shopkeeper")
+                        putString("shop_phone", loginData?.shopkeeper?.phone ?: "")
                         putString("auth_token", loginData?.token)
                         apply()
                     }

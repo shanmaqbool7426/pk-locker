@@ -18,6 +18,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -140,6 +141,17 @@ fun MainAppEntryPoint() {
         isLocked = false
         // System level unlock bhi lazmi hy
         lockManager.unlockDevice()
+    }
+
+    // ─── STARTUP SILENT REFRESH ────────────────────────────────────────────────
+    // Every time the customer app opens with a valid IMEI, silently fetch fresh
+    // EMI/shop data from server so the lock screen always shows real values.
+    // This runs in background — it doesn't block the UI at all.
+    LaunchedEffect(isCustomer, deviceImei) {
+        if (isCustomer && !deviceImei.isNullOrBlank()) {
+            fetchAndSaveSmsCodesForCustomer(context, deviceImei!!)
+            Log.d("STARTUP_REFRESH", "Silently refreshing EMI data for IMEI: $deviceImei")
+        }
     }
 
     // ─── PERMANENT SECURITY ENFORCEMENT ─────────────────────────────────────
@@ -488,18 +500,48 @@ private fun fetchAndSaveSmsCodesForCustomer(context: Context, imei: String) {
             val response = apiService.getDeviceStatus("", imei)
             if (response.isSuccessful) {
                 val body = response.body()
-                val lockCode   = body?.data?.device?.smsCodes?.lockCode
-                val unlockCode = body?.data?.device?.smsCodes?.unlockCode
-                if (!lockCode.isNullOrBlank() && !unlockCode.isNullOrBlank()) {
+                if (body != null && body.success) {
+                    val device = body.data.device
+                    val emiSummary = body.data.emiSummary
+                    
+                    val lockCode   = device.smsCodes?.lockCode
+                    val unlockCode = device.smsCodes?.unlockCode
+                    
+                    val shopName = device.shopkeeper?.shopName ?: device.shopkeeper?.name ?: "Authorized Dealer"
+                    val shopPhone = device.shopkeeper?.phone ?: "Contact Provider"
+                    
+                    val emiAmount = emiSummary.nextEmi?.amount ?: device.emiAmount
+                    val emiDate = emiSummary.nextEmi?.dueDate ?: "Contact Provider"
+                    
+                    Log.d("LOCK_SYNC", "Syncing: Shop=$shopName, Phone=$shopPhone, EMI=$emiAmount")
+
+                    // Format date if possible (assuming ISO string from server)
+                    val formattedDate = if (emiDate != "Contact Provider") {
+                        try {
+                            val inputFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                            inputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                            val outputFormat = java.text.SimpleDateFormat("dd MMMM", java.util.Locale.US)
+                            val date = inputFormat.parse(emiDate)
+                            if (date != null) outputFormat.format(date) else emiDate
+                        } catch (e: Exception) {
+                            Log.e("LOCK_SYNC", "Date format error: ${e.message}")
+                            emiDate
+                        }
+                    } else emiDate
+
                     context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
                         .edit()
                         .putString("sms_lock_code", lockCode)
                         .putString("sms_unlock_code", unlockCode)
+                        .putString("shop_name", shopName)
+                        .putString("shop_phone", shopPhone)
+                        .putString("emi_amount", "Rs. ${emiAmount?.toInt() ?: 0}")
+                        .putString("emi_due_date", formattedDate)
                         .apply()
-                    Log.d("SMS_CODES", "SMS codes saved for IMEI: $imei")
+                        
+                    Log.d("LOCK_SYNC", "Device info successfully saved to preferences")
                 } else {
-                    // Fallback: codes are deterministic from IMEI, SmsReceiver will generate them
-                    Log.w("SMS_CODES", "Server returned empty codes — SmsReceiver will generate from IMEI")
+                    Log.w("LOCK_SYNC", "Server response unsuccessful or body null")
                 }
             } else {
                 Log.w("SMS_CODES", "Could not fetch device info: ${response.code()} — SmsReceiver will generate codes from IMEI")
@@ -558,8 +600,45 @@ fun CustomerStatusScreen(
     var isAdminActive by remember { mutableStateOf(lockManager.isAdminActive()) }
     var isOverlayActive by remember { mutableStateOf(lockManager.canDrawOverlays()) }
     var isDeviceOwner by remember { mutableStateOf(lockManager.isDeviceOwner()) }
+    var isAccessibilityActive by remember { mutableStateOf(com.pksafe.lock.manager.service.AntiUninstallService.isServiceRunning(context)) }
 
-    // Accessibility check removed.
+    var showAccessibilityGuide by remember { mutableStateOf(false) }
+
+    // Accessibility Guide Dialog
+    if (showAccessibilityGuide) {
+        AlertDialog(
+            onDismissRequest = { showAccessibilityGuide = false },
+            containerColor = Color(0xFF1A1A1A),
+            title = {
+                Text("Accessibility Guard On Karein", color = Color.White, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Isko on karne se app delete nahi hogi:", color = Color.Gray, fontSize = 14.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text("1. Settings khulne pe 'Downloaded Apps' ya 'Installed Apps' mein jayein", color = Color(0xFF3B82F6), fontWeight = FontWeight.Medium)
+                    Text("2. Wahan 'PKLocker Guard' pe click karein", color = Color(0xFF3B82F6), fontWeight = FontWeight.Medium)
+                    Text("3. Switch ON kar ke Allow karein", color = Color(0xFF22C55E), fontWeight = FontWeight.Bold)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showAccessibilityGuide = false
+                        val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                        // This extra helps highlight the service on modern Android
+                        val componentName = android.content.ComponentName(context, com.pksafe.lock.manager.service.AntiUninstallService::class.java).flattenToString()
+                        intent.putExtra(":settings:fragment_args_key", componentName)
+                        intent.putExtra(":settings:show_fragment_args", android.os.Bundle().apply { putString(":settings:fragment_args_key", componentName) })
+                        context.startActivity(intent)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
+                ) {
+                    Text("Samajh Gaya, Settings Kholein", color = Color.White)
+                }
+            }
+        )
+    }
 
     // Refresh states when returning to app
     LaunchedEffect(Unit) {
@@ -567,6 +646,7 @@ fun CustomerStatusScreen(
             isAdminActive = lockManager.isAdminActive()
             isOverlayActive = lockManager.canDrawOverlays()
             isDeviceOwner = lockManager.isDeviceOwner()
+            isAccessibilityActive = com.pksafe.lock.manager.service.AntiUninstallService.isServiceRunning(context)
             kotlinx.coroutines.delay(2000)
         }
     }
@@ -579,24 +659,48 @@ fun CustomerStatusScreen(
             Spacer(modifier = Modifier.height(40.dp))
             
             // --- Premium Header ---
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(120.dp)) {
-                Surface(
-                    shape = CircleShape, 
-                    color = Color(0xFF22C55E).copy(alpha = 0.05f), 
-                    border = BorderStroke(1.dp, Color(0xFF22C55E).copy(0.2f)),
-                    modifier = Modifier.fillMaxSize()
-                ) {}
-                Icon(
-                    Icons.Default.Shield, 
-                    null, 
-                    modifier = Modifier.size(50.dp), 
-                    tint = Color(0xFF22C55E)
-                )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(160.dp)
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                            colors = listOf(Color(0xFF22C55E).copy(alpha = 0.15f), Color.Transparent)
+                        ),
+                        shape = CircleShape
+                    )
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(100.dp)
+                        .background(Color(0xFF22C55E).copy(alpha = 0.1f), CircleShape)
+                        .border(1.dp, Color(0xFF22C55E).copy(alpha = 0.3f), CircleShape)
+                ) {
+                    Icon(
+                        Icons.Default.Shield, 
+                        null, 
+                        modifier = Modifier.size(48.dp), 
+                        tint = Color(0xFF22C55E)
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(24.dp))
-            Text("DEVICE PROTECTED", fontSize = 26.sp, fontWeight = FontWeight.Black, color = Color.White)
-            Text("Security protocol actively monitoring", fontSize = 13.sp, color = Color.Gray)
+            Text(
+                "SYSTEM SECURED", 
+                fontSize = 28.sp, 
+                fontWeight = FontWeight.ExtraBold, 
+                color = Color.White,
+                letterSpacing = 1.sp
+            )
+            Text(
+                "PKLocker Protection Active", 
+                fontSize = 14.sp, 
+                color = Color(0xFF22C55E),
+                fontWeight = FontWeight.SemiBold
+            )
+
 
             Spacer(modifier = Modifier.height(40.dp))
 
@@ -609,14 +713,16 @@ fun CustomerStatusScreen(
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text("MANUAL SETUP CHECKLIST", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color.Gray, letterSpacing = 2.sp)
-                    Spacer(modifier = Modifier.height(16.dp)                )
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     PermissionItem(
                         title = "Accessibility Guard",
                         subtitle = "Blocks Settings & Factory Reset",
-                        isActive = com.pksafe.lock.manager.service.AntiUninstallService.isServiceRunning(context),
+                        isActive = isAccessibilityActive,
                         onClick = {
-                            context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                            if (!isAccessibilityActive) {
+                                showAccessibilityGuide = true
+                            }
                         }
                     )
 
@@ -653,98 +759,25 @@ fun CustomerStatusScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // --- Device Meta Card ---
-            Surface(
-                color = Color(0xFF1A1A1A).copy(0.5f),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, Color(0xFF333333).copy(0.5f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("TERMINAL IMEI", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        Text(imei, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                    }
-                    Box(
-                        modifier = Modifier
-                            .background(if(token.length > 10) Color(0xFF22C55E).copy(0.1f) else Color.Red.copy(0.1f), CircleShape)
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            if (token.length > 10) "FCM SYNCED" else "OFFLINE",
-                            color = if(token.length > 10) Color(0xFF22C55E) else Color.Red,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // ─── ENFORCEMENT STATUS (NEW) ───────────────────────────────────
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF121212)),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, Color(0xFF444444).copy(alpha = 0.3f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text("ENFORCEMENT STATUS", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color.Gray, letterSpacing = 2.sp)
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    EnforcementItem(label = "Primary Locker", status = if(isLocked) "ACTIVE" else "READY", isWarning = isLocked)
-                    EnforcementItem(label = "Factory Reset", status = "BLOCKED", isWarning = true)
-                    EnforcementItem(label = "USB File Transfer", status = "BLOCKED", isWarning = true)
-                    EnforcementItem(label = "ADB & Debugging", status = "RESTRICTED", isWarning = true)
-                }
-            }
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- Test Button ---
-            Button(
-                onClick = onManualLock,
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                shape = RoundedCornerShape(18.dp),
-                modifier = Modifier.fillMaxWidth().height(60.dp)
-            ) {
-                Icon(Icons.Default.Lock, null, tint = Color.Black, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(12.dp))
-                Text("TEST LOCK PROTOCOL", fontWeight = FontWeight.Black, fontSize = 15.sp, color = Color.Black)
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-        }
-    }
-}
-
-@Composable
-fun EnforcementItem(label: String, status: String, isWarning: Boolean) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, color = Color.White.copy(0.7f), fontSize = 13.sp)
-        Box(
-            modifier = Modifier
-                .background(if (isWarning) Color(0xFFDC2626).copy(alpha = 0.15f) else Color(0xFF22C55E).copy(alpha = 0.15f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 10.dp, vertical = 2.dp)
-        ) {
             Text(
-                status, 
-                color = if (isWarning) Color(0xFFDC2626) else Color(0xFF22C55E),
-                fontSize = 11.sp, 
-                fontWeight = FontWeight.Black
+                "Ensures security enforcement is working correctly",
+                fontSize = 12.sp,
+                color = Color.Gray,
+                textAlign = TextAlign.Center
             )
+
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
+
+
 
 @Composable
 fun PermissionItem(title: String, subtitle: String? = null, isActive: Boolean, onClick: () -> Unit) {
@@ -787,12 +820,26 @@ fun CustomerLockScreen(onReset: () -> Unit) {
 
     val context = LocalContext.current
     val sharedPrefs = remember { context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE) }
-    val shopName = sharedPrefs.getString("shop_name", "Authorized Dealer") ?: "Authorized Dealer"
-    val shopPhone = sharedPrefs.getString("shop_phone", "Contact Provider") ?: "Contact Provider"
     
-    // Fallback data for reference UI (should be dynamic in production)
-    val emiDue = "Rs. 2,500"
-    val dueDate = "20 March"
+    // ─── REACTIVE PREFS: auto-update when background fetch writes new values ───
+    var shopName by remember { mutableStateOf(sharedPrefs.getString("shop_name", "Authorized Dealer") ?: "Authorized Dealer") }
+    var shopPhone by remember { mutableStateOf(sharedPrefs.getString("shop_phone", "Contact Provider") ?: "Contact Provider") }
+    var emiDue by remember { mutableStateOf(sharedPrefs.getString("emi_amount", "Rs. 2,500") ?: "Rs. 2,500") }
+    var dueDate by remember { mutableStateOf(sharedPrefs.getString("emi_due_date", "20 March") ?: "20 March") }
+
+    // Listen for pref changes (e.g. when fetchAndSaveSmsCodesForCustomer completes)
+    DisposableEffect(Unit) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+            when (key) {
+                "shop_name" -> shopName = prefs.getString("shop_name", "Authorized Dealer") ?: "Authorized Dealer"
+                "shop_phone" -> shopPhone = prefs.getString("shop_phone", "Contact Provider") ?: "Contact Provider"
+                "emi_amount" -> emiDue = prefs.getString("emi_amount", "Rs. 2,500") ?: "Rs. 2,500"
+                "emi_due_date" -> dueDate = prefs.getString("emi_due_date", "20 March") ?: "20 March"
+            }
+        }
+        sharedPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { sharedPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0A0A0A)) {
         Column(
@@ -826,7 +873,7 @@ fun CustomerLockScreen(onReset: () -> Unit) {
                 letterSpacing = 1.sp
             )
             Text(
-                text = "For security reasons, this terminal has been restricted.",
+                text = "For security reasons, this terminal has been restricted.",  
                 fontSize = 13.sp,
                 color = Color.Gray,
                 textAlign = TextAlign.Center,
@@ -859,11 +906,37 @@ fun CustomerLockScreen(onReset: () -> Unit) {
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333))
             ) {
                 Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(shopName.uppercase(), fontWeight = FontWeight.Black, fontSize = 18.sp, color = Color.White)
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                        Icon(Icons.Default.Call, null, tint = Color.Gray, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(shopPhone, color = Color.Gray, fontSize = 14.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            shopName.uppercase(), 
+                            fontWeight = FontWeight.Black, 
+                            fontSize = 20.sp, 
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            Icons.Default.Verified,
+                            contentDescription = "Verified Dealer",
+                            tint = Color(0xFF22C55E),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+                        Icon(
+                            Icons.Default.SupportAgent, 
+                            null, 
+                            tint = Color.Gray, 
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "SUPPORT: $shopPhone", 
+                            color = Color.Gray, 
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp), color = Color(0xFF333333))
@@ -896,20 +969,9 @@ fun CustomerLockScreen(onReset: () -> Unit) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- Contact Button ---
-            Button(
-                onClick = {
-                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$shopPhone"))
-                    context.startActivity(intent)
-                },
-                modifier = Modifier.fillMaxWidth().height(60.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
-                shape = RoundedCornerShape(18.dp)
-            ) {
-                Icon(Icons.Default.SupportAgent, null, tint = Color.White)
-                Spacer(Modifier.width(12.dp))
-                Text("CONTACT SUPPORT", fontWeight = FontWeight.Black, fontSize = 15.sp, color = Color.White)
-            }
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Contact button removed as per request
 
             Spacer(modifier = Modifier.height(20.dp))
             

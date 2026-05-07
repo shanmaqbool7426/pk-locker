@@ -83,17 +83,37 @@ fun DashboardScreen(
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
-                        Text(
-                            "Welcome back,",
-                            fontSize = 12.sp,
-                            color = TextSubtitle
-                        )
-                        Text(
-                            viewModel.shopName,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = TextTitle
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                viewModel.shopName,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = TextTitle
+                            )
+                            if (viewModel.isAdmin) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    Icons.Default.Verified,
+                                    contentDescription = "Verified Admin",
+                                    tint = Color(0xFF3B82F6),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Phone,
+                                contentDescription = null,
+                                tint = TextSubtitle,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                viewModel.shopPhone.ifEmpty { "Official Partner" },
+                                fontSize = 12.sp,
+                                color = TextSubtitle
+                            )
+                        }
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -178,15 +178,12 @@
             android:layout_width="match_parent"
             android:layout_height="32dp" />
 
-        <!-- Buttons -->
-        <Button
-            android:id="@+id/btnContactSupport"
+        <Space
             android:layout_width="match_parent"
-            android:layout_height="64dp"
-            android:backgroundTint="#DC2626"
-            android:text="CONTACT SUPPORT"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold" />
+            android:layout_height="32dp" />
+
+        <!-- Buttons removed as per request -->
+
 
         <TextView
             android:id="@+id/tvShowUnlock"
