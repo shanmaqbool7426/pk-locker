@@ -566,6 +566,31 @@ fun CustomerStatusScreen(
     var showImeiDialog by remember { mutableStateOf(imei == "Not Set" || imei.isBlank()) }
     var tempImei by remember { mutableStateOf("") }
 
+    // Auto-fetch IMEI if device owner
+    LaunchedEffect(Unit) {
+        try {
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+            if (dpm.isDeviceOwnerApp(context.packageName)) {
+                // Grant READ_PHONE_STATE to self if possible
+                val compName = android.content.ComponentName(context, com.pksafe.lock.manager.receiver.AdminReceiver::class.java)
+                try {
+                    dpm.setPermissionGrantState(compName, context.packageName, android.Manifest.permission.READ_PHONE_STATE, android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
+                } catch(e: Exception) { e.printStackTrace() }
+
+                val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as android.telephony.TelephonyManager
+                val fetchedImei = tm.imei
+                if (!fetchedImei.isNullOrBlank()) {
+                    tempImei = fetchedImei
+                    onImeiSubmit(fetchedImei)
+                    fetchAndSaveSmsCodesForCustomer(context, fetchedImei)
+                    showImeiDialog = false
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     if (showImeiDialog) {
         AlertDialog(
             onDismissRequest = { },

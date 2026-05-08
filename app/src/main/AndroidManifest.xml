@@ -11,11 +11,11 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <!-- COMMENTED OUT: Sensitive permissions that block QR provisioning on Samsung -->
-    <!-- <uses-permission android:name="android.permission.READ_PHONE_STATE" /> -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     
-    <!-- <uses-permission android:name="android.permission.RECEIVE_SMS" /> -->
-    <!-- <uses-permission android:name="android.permission.READ_SMS" /> -->
-    <!-- <uses-permission android:name="android.permission.SEND_SMS" /> -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
     <!-- <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" /> -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -127,8 +127,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- COMMENTED OUT: SmsReceiver disabled while SMS permissions are removed for provisioning testing -->
-        <!--
         <receiver
             android:name=".receiver.SmsReceiver"
             android:enabled="true"
@@ -138,7 +136,6 @@
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver>
-        -->
 
         <provider
             android:name="androidx.core.content.FileProvider"

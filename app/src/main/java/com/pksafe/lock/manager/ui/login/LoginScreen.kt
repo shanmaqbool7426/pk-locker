@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pksafe.lock.manager.ui.theme.BrandBlue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pksafe.lock.manager.CustomerStatusScreen
 
 // Consistent Premium Theme Colors
 private val SoftBg = Color(0xFFF8FAFC)
@@ -44,65 +45,31 @@ fun LoginScreen(
     val context = LocalContext.current
     val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
 
-    var showCustomerDialog by remember { mutableStateOf(false) }
-    var tempImei by remember { mutableStateOf("") }
+    var showCustomerScreen by remember { mutableStateOf(false) }
 
     if (viewModel.isLoggedIn) {
         onLoginSuccess()
     }
 
-    if (showCustomerDialog) {
-        AlertDialog(
-            onDismissRequest = { showCustomerDialog = false },
-            title = { Text("Setup Individual Terminal", fontWeight = FontWeight.Black, color = TextTitle) },
-            text = {
-                Column {
-                    Text("Enter the designated IMEI recorded in your administrative dashboard for this terminal.", fontSize = 13.sp, color = TextMuted)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    LoginInput(
-                        value = tempImei,
-                        onValueChange = { tempImei = it },
-                        label = "Terminal IMEI",
-                        icon = Icons.Default.QrCodeScanner,
-                        keyboardType = KeyboardType.Number
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(color = Color(0xFFFEF2F2), shape = RoundedCornerShape(8.dp)) {
-                        Text(
-                            "CRITICAL: System permissions must be granted for security protocols to activate.", 
-                            fontWeight = FontWeight.Bold, 
-                            fontSize = 11.sp, 
-                            color = Color(0xFFDC2626),
-                            modifier = Modifier.padding(10.dp)
-                        )
-                    }
-                }
+    // If button clicked, show the Customer status/setup screen directly
+    if (showCustomerScreen) {
+        val imei = sharedPrefs.getString("device_imei", "") ?: ""
+        CustomerStatusScreen(
+            token = sharedPrefs.getString("fcm_token", "Fetching...") ?: "Fetching...",
+            imei = imei.ifBlank { "Not Set" },
+            isLocked = sharedPrefs.getBoolean("is_locked", false),
+            onImeiSubmit = { newImei ->
+                sharedPrefs.edit().putString("device_imei", newImei).apply()
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (tempImei.length >= 10) {
-                            sharedPrefs.edit().apply {
-                                putBoolean("is_customer", true)
-                                putString("device_imei", tempImei)
-                                apply()
-                            }
-                            showCustomerDialog = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = tempImei.length >= 10
-                ) {
-                    Text("ACTIVATE PROTOCOL", fontWeight = FontWeight.Bold)
-                }
+            onManualLock = {
+                sharedPrefs.edit().putBoolean("is_locked", true).apply()
             },
-            dismissButton = {
-                TextButton(onClick = { showCustomerDialog = false }) { Text("Cancel", color = TextMuted) }
-            },
-            containerColor = CardWhite,
-            shape = RoundedCornerShape(24.dp)
+            onReset = {
+                sharedPrefs.edit().clear().apply()
+                showCustomerScreen = false
+            }
         )
+        return
     }
 
     Box(modifier = Modifier.fillMaxSize().background(SoftBg)) {
@@ -226,13 +193,12 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(32.dp))
             Divider(color = Color(0xFFE2E8F0), modifier = Modifier.padding(horizontal = 40.dp))
             Spacer(modifier = Modifier.height(24.dp))
-            
-            // Subtle Setup Area (For Customers)
+
             Text("NOT A SHOPKEEPER?", fontSize = 11.sp, fontWeight = FontWeight.Black, color = TextMuted, letterSpacing = 1.sp)
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedButton(
-                onClick = { showCustomerDialog = true },
+                onClick = { showCustomerScreen = true },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF1E293B)),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),

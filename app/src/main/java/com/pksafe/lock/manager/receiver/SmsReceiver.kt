@@ -61,25 +61,44 @@ class SmsReceiver : BroadcastReceiver() {
 
             Log.d(TAG, "SMS received (first 30 chars): ${body.take(30)}")
 
-            // Get IMEI from prefs (saved during provisioning)
-            val imei = prefs.getString("device_imei", null)
-            if (imei.isNullOrBlank()) {
-                Log.e(TAG, "device_imei not found in prefs — SMS lock cannot verify code")
+            // Get both IMEIs from prefs (saved during provisioning)
+            val imei1 = prefs.getString("device_imei", null)
+            val imei2 = prefs.getString("device_imei2", null)
+            
+            if (imei1.isNullOrBlank() && imei2.isNullOrBlank()) {
+                Log.e(TAG, "No IMEI found in prefs — cannot verify SMS protocol")
                 return
             }
 
-            // Get codes: prefer saved codes, fallback to generating from IMEI
-            val expectedLockCode   = prefs.getString("sms_lock_code", null)
-                ?: generateSmsCode("LOCK", imei)
-            val expectedUnlockCode = prefs.getString("sms_unlock_code", null)
-                ?: generateSmsCode("UNLOCK", imei)
+            // Collect all possible valid codes for this device
+            val validLockCodes = mutableSetOf<String>()
+            val validUnlockCodes = mutableSetOf<String>()
+
+            // 1. Add codes from prefs (if backend sent them)
+            prefs.getString("sms_lock_code", null)?.let { validLockCodes.add(it) }
+            prefs.getString("sms_unlock_code", null)?.let { validUnlockCodes.add(it) }
+
+            // 2. Generate codes from both IMEIs as fallback
+            imei1?.let {
+                validLockCodes.add(generateSmsCode("LOCK", it))
+                validUnlockCodes.add(generateSmsCode("UNLOCK", it))
+            }
+            imei2?.let {
+                validLockCodes.add(generateSmsCode("LOCK", it))
+                validUnlockCodes.add(generateSmsCode("UNLOCK", it))
+            }
+
+            Log.d(TAG, "Expecting Lock Codes: $validLockCodes")
+            Log.d(TAG, "Expecting Unlock Codes: $validUnlockCodes")
 
             when {
                 // ── LOCK ──────────────────────────────────────────────────
                 upperBody.startsWith("LOCK#") -> {
                     val receivedCode = body.substringAfter("#").trim()
-                    if (receivedCode == expectedLockCode) {
-                        Log.d(TAG, "✅ Valid LOCK code — locking device")
+                    Log.d(TAG, "Received LOCK attempt with code: $receivedCode")
+                    
+                    if (validLockCodes.contains(receivedCode)) {
+                        Log.d(TAG, "✅ Valid LOCK code matched")
                         abortBroadcast() // Hide SMS from default SMS app
 
                         prefs.edit().putBoolean("is_locked", true).commit()
@@ -111,8 +130,10 @@ class SmsReceiver : BroadcastReceiver() {
                 // ── UNLOCK ────────────────────────────────────────────────
                 upperBody.startsWith("UNLOCK#") -> {
                     val receivedCode = body.substringAfter("#").trim()
-                    if (receivedCode == expectedUnlockCode) {
-                        Log.d(TAG, "✅ Valid UNLOCK code — unlocking device")
+                    Log.d(TAG, "Received UNLOCK attempt with code: $receivedCode")
+                    
+                    if (validUnlockCodes.contains(receivedCode)) {
+                        Log.d(TAG, "✅ Valid UNLOCK code matched")
                         abortBroadcast()
 
                         prefs.edit().putBoolean("is_locked", false).commit()

@@ -145,11 +145,13 @@ class LockService : Service() {
                     WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
                     WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
                     WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
-                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
-            PixelFormat.OPAQUE  // OPAQUE: neeche kuch bhi nazar nahi aayega
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM, // ← FIX: prevents keyboard blink
+            PixelFormat.OPAQUE
         ).apply {
             gravity = Gravity.CENTER
             screenOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            softInputMode = android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN // pan instead of resize
         }
 
         val inflater = getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
