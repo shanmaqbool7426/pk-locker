@@ -133,7 +133,6 @@ class LockManager(private val context: Context) {
                     setUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES, locked)
                     // 5. Block System Settings Changes
                     setUserRestriction(UserManager.DISALLOW_CONFIG_WIFI, locked)
-                    setUserRestriction(UserManager.DISALLOW_SMS, locked)
                     setUserRestriction(UserManager.DISALLOW_OUTGOING_CALLS, locked)
                     setUserRestriction(UserManager.DISALLOW_MOUNT_PHYSICAL_MEDIA, locked) // No SD card/OTG hacks
                 }

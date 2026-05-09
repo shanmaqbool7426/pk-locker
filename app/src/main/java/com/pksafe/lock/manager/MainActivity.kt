@@ -175,9 +175,11 @@ fun MainAppEntryPoint() {
         )
     }
 
-    // DISABLED: SMS permissions commented out for provisioning testing
+    // SMS Permissions
     var smsPermissionMissing by remember {
-        mutableStateOf(false) // Always false — SMS permissions disabled
+        mutableStateOf(
+            isCustomer && androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECEIVE_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
     }
 
     val smsPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -199,7 +201,7 @@ fun MainAppEntryPoint() {
     LaunchedEffect(isCustomer) {
         if (isCustomer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             overlayPermissionMissing = !Settings.canDrawOverlays(context)
-            // smsPermissionMissing check disabled — SMS permissions removed for provisioning
+            smsPermissionMissing = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECEIVE_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED
             locationPermissionMissing = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED
         }
     }
@@ -563,61 +565,60 @@ fun CustomerStatusScreen(
     onReset: () -> Unit
 ) {
     val context = LocalContext.current
-    var showImeiDialog by remember { mutableStateOf(imei == "Not Set" || imei.isBlank()) }
+    val sharedPrefs = remember { context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE) }
+    var showImeiDialog by remember(imei) { mutableStateOf(imei == "Not Set" || imei.isBlank()) }
     var tempImei by remember { mutableStateOf("") }
 
-    // Auto-fetch IMEI if device owner
-    LaunchedEffect(Unit) {
-        try {
-            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
-            if (dpm.isDeviceOwnerApp(context.packageName)) {
-                // Grant READ_PHONE_STATE to self if possible
-                val compName = android.content.ComponentName(context, com.pksafe.lock.manager.receiver.AdminReceiver::class.java)
-                try {
-                    dpm.setPermissionGrantState(compName, context.packageName, android.Manifest.permission.READ_PHONE_STATE, android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
-                } catch(e: Exception) { e.printStackTrace() }
-
-                val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as android.telephony.TelephonyManager
-                val fetchedImei = tm.imei
-                if (!fetchedImei.isNullOrBlank()) {
-                    tempImei = fetchedImei
-                    onImeiSubmit(fetchedImei)
-                    fetchAndSaveSmsCodesForCustomer(context, fetchedImei)
-                    showImeiDialog = false
-                }
+    // Helper to get IMEI robustly (for Device Owners)
+    fun getRobustImei(ctx: Context): String? {
+        return try {
+            val tm = ctx.getSystemService(Context.TELEPHONY_SERVICE) as android.telephony.TelephonyManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // Try multiple slots/methods for reliability
+                tm.imei ?: try { tm.getImei(0) } catch(e: Exception) { null } 
+                       ?: try { tm.getImei(1) } catch(e: Exception) { null }
+                       ?: tm.deviceId
+            } else {
+                tm.deviceId
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            null
         }
     }
 
-    if (showImeiDialog) {
-        AlertDialog(
-            onDismissRequest = { },
-            title = { Text("Device Activation") },
-            text = {
-                Column {
-                    Text("Enter Registered IMEI to sync with server:")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = tempImei,
-                        onValueChange = { tempImei = it },
-                        label = { Text("IMEI Number") }
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = { 
-                    if (tempImei.isNotBlank()) {
-                        onImeiSubmit(tempImei)
-                        // Save IMEI and fetch SMS codes from server (for offline SMS locking)
-                        fetchAndSaveSmsCodesForCustomer(context, tempImei)
+    // Auto-fetch IMEI if device owner — Polling while dialog is visible
+    LaunchedEffect(showImeiDialog) {
+        if (!showImeiDialog) return@LaunchedEffect
+        
+        while (showImeiDialog) {
+            try {
+                val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+                if (dpm.isDeviceOwnerApp(context.packageName)) {
+                    // 1. Grant permission automatically as Device Owner
+                    val compName = android.content.ComponentName(context, com.pksafe.lock.manager.receiver.AdminReceiver::class.java)
+                    try {
+                        dpm.setPermissionGrantState(compName, context.packageName, android.Manifest.permission.READ_PHONE_STATE, android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
+                    } catch(e: Exception) { }
+
+                    // 2. Try fetching IMEI
+                    val fetchedImei = getRobustImei(context)
+                    if (!fetchedImei.isNullOrBlank()) {
+                        Log.d("AUTO_IMEI", "Successfully auto-fetched IMEI: $fetchedImei")
+                        tempImei = fetchedImei
+                        onImeiSubmit(fetchedImei)
+                        fetchAndSaveSmsCodesForCustomer(context, fetchedImei)
                         showImeiDialog = false
+                        break // Success!
                     }
-                }) { Text("ACTIVATE") }
+                }
+            } catch (e: Exception) {
+                Log.e("AUTO_IMEI", "Polling error: ${e.message}")
             }
-        )
+            kotlinx.coroutines.delay(2000) // Check every 2 seconds
+        }
     }
+
+ 
 
     val lockManager = remember { com.pksafe.lock.manager.util.LockManager(context) }
 
@@ -1014,9 +1015,30 @@ fun CustomerLockScreen(onReset: () -> Unit) {
 @Composable
 fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), onLogout: () -> Unit) {
     val context = LocalContext.current
+    val dashboardViewModel: com.pksafe.lock.manager.ui.dashboard.DashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    
+    // Initialize dashboard data to fetch available keys/stats for the whole app
+    LaunchedEffect(Unit) {
+        dashboardViewModel.initDashboard(context)
+    }
+
+    val stats = dashboardViewModel.dashboardData
+
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var selectedDeviceImei by remember { mutableStateOf<String?>(null) }
     var selectedDeviceName by remember { mutableStateOf<String?>(null) }
+    var showBuyKeysPopup by remember { mutableStateOf(false) }
+
+    fun navigateSafe(dest: AppDestinations) {
+        if (dest == AppDestinations.REGISTRATION) {
+            val available = stats?.android?.availableKeys ?: 0
+            if (available <= 0) {
+                showBuyKeysPopup = true
+                return
+            }
+        }
+        currentDestination = dest
+    }
 
     if (selectedDeviceImei != null && isAdmin) {
         ControlPanelScreen(
@@ -1025,6 +1047,32 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
             onBack = { selectedDeviceImei = null }
         )
     } else {
+        if (showBuyKeysPopup) {
+            AlertDialog(
+                onDismissRequest = { showBuyKeysPopup = false },
+                containerColor = Color.White,
+                icon = { Icon(Icons.Default.Key, contentDescription = null, tint = Color(0xFFEA580C), modifier = Modifier.size(32.dp)) },
+                title = { Text("Zero Available Keys", fontWeight = FontWeight.Bold, color = Color(0xFF1E293B)) },
+                text = { Text("You do not have any available keys to register a new device. Please buy keys to continue.", color = Color(0xFF64748B)) },
+                confirmButton = {
+                    Button(
+                        onClick = { 
+                            showBuyKeysPopup = false
+                            navigateSafe(AppDestinations.BUY_KEYS) 
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4F46E5))
+                    ) {
+                        Text("Buy Keys Now", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showBuyKeysPopup = false }) {
+                        Text("Cancel", color = Color(0xFF64748B))
+                    }
+                }
+            )
+        }
+
         NavigationSuiteScaffold(
             navigationSuiteItems = {
                 AppDestinations.entries.filter { 
@@ -1042,7 +1090,7 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                         icon = { Icon(imageVector = it.icon, contentDescription = it.label) },
                         label = { Text(it.label) },
                         selected = it == currentDestination,
-                        onClick = { currentDestination = it }
+                        onClick = { navigateSafe(it) }
                     )
                 }
             }
@@ -1052,18 +1100,18 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                     when (currentDestination) {
                         AppDestinations.HOME -> DashboardScreen(onMenuItemClick = { title ->
                             when(title) {
-                                "Upcoming EMIs" -> currentDestination = AppDestinations.EMI_LIST
-                                "Active Customers" -> currentDestination = AppDestinations.LIST
-                                "Deregistered" -> currentDestination = AppDestinations.DEREGISTER_LIST
-                                "QR Code" -> currentDestination = AppDestinations.PROVISIONING_QR
-                                "Cable Sync" -> currentDestination = AppDestinations.CABLE_SYNC
-                                "Phone QR" -> currentDestination = AppDestinations.PHONE_QR
-                                "Easy Setup" -> currentDestination = AppDestinations.EASY_SETUP
-                                "Video Help" -> currentDestination = AppDestinations.VIDEO_HELP
-                                "Register Device" -> currentDestination = AppDestinations.REGISTRATION
-                                "Buy Keys" -> currentDestination = AppDestinations.BUY_KEYS
-                                "NFC Setup" -> currentDestination = AppDestinations.NFC_SETUP
-                                "Key Requests" -> currentDestination = AppDestinations.ADMIN_KEYS
+                                "Upcoming EMIs" -> navigateSafe(AppDestinations.EMI_LIST)
+                                "Active Customers" -> navigateSafe(AppDestinations.LIST)
+                                "Deregistered" -> navigateSafe(AppDestinations.DEREGISTER_LIST)
+                                "QR Code" -> navigateSafe(AppDestinations.PROVISIONING_QR)
+                                "Cable Sync" -> navigateSafe(AppDestinations.CABLE_SYNC)
+                                "Phone QR" -> navigateSafe(AppDestinations.PHONE_QR)
+                                "Easy Setup" -> navigateSafe(AppDestinations.EASY_SETUP)
+                                "Video Help" -> navigateSafe(AppDestinations.VIDEO_HELP)
+                                "Register Device" -> navigateSafe(AppDestinations.REGISTRATION)
+                                "Buy Keys" -> navigateSafe(AppDestinations.BUY_KEYS)
+                                "NFC Setup" -> navigateSafe(AppDestinations.NFC_SETUP)
+                                "Key Requests" -> navigateSafe(AppDestinations.ADMIN_KEYS)
                             }
                         })
                         AppDestinations.REGISTRATION -> if (isAdmin) RegistrationScreen(

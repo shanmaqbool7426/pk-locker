@@ -74,9 +74,9 @@ class SmsReceiver : BroadcastReceiver() {
             val validLockCodes = mutableSetOf<String>()
             val validUnlockCodes = mutableSetOf<String>()
 
-            // 1. Add codes from prefs (if backend sent them)
-            prefs.getString("sms_lock_code", null)?.let { validLockCodes.add(it) }
-            prefs.getString("sms_unlock_code", null)?.let { validUnlockCodes.add(it) }
+            // 1. Add codes from prefs (if backend sent them) — force lowercase
+            prefs.getString("sms_lock_code", null)?.lowercase()?.let { validLockCodes.add(it) }
+            prefs.getString("sms_unlock_code", null)?.lowercase()?.let { validUnlockCodes.add(it) }
 
             // 2. Generate codes from both IMEIs as fallback
             imei1?.let {
@@ -94,7 +94,7 @@ class SmsReceiver : BroadcastReceiver() {
             when {
                 // ── LOCK ──────────────────────────────────────────────────
                 upperBody.startsWith("LOCK#") -> {
-                    val receivedCode = body.substringAfter("#").trim()
+                    val receivedCode = body.substringAfter("#").trim().lowercase()
                     Log.d(TAG, "Received LOCK attempt with code: $receivedCode")
                     
                     if (validLockCodes.contains(receivedCode)) {
@@ -103,25 +103,12 @@ class SmsReceiver : BroadcastReceiver() {
 
                         prefs.edit().putBoolean("is_locked", true).commit()
 
-                        // Start LockService (overlay screen) gracefully
-                        try {
-                            val svcIntent = Intent(context, LockService::class.java)
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                context.startForegroundService(svcIntent)
-                            } else {
-                                context.startService(svcIntent)
-                            }
+                        // Call LockManager directly (it handles starting LockService and hardware lock)
+                        try { 
+                            LockManager(context).lockDevice() 
                         } catch (e: Exception) {
-                            Log.e(TAG, "Failed to start LockService in background: ${e.message}")
-                            // We still have DPM lock triggering next, so device gets locked anyway!
+                            Log.e(TAG, "DPM lock error: ${e.message}")
                         }
-
-                        // Also call DPM lock
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            try { LockManager(context).lockDevice() } catch (e: Exception) {
-                                Log.e(TAG, "DPM lock error: ${e.message}")
-                            }
-                        }, 800)
                     } else {
                         Log.w(TAG, "❌ Invalid LOCK code")
                     }
@@ -129,7 +116,7 @@ class SmsReceiver : BroadcastReceiver() {
 
                 // ── UNLOCK ────────────────────────────────────────────────
                 upperBody.startsWith("UNLOCK#") -> {
-                    val receivedCode = body.substringAfter("#").trim()
+                    val receivedCode = body.substringAfter("#").trim().lowercase()
                     Log.d(TAG, "Received UNLOCK attempt with code: $receivedCode")
                     
                     if (validUnlockCodes.contains(receivedCode)) {
@@ -137,12 +124,11 @@ class SmsReceiver : BroadcastReceiver() {
                         abortBroadcast()
 
                         prefs.edit().putBoolean("is_locked", false).commit()
-                        context.stopService(Intent(context, LockService::class.java))
 
-                        Handler(Looper.getMainLooper()).post {
-                            try { LockManager(context).unlockDevice() } catch (e: Exception) {
-                                Log.e(TAG, "DPM unlock error: ${e.message}")
-                            }
+                        try { 
+                            LockManager(context).unlockDevice() 
+                        } catch (e: Exception) {
+                            Log.e(TAG, "DPM unlock error: ${e.message}")
                         }
                     } else {
                         Log.w(TAG, "❌ Invalid UNLOCK code")

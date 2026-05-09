@@ -132,9 +132,9 @@ class LockService : Service() {
         }
 
         // ─── CRITICAL FIX ────────────────────────────────────────────────────────
-        // FLAG_NOT_TOUCH_MODAL HATAYA gaya hai — ye asli bug tha!
-        // Jab ye flag lagta tha toh overlay ke bahar ki touches neeche jati theen
-        // Ab overlay SABHI touches intercept karega — user escape nahi kar sakta
+        // Keyboard (numpad) ko properly chalane ke liye FLAG_NOT_TOUCH_MODAL laazmi hai.
+        // Agar yeh na ho toh overlay keyboard ke touches ko block kar deta hai aur
+        // keyboard fauran band ho jata hai jab user type karne ki koshish karta hai.
         // ─────────────────────────────────────────────────────────────────────────
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -146,12 +146,12 @@ class LockService : Service() {
                     WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
                     WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                    WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM, // ← FIX: prevents keyboard blink
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.OPAQUE
         ).apply {
             gravity = Gravity.CENTER
             screenOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            softInputMode = android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN // pan instead of resize
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
 
         val inflater = getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater

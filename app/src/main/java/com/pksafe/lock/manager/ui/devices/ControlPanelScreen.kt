@@ -208,8 +208,8 @@ fun ControlPanelScreen(
                 when (selectedTab) {
                     0 -> {
                         Row(modifier = Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            PremiumModeButton("Sync Mode", isOnlineMode, { isOnlineMode = true }, Modifier.weight(1f), Icons.Default.CloudSync)
-                            PremiumModeButton("Direct SMS", !isOnlineMode, { isOnlineMode = false }, Modifier.weight(1f), Icons.Default.Sms)
+                            PremiumModeButton("Online Mode", isOnlineMode, { isOnlineMode = true }, Modifier.weight(1f), Icons.Default.CloudSync)
+                            PremiumModeButton("Offline Mode", !isOnlineMode, { isOnlineMode = false }, Modifier.weight(1f), Icons.Default.Sms)
                         }
                         if (isOnlineMode) ActionTabContent(viewModel, device, imei, onBack)
                         else SmsTabContent(device)
@@ -577,7 +577,21 @@ fun SmsTabContent(device: DeviceResponse?) {
 
     fun openSms(body: String) {
         if (customerPhone.isBlank()) { Toast.makeText(context, "Phone Missing", Toast.LENGTH_SHORT).show(); return }
-        context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$customerPhone")).apply { putExtra("sms_body", body) })
+        try {
+            val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$customerPhone")).apply { 
+                putExtra("sms_body", body) 
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse("sms:$customerPhone")).apply { 
+                    putExtra("sms_body", body) 
+                }
+                context.startActivity(fallbackIntent)
+            } catch (ex: Exception) {
+                Toast.makeText(context, "No SMS app found on this device", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
