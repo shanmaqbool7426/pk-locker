@@ -539,7 +539,7 @@ private fun fetchAndSaveSmsCodesForCustomer(context: Context, imei: String) {
                         .putString("shop_name", shopName)
                         .putString("shop_phone", shopPhone)
                         .putString("emi_amount", "Rs. ${emiAmount?.toInt() ?: 0}")
-                        .putString("emi_due_date", formattedDate)
+                        .putString("emi_due_date", formattedDate) 
                         .apply()
                         
                     Log.d("LOCK_SYNC", "Device info successfully saved to preferences")
