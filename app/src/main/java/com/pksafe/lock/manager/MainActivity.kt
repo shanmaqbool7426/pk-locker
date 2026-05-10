@@ -1,5 +1,6 @@
 package com.pksafe.lock.manager
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Context
@@ -570,6 +571,7 @@ fun CustomerStatusScreen(
     var tempImei by remember { mutableStateOf("") }
 
     // Helper to get IMEI robustly (for Device Owners)
+    @SuppressLint("MissingPermission", "HardwareIds")
     fun getRobustImei(ctx: Context): String? {
         return try {
             val tm = ctx.getSystemService(Context.TELEPHONY_SERVICE) as android.telephony.TelephonyManager

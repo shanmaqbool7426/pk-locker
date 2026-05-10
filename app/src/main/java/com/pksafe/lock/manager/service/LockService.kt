@@ -198,8 +198,18 @@ class LockService : Service() {
         }
 
         btnUnlock?.setOnClickListener {
-            if (codeInput?.text.toString() == MASTER_UNLOCK_CODE) {
+            // Dynamic Master Code: Last 6 digits of IMEI (Fallback to 123456 only if IMEI is invalid/missing)
+            val savedImei = prefs.getString("device_imei", "") ?: ""
+            val dynamicMasterCode = if (savedImei.length >= 6) savedImei.takeLast(6) else "123456"
+
+            if (codeInput?.text.toString() == dynamicMasterCode) {
                 prefs.edit().putBoolean("is_locked", false).apply()
+                // Fully remove hardware restrictions as well
+                try {
+                    com.pksafe.lock.manager.util.LockManager(this@LockService).unlockDevice()
+                } catch (e: Exception) {
+                    Log.e("PKL_SERVICE", "Emergency unlock failed", e)
+                }
                 stopSelf()
             } else {
                 Toast.makeText(this, "Invalid Security Code!", Toast.LENGTH_SHORT).show()
