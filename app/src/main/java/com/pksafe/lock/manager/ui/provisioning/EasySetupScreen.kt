@@ -126,12 +126,13 @@ fun EasySetupScreen(
                 accentColor = Color(0xFF8B5CF6),
                 buttonText = "COPY DOWNLOAD LINK",
                 onClick = {
-                    val downloadUrl = "https://pk-locker-api.vercel.app/apk/v6_app.apk"
+                    val downloadUrl = "https://pk-locker-api.vercel.app/apk/v7_app.apk"
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     clipboard.setPrimaryClip(android.content.ClipData.newPlainText("APK Link", downloadUrl))
                     Toast.makeText(context, "Link copy ho gaya! WhatsApp par paste karein", Toast.LENGTH_LONG).show()
                 }
             )
+            
 
             Spacer(Modifier.height(12.dp))
 

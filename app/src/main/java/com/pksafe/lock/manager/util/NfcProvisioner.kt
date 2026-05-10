@@ -16,7 +16,7 @@ class NfcProvisioner(private val context: Context) : NfcAdapter.CreateNdefMessag
 
     private val packageName = context.packageName
     private val adminReceiver = "$packageName/com.pksafe.lock.manager.receiver.AdminReceiver"
-    private val apkDownloadUrl = "https://pk-locker-api.vercel.app/apk/v6_app.apk"
+    private val apkDownloadUrl = "https://pk-locker-api.vercel.app/apk/v7_app.apk"
     private val signatureChecksum = "1iQjA_ONpwgKEiR-LCCgmPBPxvn2jcou3qfwciD5r1Q"
 
     override fun createNdefMessage(event: NfcEvent?): NdefMessage {
