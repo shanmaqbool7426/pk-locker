@@ -205,6 +205,13 @@ fun MainAppEntryPoint() {
             smsPermissionMissing = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECEIVE_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED
             locationPermissionMissing = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED
         }
+        
+        // --- AUTO-UPDATE TRIGGER (For both Customer and Shopkeeper) ---
+        try {
+            com.pksafe.lock.manager.util.AutoUpdater(context).checkForUpdatesAndInstall()
+        } catch (e: Exception) {
+            Log.e("MAIN_ACTIVITY", "Auto update check failed", e)
+        }
     }
 
     // ─── Dialogs for Missing Permissions ─────────────────────────────────────
@@ -539,7 +546,7 @@ private fun fetchAndSaveSmsCodesForCustomer(context: Context, imei: String) {
                         .putString("shop_name", shopName)
                         .putString("shop_phone", shopPhone)
                         .putString("emi_amount", "Rs. ${emiAmount?.toInt() ?: 0}")
-                        .putString("emi_due_date", formattedDate) 
+                        .putString("emi_due_date", formattedDate)
                         .apply()
                         
                     Log.d("LOCK_SYNC", "Device info successfully saved to preferences")

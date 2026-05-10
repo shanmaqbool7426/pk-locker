@@ -51,7 +51,7 @@ fun ProvisioningQrScreen(
     val currentAppSignature = remember { getAppSignatureHash(context) }
     var serverRunning by remember { mutableStateOf(false) }
     var phoneIp by remember { mutableStateOf("") }
-    var apkUrl by remember { mutableStateOf("https://pk-locker-api.vercel.app/apk/v6_app.apk") }
+    var apkUrl by remember { mutableStateOf("https://pk-locker-api.vercel.app/apk/v7_app.apk") }
     var signature by remember { mutableStateOf(currentAppSignature) }
     var apkHash by remember { mutableStateOf("") }
     var isVerifying by remember { mutableStateOf(false) }
@@ -59,7 +59,7 @@ fun ProvisioningQrScreen(
     var useLocalServer by remember { mutableStateOf(false) } // Default to Cloud Mode for reliability
 
     // Fallback Vercel URL
-    val vercelUrl = "https://pk-locker-api.vercel.app/apk/v6_app.apk"
+    val vercelUrl = "https://pk-locker-api.vercel.app/apk/v7_app.apk"
 
     // Auto-start local server and detect IP
     LaunchedEffect(useLocalServer) {
