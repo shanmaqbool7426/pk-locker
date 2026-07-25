@@ -15,6 +15,17 @@ import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
+/**
+ * AutoUpdater checks for application updates against the remote version endpoint.
+ * 
+ * Logic Flow:
+ * 1. Checks remote version endpoint for newer build (serverVersionCode > currentVersionCode).
+ * 2. Downloads the updated APK payload asynchronously to local app cache.
+ * 3. Initializes a PackageInstaller session to write the APK stream.
+ * 4. Commits the session with a PendingIntent bound to UpdateReceiver.
+ * 5. On completion, UpdateReceiver displays an update confirmation popup (if non-Device Owner)
+ *    or completes silent installation (if Device Owner).
+ */
 class AutoUpdater(private val context: Context) {
     private val TAG = "AutoUpdater"
     private val VERSION_API = "${Constants.BASE_URL}version"
