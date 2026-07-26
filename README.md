@@ -31,7 +31,7 @@ To build a fresh signed release APK of PK Locker:
 3. Compiled APK file location:
    `app/build/outputs/apk/release/app-release.apk`
 
----
+--- c
 
 ## 🌐 2. APK Download URLs
 
