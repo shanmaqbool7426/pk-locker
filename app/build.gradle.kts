@@ -28,11 +28,17 @@ android {
             storePassword = "pk_locker_123"
             keyAlias = "pk_locker"
             keyPassword = "pk_locker_123"
+            // Enable all signing schemes — required for Play Protect to accept the APK
+            enableV1Signing = true   // Legacy JAR signing (Android < 7)
+            enableV2Signing = true   // APK Signature Scheme v2 (Android 7+)
+            enableV3Signing = true   // APK Signature Scheme v3 (Android 9+)
         }
     }
 
     buildTypes {
         debug {
+            // Using release signing even for debug builds
+            // so Play Protect treats it same as release
             signingConfig = signingConfigs.getByName("release")
         }
         release {
