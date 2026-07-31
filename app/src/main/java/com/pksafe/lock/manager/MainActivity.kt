@@ -1093,6 +1093,7 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                     it != AppDestinations.EASY_SETUP &&
                     it != AppDestinations.VIDEO_HELP &&
                     it != AppDestinations.NFC_SETUP &&
+                    it != AppDestinations.WIRELESS_ADB &&
                     it != AppDestinations.ADMIN_KEYS
                 }.forEach {
                     item(
@@ -1114,6 +1115,7 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                                 "Deregistered" -> navigateSafe(AppDestinations.DEREGISTER_LIST)
                                 "QR Code" -> navigateSafe(AppDestinations.PROVISIONING_QR)
                                 "Cable Sync" -> navigateSafe(AppDestinations.CABLE_SYNC)
+                                "Wireless ADB" -> navigateSafe(AppDestinations.WIRELESS_ADB)
                                 "Phone QR" -> navigateSafe(AppDestinations.PHONE_QR)
                                 "Easy Setup" -> navigateSafe(AppDestinations.EASY_SETUP)
                                 "Video Help" -> navigateSafe(AppDestinations.VIDEO_HELP)
@@ -1147,6 +1149,9 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                             onProvisioningQr = { currentDestination = AppDestinations.PHONE_QR }
                         )
                         AppDestinations.CABLE_SYNC -> if (isAdmin) com.pksafe.lock.manager.ui.provisioning.ProvisioningCableScreen(
+                            onBack = { currentDestination = AppDestinations.HOME }
+                        )
+                        AppDestinations.WIRELESS_ADB -> if (isAdmin) com.pksafe.lock.manager.ui.provisioning.WirelessAdbSetupScreen(
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
                         AppDestinations.PHONE_QR -> if (isAdmin) ProvisioningQrScreen(
@@ -1187,6 +1192,7 @@ enum class AppDestinations(val label: String, val icon: ImageVector) {
     VIDEO_HELP("Help", Icons.Default.PlayCircle),
     PROFILE("Profile", Icons.Default.Person),
     CABLE_SYNC("Cable Sync", Icons.Default.Usb),
+    WIRELESS_ADB("Wireless ADB", Icons.Default.WifiTethering),
     EASY_SETUP("Easy Setup", Icons.Default.PhoneAndroid),
     NFC_SETUP("NFC Setup", Icons.Default.TapAndPlay),
     ADMIN_KEYS("Key Requests", Icons.Default.AdminPanelSettings)

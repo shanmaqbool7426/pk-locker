@@ -274,7 +274,49 @@ fun DashboardScreen(
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp)
         )
 
-        // --- NEW ONE-CLICK CABLE ACTIVATION CARD ---
+        // --- WIRELESS ADB ACTIVATION CARD (NO CABLE) ---
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFDE68A))
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFD97706),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Icon(Icons.Default.WifiTethering, null, tint = Color.White, modifier = Modifier.padding(10.dp))
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text("Wireless ADB Setup", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextTitle)
+                        Text("No Cable! Setup via 6-digit Wi-Fi code", color = Color(0xFF92400E), fontSize = 12.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { 
+                        onMenuItemClick("Wireless ADB")
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.QrCodeScanner, null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("START WIRELESS SETUP (5 STEPS)", fontWeight = FontWeight.ExtraBold)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // --- ONE-CLICK CABLE ACTIVATION CARD ---
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -310,7 +352,7 @@ fun DashboardScreen(
                 ) {
                     Icon(Icons.Default.Bolt, null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("ACTIVATE LOCK NOW", fontWeight = FontWeight.ExtraBold)
+                    Text("ACTIVATE VIA CABLE NOW", fontWeight = FontWeight.ExtraBold)
                 }
             }
         }
