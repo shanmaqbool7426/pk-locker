@@ -189,12 +189,12 @@ fun WirelessAdbSetupScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Optional Target IP:Port Field (for direct ADB socket connection)
+            // Customer Phone IP & Port Field (REQUIRED)
             OutlinedTextField(
                 value = targetIpPort,
                 onValueChange = { targetIpPort = it },
-                label = { Text("Customer IP & Port (e.g. 192.168.1.50:37129)") },
-                placeholder = { Text("192.168.1.XX:XXXXX (Optional)") },
+                label = { Text("Customer IP & Port (Shown under Wireless Debugging)") },
+                placeholder = { Text("e.g. 192.168.1.15:37129 (REQUIRED)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -210,7 +210,7 @@ fun WirelessAdbSetupScreen(
                 value = pairingCode,
                 onValueChange = { if (it.length <= 6) pairingCode = it },
                 label = { Text("Wi-Fi pairing code (6 digits)") },
-                placeholder = { Text("Enter 6-digit code") },
+                placeholder = { Text("e.g. 115999") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -225,28 +225,40 @@ fun WirelessAdbSetupScreen(
             // PAIR & CONNECT Button
             Button(
                 onClick = {
+                    if (targetIpPort.trim().isEmpty() || !targetIpPort.contains(":")) {
+                        Toast.makeText(context, "Please enter Customer Phone IP & Port (e.g. 192.168.1.15:37129)", Toast.LENGTH_LONG).show()
+                        return@Button
+                    }
                     if (pairingCode.trim().length < 6) {
                         Toast.makeText(context, "Please enter 6-digit Wi-Fi pairing code", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
+
                     isPairing = true
+                    val hostIp = parseIpFromInput(targetIpPort, context)
+                    val hostPort = parsePortFromInput(targetIpPort)
+
                     appendLog("Connecting via Wireless ADB code $pairingCode...")
+                    appendLog("Target Device: $hostIp:$hostPort")
                     copyToClipboard(context, DPM_COMMAND_WIRELESS)
 
                     scope.launch {
-                        val hostIp = parseIpFromInput(targetIpPort, context)
-                        val hostPort = parsePortFromInput(targetIpPort)
-                        
                         appendLog("Connecting to $hostIp:$hostPort...")
                         val result = com.pksafe.lock.manager.util.AdbSocketEngine.executeRemoteCommand(
                             hostIp, hostPort, "echo ADB_CONNECTED"
                         )
                         
-                        isConnected = true
                         isPairing = false
-                        appendLog("Pairing status: ${result.message}")
-                        appendLog("Connected to customer device successfully! ✅")
-                        Toast.makeText(context, "Pairing successful! Tap 'SET DEVICE OWNER'", Toast.LENGTH_LONG).show()
+                        if (result.success) {
+                            isConnected = true
+                            appendLog("Pairing status: Connected successfully! ✅")
+                            Toast.makeText(context, "Pairing successful! Tap 'SET DEVICE OWNER'", Toast.LENGTH_LONG).show()
+                        } else {
+                            isConnected = false
+                            appendLog("❌ Connection Error: ${result.message}")
+                            appendLog("⚠️ Please verify Customer IP:Port and ensure Wireless Debugging is ON.")
+                            Toast.makeText(context, "Connection failed. Please check IP & Port.", Toast.LENGTH_LONG).show()
+                        }
                     }
                 },
                 modifier = Modifier
@@ -411,12 +423,40 @@ fun WirelessAdbSetupScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             // LOG WINDOW AT BOTTOM
-            Text(
-                "Log",
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                color = Color.Black
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Log",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = Color.Black
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = {
+                            copyToClipboard(context, logText)
+                            Toast.makeText(context, "Logs copied to clipboard!", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Copy Logs",
+                            tint = ThemeBrown,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Text(
+                        "Copy",
+                        fontSize = 12.sp,
+                        color = ThemeBrown,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(6.dp))
 
             Surface(
@@ -477,15 +517,6 @@ private fun parseIpFromInput(input: String, context: Context): String {
     } else if (trimmed.isNotBlank()) {
         return trimmed
     }
-    
-    // Fallback: Detect local subnet IP base (e.g. 192.168.1.50)
-    try {
-        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-        val ipInt = wifiInfoIp(wifiManager)
-        if (ipInt != 0) {
-            return String.format("%d.%d.%d.100", ipInt and 0xff, ipInt shr 8 and 0xff, ipInt shr 16 and 0xff)
-        }
-    } catch (e: Exception) {}
     return "127.0.0.1"
 }
 
@@ -500,8 +531,25 @@ private fun parsePortFromInput(input: String): Int {
     return 5555
 }
 
-private fun wifiInfoIp(wifiManager: WifiManager?): Int {
-    return try {
-        wifiManager?.connectionInfo?.ipAddress ?: 0
-    } catch (e: Exception) { 0 }
+private fun openBugjaegerOrAdb(context: Context, onLog: (String) -> Unit) {
+    try {
+        val pm = context.packageManager
+        val installedApps = pm.getInstalledPackages(0)
+        var launchIntent: Intent? = null
+        for (app in installedApps) {
+            if (app.packageName.contains("bugjaeger", ignoreCase = true)) {
+                launchIntent = pm.getLaunchIntentForPackage(app.packageName)
+                if (launchIntent != null) break
+            }
+        }
+
+        if (launchIntent != null) {
+            context.startActivity(launchIntent)
+            onLog("Opened Bugjaeger helper app")
+        } else {
+            onLog("Command copied to clipboard: $DPM_COMMAND_WIRELESS")
+        }
+    } catch (e: Exception) {
+        onLog("Executing ADB shell command via socket")
+    }
 }

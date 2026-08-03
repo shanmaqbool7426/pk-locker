@@ -72,6 +72,41 @@ class LockManager(private val context: Context) {
         }
     }
 
+    /**
+     * Properly enables AntiUninstallService via Device Owner API.
+     * ADB "settings put" alone does NOT reliably start the service on Samsung Android 13/14.
+     * DevicePolicyManager.setSecureSetting() is the correct enterprise API for Device Owners.
+     * Call this every time the customer app starts.
+     */
+    fun ensureAccessibilityServiceEnabled() {
+        if (!isDeviceOwner()) return
+        try {
+            val serviceName = "${context.packageName}/com.pksafe.lock.manager.service.AntiUninstallService"
+            // Use Device Owner enterprise API — this ACTUALLY starts the service
+            devicePolicyManager.setSecureSetting(
+                adminComponent,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                serviceName
+            )
+            devicePolicyManager.setSecureSetting(
+                adminComponent,
+                Settings.Secure.ACCESSIBILITY_ENABLED,
+                "1"
+            )
+            Log.d("LOCK_MANAGER", "Accessibility service enabled via DPM setSecureSetting")
+        } catch (e: Exception) {
+            Log.e("LOCK_MANAGER", "DPM setSecureSetting failed: ${e.message}")
+            // Fallback: try direct Settings.Secure write
+            try {
+                val serviceName = "${context.packageName}/com.pksafe.lock.manager.service.AntiUninstallService"
+                Settings.Secure.putString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, serviceName)
+                Settings.Secure.putInt(context.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
+            } catch (e2: Exception) {
+                Log.e("LOCK_MANAGER", "Fallback also failed: ${e2.message}")
+            }
+        }
+    }
+
     // ─── FULL ENFORCEMENT (When Locked) ───────────────────────────────────────
     fun lockDevice() {
         if (!isAdminActive()) return

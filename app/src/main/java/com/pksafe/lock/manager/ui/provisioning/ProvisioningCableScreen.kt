@@ -1,18 +1,16 @@
 package com.pksafe.lock.manager.ui.provisioning
 
-import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.content.IntentFilter
+import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
-import android.net.Uri
 import android.os.Build
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -28,360 +26,384 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
+import com.pksafe.lock.manager.util.UsbAdbEngine
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.security.KeyFactory
+import java.security.KeyPair
+import java.security.PrivateKey
+import java.security.PublicKey
+import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.X509EncodedKeySpec
+import android.util.Base64
 
-private val BgDark = Color(0xFF0A0A0A)
-private val CardDark = Color(0xFF1A1A1A)
-private val Green = Color(0xFF22C55E)
-private val Blue = Color(0xFF3B82F6)
-private val Yellow = Color(0xFFFBBF24)
-private val White = Color.White
+private const val PREFS_NAME      = "usb_adb_prefs"
+private const val KEY_PRIVATE      = "rsa_private"
+private const val KEY_PUBLIC       = "rsa_public"
+private const val ACTION_USB_PERM  = "com.pksafe.USB_PERMISSION"
 
-private const val DPM_COMMAND =
-    "dpm set-device-owner com.pksafe.lock.manager/com.pksafe.lock.manager.receiver.AdminReceiver"
+private val BgDark     = Color(0xFF0F172A)
+private val CardDark   = Color(0xFF1E293B)
+private val Green      = Color(0xFF22C55E)
+private val Blue       = Color(0xFF3B82F6)
+private val Yellow     = Color(0xFFF59E0B)
+private val White      = Color.White
+private val LogBgColor = Color(0xFF020617)
 
-// ─── Persistent notification so command is accessible inside Bugjaeger ───────
-private fun showCommandNotification(context: Context) {
-    val channelId = "adb_command_channel"
-    val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        nm.createNotificationChannel(
-            NotificationChannel(channelId, "ADB Command Helper", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Shows the Device Owner command while you use Bugjaeger"
-            }
-        )
-    }
-
-    // Copy-action intent (copies command to clipboard when tapped from notification)
-    val copyIntent = Intent(context, context.javaClass).apply {
-        action = "COPY_ADB_CMD"
-        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-    }
-    val copyPi = PendingIntent.getActivity(
-        context, 0, copyIntent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-
-    val notification = NotificationCompat.Builder(context, channelId)
-        .setSmallIcon(android.R.drawable.ic_menu_share)
-        .setContentTitle("📋 Bugjaeger mein PASTE karein")
-        .setContentText(DPM_COMMAND)
-        .setStyle(NotificationCompat.BigTextStyle().bigText(
-            "1. Bugjaeger mein Shell tab open karein\n" +
-            "2. Command field mein LONG PRESS → Paste\n" +
-            "3. ▶️ Play button dabein\n\n" +
-            "Command:\n$DPM_COMMAND"
-        ))
-        .setPriority(NotificationCompat.PRIORITY_HIGH)
-        .setOngoing(true)
-        .addAction(android.R.drawable.ic_menu_edit, "Command Copy Karein", copyPi)
-        .setAutoCancel(false)
-        .build()
-
-    try {
-        nm.notify(1001, notification)
-    } catch (e: SecurityException) {
-        // Notification permission might be missing on Android 13+
-    }
+// ─── RSA Key persistence ──────────────────────────────────────────────────────
+private fun loadOrGenerateKeyPair(context: Context): KeyPair {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val privB64 = prefs.getString(KEY_PRIVATE, null)
+    val pubB64  = prefs.getString(KEY_PUBLIC,  null)
+    return if (privB64 != null && pubB64 != null) {
+        try {
+            val kf = KeyFactory.getInstance("RSA")
+            val priv: PrivateKey = kf.generatePrivate(PKCS8EncodedKeySpec(Base64.decode(privB64, Base64.DEFAULT)))
+            val pub:  PublicKey  = kf.generatePublic(X509EncodedKeySpec(Base64.decode(pubB64, Base64.DEFAULT)))
+            KeyPair(pub, priv)
+        } catch (_: Exception) { generateAndSave(context) }
+    } else generateAndSave(context)
 }
 
-private fun dismissCommandNotification(context: Context) {
-    (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(1001)
+private fun generateAndSave(context: Context): KeyPair {
+    val kp = UsbAdbEngine.generateKeyPair()
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().apply {
+        putString(KEY_PRIVATE, Base64.encodeToString(kp.private.encoded, Base64.DEFAULT))
+        putString(KEY_PUBLIC,  Base64.encodeToString(kp.public.encoded,  Base64.DEFAULT))
+        apply()
+    }
+    return kp
 }
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
+// ─── Screen ───────────────────────────────────────────────────────────────────
 @Composable
 fun ProvisioningCableScreen(onBack: () -> Unit) {
-    val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
+    val context    = LocalContext.current
+    val scope      = rememberCoroutineScope()
     val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
 
-    var isDeviceConnected by remember { mutableStateOf(false) }
-    var showPostGuide by remember { mutableStateOf(false) }
-    var isThirdStepDone by remember { mutableStateOf(false) }
+    var usbDevice          by remember { mutableStateOf<UsbDevice?>(null) }
+    var hasUsbPermission   by remember { mutableStateOf(false) }
+    var isExecuting        by remember { mutableStateOf(false) }
+    var isCompletedSuccess by remember { mutableStateOf(false) }
+    var logText by remember { mutableStateOf(
+        "⚡ Ready.\n\nSetup:\n" +
+        "1. Customer phone: Developer Options ON\n" +
+        "2. USB Debugging: ON\n" +
+        "3. C-to-C cable dono phones mein lagao\n" +
+        "4. ACTIVATE dabao → Customer phone pe 'Allow' dabao"
+    )}
+    fun appendLog(msg: String) { logText = "$logText\n$msg" }
 
-    // Request Notification Permission for Android 13+ (API 33)
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            showCommandNotification(context)
-        }
-    }
+    // Load RSA key pair (persisted — so customer phone remembers trust)
+    val keyPair = remember { loadOrGenerateKeyPair(context) }
 
-    // USB check loop
+    var hasRequestedPermission by remember { mutableStateOf(false) }
+
+    // USB device detect + status check loop
     LaunchedEffect(Unit) {
         while (true) {
-            isDeviceConnected = usbManager.deviceList.isNotEmpty()
+            val found = UsbAdbEngine.findAdbDevice(usbManager)
+
+            if (found != null) {
+                if (usbDevice != found) {
+                    usbDevice = found
+                    hasRequestedPermission = false // Reset when new device connected
+                }
+                val hasPerm = usbManager.hasPermission(found)
+                if (hasPerm && !hasUsbPermission) {
+                    hasUsbPermission = true
+                    appendLog("✅ USB Permission granted! ACTIVATE dabao.")
+                }
+                hasUsbPermission = hasPerm
+
+                // Auto-request permission ONLY ONCE per device connection
+                if (!hasPerm && !hasRequestedPermission) {
+                    hasRequestedPermission = true
+                    val intent = Intent(ACTION_USB_PERM).apply {
+                        setPackage(context.packageName)
+                    }
+                    val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                        PendingIntent.FLAG_MUTABLE else 0
+                    val pi = PendingIntent.getBroadcast(context, 0, intent, flags)
+                    usbManager.requestPermission(found, pi)
+                    appendLog("📱 USB device detected!\n⚠️ System dialog aya hoga — 'ALLOW' dabao.")
+                }
+            } else {
+                if (usbDevice != null) {
+                    usbDevice = null
+                    hasUsbPermission = false
+                    hasRequestedPermission = false
+                    appendLog("⚠️ Cable unplug hua.")
+                }
+            }
             delay(2000)
         }
     }
 
-    // Dismiss notification when screen closes
+
+    // USB permission BroadcastReceiver
     DisposableEffect(Unit) {
-        onDispose { dismissCommandNotification(context) }
-    }
-
-    // Pulse animation for USB icon
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulse by infiniteTransition.animateFloat(
-        initialValue = 1f, targetValue = 1.08f,
-        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
-        label = "pulse"
-    )
-
-    // ─── Post-Activation Guide Dialog ────────────────────────────────────────
-    if (showPostGuide) {
-        AlertDialog(
-            onDismissRequest = { showPostGuide = false },
-            containerColor = CardDark,
-            shape = RoundedCornerShape(24.dp),
-            icon = {
-                Surface(shape = CircleShape, color = Blue.copy(.12f), modifier = Modifier.size(56.dp)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Terminal, null, tint = Blue, modifier = Modifier.size(28.dp))
-                    }
-                }
-            },
-            title = {
-                Text("Bugjaeger Mein Yeh Karein", color = White, fontWeight = FontWeight.Black, fontSize = 18.sp, textAlign = TextAlign.Center)
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    // Command box
-                    Surface(color = Color(0xFF111111), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Blue.copy(.3f))) {
-                        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(DPM_COMMAND, color = Green, fontSize = 9.5.sp, modifier = Modifier.weight(1f), lineHeight = 14.sp)
-                            IconButton(onClick = {
-                                clipboardManager.setText(AnnotatedString(DPM_COMMAND))
-                                Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
-                            }, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Default.ContentCopy, null, tint = Blue, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    }
-
-                    GuideStep(1, "Bugjaeger mein upar '<>' (Shell) tab open karein", Blue)
-                    GuideStep(2, "Neechay Text field mein LONG PRESS karein → 'Paste' select karein", Yellow)
-                    GuideStep(3, "▶️ Play button dabein → DONE!", Green)
-
-                    // Notification tip
-                    Surface(color = Yellow.copy(.08f), shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, Yellow.copy(.25f))) {
-                        Row(modifier = Modifier.padding(10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.NotificationsActive, null, tint = Yellow, modifier = Modifier.size(16.dp))
-                            Text("Notification bar mein bhi command mojud hai — wahan se bhi copy kar sakte hain!", color = Yellow, fontSize = 11.sp, lineHeight = 15.sp)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { showPostGuide = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = Blue),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Samajh Gaya, OK ▶️", fontWeight = FontWeight.Bold, color = White)
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context, intent: Intent) {
+                if (intent.action == ACTION_USB_PERM) {
+                    val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+                    hasUsbPermission = granted
+                    if (granted) appendLog("✅ Permission granted! ACTIVATE dabao.")
+                    else appendLog("❌ Permission denied. Cable hatao aur dubara lagao.")
                 }
             }
-        )
+        }
+        val filter = IntentFilter(ACTION_USB_PERM)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        else
+            context.registerReceiver(receiver, filter)
+        onDispose { context.unregisterReceiver(receiver) }
     }
 
-    // ─── Main UI ─────────────────────────────────────────────────────────────
+
+    // Pulse animation
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulse by infiniteTransition.animateFloat(
+        initialValue = 1f, targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "pulse"
+    )
+
     Surface(modifier = Modifier.fillMaxSize(), color = BgDark) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 22.dp, vertical = 12.dp)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header
-            Row(modifier = Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Default.ArrowBack, null, tint = White)
-                }
+            // ── Header ──────────────────────────────────────────────────────
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = White) }
                 Spacer(Modifier.width(8.dp))
-                Text("Device Owner Activation", color = White, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                Text("C-to-C Activation", color = White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
             }
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(16.dp))
 
-            // ─── USB Status Circle ────────────────────────────────────────
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(140.dp).scale(if (isDeviceConnected) pulse else 1f)) {
+            // ── USB Status Circle ────────────────────────────────────────────
+            val circleColor  = when {
+                isCompletedSuccess -> Green
+                hasUsbPermission   -> Blue
+                usbDevice != null  -> Yellow
+                else               -> Color(0xFF334155)
+            }
+            val statusText = when {
+                isCompletedSuccess -> "DONE ✅"
+                hasUsbPermission   -> "Connected"
+                usbDevice != null  -> "Allow?"
+                else               -> "Cable Lagao"
+            }
+            val statusIcon = when {
+                isCompletedSuccess -> Icons.Default.CheckCircle
+                hasUsbPermission   -> Icons.Default.Usb
+                usbDevice != null  -> Icons.Default.Warning
+                else               -> Icons.Default.UsbOff
+            }
+
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(130.dp).scale(if (usbDevice != null && !isCompletedSuccess) pulse else 1f)
+            ) {
                 Surface(
                     shape = CircleShape,
-                    color = (if (isDeviceConnected) Green else Blue).copy(.1f),
-                    border = BorderStroke(2.dp, if (isDeviceConnected) Green else Blue),
+                    color = circleColor.copy(0.12f),
+                    border = BorderStroke(2.dp, circleColor),
                     modifier = Modifier.fillMaxSize()
                 ) {}
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        if (isDeviceConnected) Icons.Default.Usb else Icons.Default.PortableWifiOff,
-                        null,
-                        modifier = Modifier.size(44.dp),
-                        tint = if (isDeviceConnected) Green else Blue
-                    )
+                    Icon(statusIcon, null, modifier = Modifier.size(40.dp), tint = circleColor)
                     Spacer(Modifier.height(4.dp))
-                    Text(
-                        if (isDeviceConnected) "Connected" else "Waiting...",
-                        color = if (isDeviceConnected) Green else Blue,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text(statusText, color = circleColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
 
             Text(
-                if (isDeviceConnected) "✅ Phone Connected — Ready!" else "Cable lagayein phir proceed karein",
-                color = if (isDeviceConnected) Green else White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
+                when {
+                    isCompletedSuccess -> "✅ Customer Phone Fully Activated!"
+                    hasUsbPermission   -> "✅ Ready — ACTIVATE dabao!"
+                    usbDevice != null  -> "⚠️ Permission chahiye — button dabao"
+                    else               -> "C-to-C Cable se Customer Phone connect karein"
+                },
+                color = if (usbDevice != null) circleColor else White.copy(0.7f),
+                fontSize = 14.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center
             )
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(16.dp))
 
-            // ─── Pre-Steps Card ───────────────────────────────────────────
+            // ── Checklist ────────────────────────────────────────────────────
             Card(
                 colors = CardDefaults.cardColors(containerColor = CardDark),
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, Color(0xFF2D2D2D)),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color(0xFF334155)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("KARNE KA TARIQA", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 11.sp, letterSpacing = 1.5.sp)
-
-                    PreStep(icon = Icons.Default.PersonRemove, text = "Customer phone se sab Gmail accounts hata dein", done = true, color = Green)
-                    PreStep(icon = Icons.Default.Cable, text = "C-to-C cable se dono phones connect karein", done = isDeviceConnected, color = Blue)
-                    PreStep(icon = Icons.Default.DeveloperMode, text = "'Allow USB Debugging' ko OK karein (customer phone pe)", done = isDeviceConnected, color = Yellow)
-                    PreStep(icon = Icons.Default.FlashOn, text = "Niche ka button dabein → Bugjaeger khulega", done = isThirdStepDone, color = Blue)
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("CHECKLIST", color = Color(0xFF94A3B8), fontWeight = FontWeight.Bold, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                    Step(Icons.Default.PersonRemove, "Customer phone se Google accounts hatain",         done = true, color = Green)
+                    Step(Icons.Default.DeveloperMode, "Customer phone: Developer Options ON",            done = true, color = Green)
+                    Step(Icons.Default.BugReport,    "Customer phone: USB Debugging ON",                done = true, color = Green)
+                    Step(Icons.Default.Cable,        "C-to-C Cable dono phones mein lagao",            done = usbDevice != null, color = Blue)
+                    Step(Icons.Default.Lock,         "ACTIVATE dabao + customer 'Allow' kare",          done = hasUsbPermission, color = Yellow)
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
 
-            // ─── MAIN BUTTON ──────────────────────────────────────────────
+            // ── Manual USB Permission Button (shows if device found but no permission) ──
+            if (usbDevice != null && !hasUsbPermission && !isExecuting) {
+                OutlinedButton(
+                    onClick = {
+                        val intent = Intent(ACTION_USB_PERM).apply {
+                            setPackage(context.packageName)
+                        }
+                        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                            PendingIntent.FLAG_MUTABLE else 0
+                        val pi = PendingIntent.getBroadcast(context, 0, intent, flags)
+                        usbManager.requestPermission(usbDevice!!, pi)
+                        appendLog("USB permission dialog request bheja gaya...")
+                    },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.5.dp, Yellow),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Yellow)
+                ) {
+                    Icon(Icons.Default.Shield, null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("USB Permission Request Karo", fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(10.dp))
+            }
+
+            // ── ACTIVATE Button ──────────────────────────────────────────────
+            val canActivate = usbDevice != null && hasUsbPermission && !isExecuting
             Button(
                 onClick = {
-                    if (!isDeviceConnected) {
-                        Toast.makeText(context, "Pehle cable connect karein!", Toast.LENGTH_SHORT).show()
+                    val dev = usbDevice
+                    if (dev == null) {
+                        Toast.makeText(context, "Pehle C-to-C cable lagao!", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
-
-                    // 1. Copy command to clipboard
-                    clipboardManager.setText(AnnotatedString(DPM_COMMAND))
-
-                    // 2. Show persistent notification for easy access inside Bugjaeger
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        showCommandNotification(context)
+                    if (!hasUsbPermission) {
+                        Toast.makeText(context, "Pehle USB permission allow karo!", Toast.LENGTH_SHORT).show()
+                        return@Button
                     }
-
-                    // 3. Try to open Bugjaeger
-                    try {
-                        val pm = context.packageManager
-                        val installedApps = pm.getInstalledPackages(0)
-                        var launchIntent: Intent? = null
-                        for (app in installedApps) {
-                            if (app.packageName.contains("bugjaeger", ignoreCase = true)) {
-                                launchIntent = pm.getLaunchIntentForPackage(app.packageName)
-                                if (launchIntent != null) break
+                    isExecuting = true
+                    isCompletedSuccess = false
+                    logText = "⚡ Activation shuru...\n"
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            UsbAdbEngine.runFullSetup(usbManager, dev, keyPair) { log ->
+                                scope.launch { appendLog(log) }
                             }
                         }
-
-                        if (launchIntent != null) {
-                            context.startActivity(launchIntent)
-                        } else {
-                            try {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://search?q=Bugjaeger")))
-                            } catch (e: Exception) {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/search?q=Bugjaeger")))
-                            }
-                            Toast.makeText(context, "Bugjaeger install karein!", Toast.LENGTH_LONG).show()
-                        }
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "Bugjaeger ko manually open karein.", Toast.LENGTH_LONG).show()
+                        isExecuting = false
+                        isCompletedSuccess = result.success
+                        appendLog(if (result.success) "\n🎉 SUCCESS! Customer phone activated!" else "\n❌ ${result.message}")
+                        Toast.makeText(context,
+                            if (result.success) "✅ Activation Complete!" else "Failed — logs dekho",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
-
-                    // 4. Show the visual guide in our app
-                    isThirdStepDone = true
-                    showPostGuide = true
                 },
-                modifier = Modifier.fillMaxWidth().height(68.dp),
-                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth().height(62.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isDeviceConnected) White else Color(0xFF2D2D2D)
-                )
+                    containerColor  = when { isCompletedSuccess -> Green; canActivate -> Green; else -> Color(0xFF334155) },
+                    disabledContainerColor = Color(0xFF334155)
+                ),
+                enabled = canActivate
             ) {
-                Icon(Icons.Default.FlashOn, null, tint = if (isDeviceConnected) Color.Black else Color.Gray, modifier = Modifier.size(26.dp))
-                Spacer(Modifier.width(10.dp))
-                Column(horizontalAlignment = Alignment.Start) {
-                    Text(
-                        "ACTIVATE VIA BUGJAEGER",
-                        color = if (isDeviceConnected) Color.Black else Color.Gray,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 17.sp
-                    )
-                    Text(
-                        if (isDeviceConnected) "Command auto-copy hogi aur Bugjaeger khulega"
-                        else "Pehle phone cable se connect karein",
-                        color = (if (isDeviceConnected) Color.Black else Color.Gray).copy(.6f),
-                        fontSize = 10.sp
-                    )
+                when {
+                    isExecuting -> {
+                        CircularProgressIndicator(Modifier.size(24.dp), color = White, strokeWidth = 2.5.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text("ACTIVATING...", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = White)
+                    }
+                    isCompletedSuccess -> {
+                        Icon(Icons.Default.CheckCircle, null, tint = White, modifier = Modifier.size(26.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("ACTIVATED ✅", fontWeight = FontWeight.Black, fontSize = 16.sp, color = White)
+                    }
+                    else -> {
+                        Icon(Icons.Default.FlashOn, null, tint = White, modifier = Modifier.size(26.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("⚡ 1-CLICK ACTIVATE", fontWeight = FontWeight.Black, fontSize = 16.sp, color = White)
+                    }
                 }
             }
 
-            Spacer(Modifier.height(80.dp))
+            Spacer(Modifier.height(14.dp))
+
+            // ── Console Log Header with Copy Button ──────────────────────────
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Terminal, null, tint = Blue, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Activation Log", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = White.copy(0.8f))
+                }
+                TextButton(
+                    onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip = ClipData.newPlainText("Provisioning Log", logText)
+                        clipboard.setPrimaryClip(clip)
+                        Toast.makeText(context, "📋 Logs copied to clipboard!", Toast.LENGTH_SHORT).show()
+                    },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy Logs", tint = Blue, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Copy Logs", fontSize = 12.sp, color = Blue, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Surface(
+                color = LogBgColor, shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 240.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(12.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(logText, fontSize = 11.5.sp, fontFamily = FontFamily.Monospace,
+                        color = Color(0xFF38BDF8), lineHeight = 16.sp)
+                }
+            }
+            Spacer(Modifier.height(30.dp))
         }
     }
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 @Composable
-fun PreStep(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, done: Boolean, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Surface(
-            shape = CircleShape,
-            color = if (done) color.copy(.2f) else Color(0xFF2D2D2D),
-            modifier = Modifier.size(36.dp)
-        ) {
+private fun Step(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, done: Boolean, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Surface(shape = CircleShape, color = if (done) color.copy(.18f) else Color(0xFF334155), modifier = Modifier.size(32.dp)) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    if (done) Icons.Default.CheckCircle else icon,
-                    null,
-                    tint = if (done) color else Color.Gray,
-                    modifier = Modifier.size(18.dp)
-                )
+                Icon(if (done) Icons.Default.CheckCircle else icon, null,
+                    tint = if (done) color else Color.Gray, modifier = Modifier.size(16.dp))
             }
         }
-        Text(text, color = if (done) White else Color.Gray, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.weight(1f))
-    }
-}
-
-@Composable
-fun GuideStep(num: Int, text: String, color: Color) {
-    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Surface(shape = CircleShape, color = color.copy(.18f), modifier = Modifier.size(24.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(num.toString(), color = color, fontSize = 12.sp, fontWeight = FontWeight.Black)
-            }
-        }
-        Text(text, color = White.copy(.85f), fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.weight(1f))
+        Text(text, color = if (done) White else Color.Gray, fontSize = 12.5.sp, lineHeight = 16.sp, modifier = Modifier.weight(1f))
     }
 }

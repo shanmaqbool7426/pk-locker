@@ -65,6 +65,11 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # ANDROID COMPONENTS
 # ──────────────────────────────────────────────────────────────────────────────
+# Keep accessibility services specifically to prevent class/package name obfuscation
+-keep class com.pksafe.lock.manager.service.AntiUninstallService { *; }
+-keep public class * extends android.accessibilityservice.AccessibilityService { *; }
+
+# Keep other Android components
 -keep public class * extends android.app.Activity
 -keep public class * extends android.app.Service
 -keep public class * extends android.content.BroadcastReceiver

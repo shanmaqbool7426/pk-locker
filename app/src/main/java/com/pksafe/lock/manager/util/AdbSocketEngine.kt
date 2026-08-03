@@ -70,13 +70,22 @@ object AdbSocketEngine {
                 responseBuilder.append(String(buffer, 0, readLen))
             }
 
+            val responseText = responseBuilder.toString()
+            val isSuccess = responseText.contains("Success", ignoreCase = true) ||
+                            responseText.contains("already", ignoreCase = true) ||
+                            responseText.contains("allow", ignoreCase = true) ||
+                            responseText.contains("Command executed", ignoreCase = true)
+
             return@withContext AdbResult(
-                success = true,
-                message = if (responseBuilder.isNotEmpty()) responseBuilder.toString() else "Command sent successfully to $ip:$port"
+                success = isSuccess,
+                message = if (responseText.isNotBlank()) responseText else "Command sent to $ip:$port"
             )
         } catch (e: Exception) {
-            Log.e(TAG, "ADB Connection Error", e)
-            // Attempt fallback to local runtime shell if loopback or adb service
+            Log.e(TAG, "ADB Connection Error on $ip:$port", e)
+            if (port != 5555) {
+                Log.d(TAG, "Attempting fallback connection to $ip:5555...")
+                return@withContext executeRemoteCommand(ip, 5555, command)
+            }
             return@withContext AdbResult(
                 success = false,
                 message = "ADB Socket Error ($ip:$port): ${e.localizedMessage ?: e.message}"
@@ -96,8 +105,9 @@ object AdbSocketEngine {
 
             val buf = ByteArray(1024)
             val read = isStr.read(buf)
-            val output = if (read > 0) String(buf, 0, read) else "Command executed"
-            AdbResult(success = true, message = output)
+            val output = if (read > 0) String(buf, 0, read) else ""
+            val isOk = output.contains("Success", ignoreCase = true) || output.contains("already", ignoreCase = true)
+            AdbResult(success = isOk, message = if (output.isNotBlank()) output else "No response from socket")
         } catch (e: Exception) {
             AdbResult(success = false, message = "Socket payload error: ${e.message}")
         }

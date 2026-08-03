@@ -15,6 +15,10 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import com.pksafe.lock.manager.util.LockManager
 
+import android.provider.Settings
+
+import android.view.accessibility.AccessibilityNodeInfo
+
 class AntiUninstallService : AccessibilityService() {
     
     private var connectivityReceiver: BroadcastReceiver? = null
@@ -43,21 +47,37 @@ class AntiUninstallService : AccessibilityService() {
             "hotstar"   to listOf("in.startv.hotstar", "com.hotstar.android")
         )
 
-        // --- 3. Service Running Check (CRITICAL FIX) ---
+        // --- 3. Service Running Check ---
         fun isServiceRunning(context: Context): Boolean {
-            val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
-            val enabledServices = am.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_GENERIC)
-            for (service in enabledServices) {
-                val serviceInfo = service.resolveInfo.serviceInfo
-                if (serviceInfo.packageName == context.packageName &&
-                    serviceInfo.name.contains("AntiUninstallService")) {
+            try {
+                // 1. Check System Settings for enabled accessibility services
+                val enabledServicesSetting = try {
+                    Settings.Secure.getString(
+                        context.contentResolver,
+                        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+                    ) ?: ""
+                } catch (_: Exception) { "" }
+
+                if (enabledServicesSetting.contains(context.packageName)) {
                     return true
                 }
+
+                // 2. Fallback check via AccessibilityManager
+                val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? android.view.accessibility.AccessibilityManager
+                val enabledServices = am?.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK) ?: emptyList()
+
+                for (service in enabledServices) {
+                    val serviceInfo = service.resolveInfo?.serviceInfo ?: continue
+                    if (serviceInfo.packageName == context.packageName) {
+                        return true
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ANTI_GUARD", "Error checking accessibility status: ${e.message}")
             }
             return false
         }
     }
-
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -72,7 +92,7 @@ class AntiUninstallService : AccessibilityService() {
             override fun onReceive(context: Context, intent: Intent) {
                 val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
                 val isAutoLockEnabled = prefs.getBoolean("auto_lock_enabled", false)
-                val isCustomer = prefs.getBoolean("is_customer", false)
+                val isCustomer = prefs.getBoolean("is_customer", false) || LockManager(applicationContext).isDeviceOwner()
                 
                 if (isCustomer && isAutoLockEnabled && !isOnline()) {
                     Log.w("AUTO_LOCK", "Internet disconnected! Triggering Lock from Guard Service.")
@@ -96,18 +116,35 @@ class AntiUninstallService : AccessibilityService() {
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
+    private fun extractAllText(node: AccessibilityNodeInfo?, sb: StringBuilder) {
+        if (node == null) return
+        try {
+            node.text?.let { sb.append(it.toString().lowercase()).append(" ") }
+            node.contentDescription?.let { sb.append(it.toString().lowercase()).append(" ") }
+            node.viewIdResourceName?.let { sb.append(it.lowercase()).append(" ") }
+            val count = node.childCount
+            for (i in 0 until count) {
+                val child = node.getChild(i)
+                if (child != null) {
+                    extractAllText(child, sb)
+                    child.recycle()
+                }
+            }
+        } catch (_: Exception) { }
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val packageName = event.packageName?.toString()?.lowercase() ?: ""
+        if (packageName.isEmpty()) return
 
         val prefs = applicationContext.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
-        val isCustomer = prefs.getBoolean("is_customer", false)
+        val lockManager = LockManager(applicationContext)
+        val isCustomer = prefs.getBoolean("is_customer", false) || lockManager.isDeviceOwner()
 
         if (!isCustomer) return
 
         val isLocked = prefs.getBoolean("is_locked", false)
         val isSettingsBlocked = prefs.getBoolean("settings_blocked", false)
-
-        if (packageName.isEmpty()) return
 
         // 1. Dynamic App Blocking
         val blockedApps = prefs.getStringSet("blocked_apps", emptySet()) ?: emptySet()
@@ -134,10 +171,12 @@ class AntiUninstallService : AccessibilityService() {
             return
         }
 
-        // 3. Settings Protection
+        // 3. Settings & Uninstallation Protection
         val isSettingsApp = packageName.contains("settings") ||
                 packageName.contains("packageinstaller") ||
-                packageName.contains("permissioncontroller")
+                packageName.contains("permissioncontroller") ||
+                packageName.contains("uninstaller") ||
+                packageName.contains("installer")
 
         if (!isSettingsApp) return
 
@@ -146,21 +185,28 @@ class AntiUninstallService : AccessibilityService() {
             return
         }
 
-        val screenText = buildString {
-            append(event.text.toString().lowercase())
-            rootInActiveWindow?.let { root ->
-                append(root.text?.toString()?.lowercase() ?: "")
-                append(root.contentDescription?.toString()?.lowercase() ?: "")
-            }
+        // Extract complete screen text recursively from full view tree
+        val sb = StringBuilder()
+        event.text.forEach { sb.append(it.toString().lowercase()).append(" ") }
+        rootInActiveWindow?.let { root ->
+            extractAllText(root, sb)
+            root.recycle()
         }
+
+        val screenText = sb.toString()
+        if (screenText.isBlank()) return
 
         val blockedKeyword = BLOCKED_KEYWORDS.firstOrNull { keyword ->
             screenText.contains(keyword)
         }
 
         if (blockedKeyword != null) {
+            Log.w("ANTI_GUARD", "Blocking restricted setting/action. Keyword matched: $blockedKeyword")
             performGlobalAction(GLOBAL_ACTION_BACK)
-            Toast.makeText(this, "Security settings restricted.", Toast.LENGTH_SHORT).show()
+            Handler(Looper.getMainLooper()).postDelayed({
+                performGlobalAction(GLOBAL_ACTION_HOME)
+            }, 150)
+            Toast.makeText(this, "Security settings restricted by PKLocker.", Toast.LENGTH_SHORT).show()
         }
     }
 

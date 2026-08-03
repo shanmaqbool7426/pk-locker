@@ -161,7 +161,7 @@ fun MainAppEntryPoint() {
     LaunchedEffect(isCustomer) {
         if (isCustomer && lockManager.isDeviceOwner()) {
             // Block Factory Reset, USB, and Debugging PERMANENTLY for customers
-            // We use a custom function that doesn't rely on the "isLocked" flag
+            // We use a custom function that doesn't rely on the "is_locked" flag
             lockManager.enforcePermanentRestrictions(true)
             Log.d("SECURITY_ENFORCE", "Permanent Customer Restrictions Applied")
         }
