@@ -27,7 +27,8 @@ class AdbShell(private val context: Context) {
 
         var stream: AdbStream? = null
         try {
-            stream = connectionManager.openStream("shell:" + command + ") 2>&1; echo '---CMD_END---'")
+            // Use semicolon (no subshell) so commands with their own redirections work cleanly
+            stream = connectionManager.openStream("shell:" + command + "; echo '---CMD_END---'")
             val sb = StringBuilder()
             val inputStream = stream.openInputStream()
             val buffer = ByteArray(8192)

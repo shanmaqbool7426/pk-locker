@@ -57,8 +57,15 @@ class ProvisionWorkflow(private val context: Context) {
         log(listener, "Checking existing device owner...")
         val owners = shell.run("dpm list-owners")
         log(listener, if (owners.isEmpty()) "(none)" else owners)
-        if (owners.isNotEmpty() && !owners.lowercase().contains("no owners")) {
-            throw IllegalStateException("Device already has an owner. Factory reset the target device first.")
+
+        // Only block if a DIFFERENT package is already device owner.
+        // Ignore shell errors, empty output, or "no owners" messages.
+        val lowerOwners = owners.lowercase()
+        val hasOtherOwner = lowerOwners.contains("device owner") 
+            && !lowerOwners.contains(TARGET_PACKAGE)
+            && !lowerOwners.contains("no ")
+        if (hasOtherOwner) {
+            throw IllegalStateException("Another app is already Device Owner. Factory reset the target device first. Output: $owners")
         }
 
         log(listener, "Checking accounts (must be 0 for device owner)...")
@@ -181,13 +188,12 @@ class ProvisionWorkflow(private val context: Context) {
         if (matcher.find()) {
             val count = matcher.group(1).toInt()
             if (count > 0) {
-                throw IllegalStateException("Remove all accounts on target ($count found). Factory reset recommended.")
+                log(listener, "WARNING: $count account(s) found. Device owner may fail — continuing anyway...")
+                // Don't throw — let the dpm command attempt and report the real error if it fails
             }
         } else {
-            val altCheck = shell.run("cmd account list 2>/dev/null")
-            if (altCheck.contains("Account {")) {
-                throw IllegalStateException("Remove all accounts on the target device before provisioning.")
-            }
+            // Could not parse — don't block, let dpm set-device-owner decide
+            log(listener, "Could not determine account count, proceeding...")
         }
     }
 
