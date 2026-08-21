@@ -1,0 +1,1 @@
+Android application built with Gradle Kotlin DSL, Kotlin + Jetpack Compose UI, Google Play Services (via `google-services` plugin), and a shared version catalog (`gradle/libs.versions.toml`) for dependency management across the project.

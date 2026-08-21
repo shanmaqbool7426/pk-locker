@@ -294,8 +294,8 @@ fun DashboardScreen(
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
-                        Text("Wireless ADB Setup", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextTitle)
-                        Text("No Cable! Setup via 6-digit Wi-Fi code", color = Color(0xFF92400E), fontSize = 12.sp)
+                        Text("Asaan Setup (Cable nahi)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextTitle)
+                        Text("1 button: Device Owner + saari permissions", color = Color(0xFF92400E), fontSize = 12.sp)
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -309,7 +309,7 @@ fun DashboardScreen(
                 ) {
                     Icon(Icons.Default.QrCodeScanner, null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("START WIRELESS SETUP (5 STEPS)", fontWeight = FontWeight.ExtraBold)
+                    Text("ASAAN SETUP START KARO", fontWeight = FontWeight.ExtraBold)
                 }
             }
         }

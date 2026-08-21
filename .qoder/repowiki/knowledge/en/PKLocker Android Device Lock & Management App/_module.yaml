@@ -1,0 +1,42 @@
+schema_version: 1
+module_path: ""
+title: PKLocker Android Device Lock & Management App
+scope:
+    - README.md
+    - AGENT.md
+    - CLAUDE.md
+    - .windsurfrules
+    - .mcp.json
+    - build.gradle.kts
+    - settings.gradle.kts
+    - gradle.properties
+    - gradlew.bat
+    - gradle/
+    - app/
+    - data/
+    - build_copy_btn.txt
+    - build_log.txt
+    - build_output.txt
+    - build_output2.txt
+    - build_output_1click.txt
+    - build_output_adb_engine.txt
+    - build_output_auto_permissions.txt
+    - build_output_fast.txt
+    - build_output_ip_field.txt
+    - build_output_nobugjaeger.txt
+    - build_output_validated.txt
+    - build_output_wireless.txt
+    - build_output_wireless_fix.txt
+    - build_output_wireless_fix2.txt
+    - build_output_wireless_fix3.txt
+    - downloaded_app.apk
+    - gradlew
+    - prod.keystore
+    - provisioning_debug.log
+    - qr_debug_log.txt
+    - setup_device_owner.bat
+    - test_dl.apk
+    - test_dl2.apk
+source_files: []
+depends_on: []
+related_to: []

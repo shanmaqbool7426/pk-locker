@@ -284,25 +284,8 @@ object UsbAdbEngine {
             }
 
 
-            // ── 3. Run all setup commands ─────────────────────────────────────
-            val commands = listOf(
-                "dpm set-device-owner com.pksafe.lock.manager/.receiver.AdminReceiver"
-                        to "Device Owner",
-                "appops set com.pksafe.lock.manager SYSTEM_ALERT_WINDOW allow"
-                        to "Overlay Permission",
-                "settings put secure enabled_accessibility_services com.pksafe.lock.manager/com.pksafe.lock.manager.service.AntiUninstallService"
-                        to "Accessibility Guard",
-                "settings put secure accessibility_enabled 1"
-                        to "Accessibility Enabled",
-                "pm grant com.pksafe.lock.manager android.permission.RECEIVE_SMS"
-                        to "SMS Permission",
-                "pm grant com.pksafe.lock.manager android.permission.READ_SMS"
-                        to "Read SMS",
-                "pm grant com.pksafe.lock.manager android.permission.ACCESS_FINE_LOCATION"
-                        to "Location",
-                "pm grant com.pksafe.lock.manager android.permission.READ_PHONE_STATE"
-                        to "Phone State"
-            )
+            // Same Device Owner + permission list as Wireless ADB
+            val commands = DeviceOwnerSetup.shellCommands
 
             val fullOutput = StringBuilder()
             var localId = 1

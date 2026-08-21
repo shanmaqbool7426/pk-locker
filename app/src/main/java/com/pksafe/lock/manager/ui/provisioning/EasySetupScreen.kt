@@ -28,14 +28,18 @@ import java.io.File
 
 /**
  * Easy Customer Setup Screen — Shopkeeper can install PKLocker on customer phone
- * WITHOUT laptop, QR code, or Device Owner setup.
+ * WITHOUT laptop, cables, QR codes, or technical setup.
  *
  * Flow:
  * 1. Shopkeeper taps "Share APK" to send app via WhatsApp/Bluetooth/ShareIt
  * 2. Customer installs and opens app on their phone
- * 3. App auto-requests: Device Admin → Overlay → Accessibility
- * 4. Customer enters IMEI → linked to shopkeeper's account
- * 5. Shopkeeper can lock/unlock remotely via dashboard
+ * 3. App provides STEP-BY-STEP GUIDED SETUP with direct settings links
+ * 4. Customer follows simple instructions with ✅ completion checks
+ * 5. Customer enters IMEI → linked to shopkeeper's account
+ * 6. Shopkeeper can lock/unlock remotely via dashboard
+ *
+ * Note: This gives Device Admin (basic security) but not Device Owner (factory reset block)
+ * For Device Owner, use Cable Setup method.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,7 +136,6 @@ fun EasySetupScreen(
                     Toast.makeText(context, "Link copy ho gaya! WhatsApp par paste karein", Toast.LENGTH_LONG).show()
                 }
             )
-            
 
             Spacer(Modifier.height(12.dp))
 
@@ -149,15 +152,16 @@ fun EasySetupScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            // Step 3: Open App
+            // Step 3: Open App & Setup
             SetupStepCard(
                 stepNumber = "3",
-                title = "App Kholein Aur Permissions Dein",
-                description = "Customer phone par app kholein. App khud permissions maangega:\n" +
-                    "✅ Device Admin → App uninstall block\n" +
-                    "✅ Overlay → Lock screen show\n" +
-                    "✅ Accessibility → Settings block",
-                icon = Icons.Default.Security,
+                title = "App Kholein - Automatic Setup",
+                description = "Customer phone par app kholein. App automatically:\n" +
+                    "✅ Device Admin Guide → Direct settings link\n" +
+                    "✅ Overlay Permission Guide → Direct settings link\n" +
+                    "✅ Accessibility Guide → Direct settings link\n" +
+                    "✅ Step-by-step instructions with ✅ checks",
+                icon = Icons.Default.PhoneAndroid,
                 accentColor = Color(0xFFF59E0B),
                 buttonText = null,
                 onClick = {}

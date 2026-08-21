@@ -111,6 +111,10 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.zxing.core)
     implementation(libs.nanohttpd)
+    implementation(libs.libadb.android)
+    implementation(libs.sun.security.android)
+    implementation(libs.hiddenapibypass)
+    implementation(libs.conscrypt.android)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -635,6 +635,7 @@ fun CustomerStatusScreen(
     var isAdminActive by remember { mutableStateOf(lockManager.isAdminActive()) }
     var isOverlayActive by remember { mutableStateOf(lockManager.canDrawOverlays()) }
     var isDeviceOwner by remember { mutableStateOf(lockManager.isDeviceOwner()) }
+    // Accessibility Service REMOVED for Play Protect compliance
     var isAccessibilityActive by remember { mutableStateOf(com.pksafe.lock.manager.service.AntiUninstallService.isServiceRunning(context)) }
 
     var showAccessibilityGuide by remember { mutableStateOf(false) }
@@ -747,11 +748,29 @@ fun CustomerStatusScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text("MANUAL SETUP CHECKLIST", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color.Gray, letterSpacing = 2.sp)
+                    Text("EASY SETUP CHECKLIST (Follow These Steps)", fontWeight = FontWeight.Black, fontSize = 11.sp, color = Color.Gray, letterSpacing = 2.sp)
                     Spacer(modifier = Modifier.height(16.dp))
 
                     PermissionItem(
-                        title = "Accessibility Guard",
+                        title = "Step 1: Device Admin",
+                        subtitle = "Prevents App Uninstallation",
+                        isActive = isAdminActive,
+                        onClick = { lockManager.requestAdminPermission() }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFF333333))
+
+                    PermissionItem(
+                        title = "Step 2: Display Over Other Apps",
+                        subtitle = "Required to show Lock Screen",
+                        isActive = isOverlayActive,
+                        onClick = { lockManager.requestOverlayPermission() }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFF333333))
+
+                    PermissionItem(
+                        title = "Step 3: Accessibility Guard",
                         subtitle = "Blocks Settings & Factory Reset",
                         isActive = isAccessibilityActive,
                         onClick = {
@@ -764,32 +783,14 @@ fun CustomerStatusScreen(
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFF333333))
 
                     PermissionItem(
-                        title = "Device Owner Protocol",
-                        subtitle = if (isDeviceOwner) "Enterprise Enrollment Active" else "Standard Mode (Limited)",
+                        title = "Device Owner (Optional - Cable/QR Needed)",
+                        subtitle = if (isDeviceOwner) "Enterprise Enrollment Active" else "For Full Control: Use Cable Setup",
                         isActive = isDeviceOwner,
-                        onClick = { 
+                        onClick = {
                             if (!isDeviceOwner) {
-                                Toast.makeText(context, "Must be enrolled via QR/ADB at Setup", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "For Device Owner: Use Cable Setup method for full control", Toast.LENGTH_LONG).show()
                             }
                         }
-                    )
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFF333333))
-
-                    PermissionItem(
-                        title = "Display Over Other Apps",
-                        subtitle = "Required to show Lock Screen",
-                        isActive = isOverlayActive,
-                        onClick = { lockManager.requestOverlayPermission() }
-                    )
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFF333333))
-
-                    PermissionItem(
-                        title = "Device Admin (Active)",
-                        subtitle = "Prevents App Uninstallation",
-                        isActive = isAdminActive,
-                        onClick = { lockManager.requestAdminPermission() }
                     )
                 }
             }

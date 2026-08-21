@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">Device Service</string>
+    <string name="app_name">PK Locker</string>
     <string name="accessibility_description">Required for essential device synchronization and security features.</string>
 </resources>

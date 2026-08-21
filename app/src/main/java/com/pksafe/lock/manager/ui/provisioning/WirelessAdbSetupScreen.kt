@@ -3,11 +3,8 @@ package com.pksafe.lock.manager.ui.provisioning
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
-import android.net.Uri
-import android.net.wifi.WifiManager
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -19,7 +16,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,19 +31,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
+import com.pksafe.lock.manager.util.AdbController
 import com.pksafe.lock.manager.util.Constants
+import com.pksafe.lock.manager.util.ProvisionWorkflow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.net.Inet4Address
-import java.net.NetworkInterface
 
 private val ThemeBrown = Color(0xFF8B4513)
-private val ThemeBrownDark = Color(0xFF653410)
 private val LogBgColor = Color(0xFFF1F5F9)
 private val TextSubColor = Color(0xFF555555)
-
-const val DPM_COMMAND_WIRELESS = "dpm set-device-owner com.pksafe.lock.manager/com.pksafe.lock.manager.receiver.AdminReceiver"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,43 +49,82 @@ fun WirelessAdbSetupScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val scrollState = rememberScrollState()
 
-    // --- States ---
     var pairingCode by remember { mutableStateOf("") }
-    var targetIpPort by remember { mutableStateOf("") }
+    var isWorking by remember { mutableStateOf(false) }
     var isConnected by remember { mutableStateOf(false) }
-    var isPairing by remember { mutableStateOf(false) }
-    var isSettingOwner by remember { mutableStateOf(false) }
-    
-    // Logs State
-    var logText by remember { mutableStateOf("Loading download QR...\nAPK download QR loaded.") }
+    var logText by remember { mutableStateOf("Ready. Customer phone pe pairing code kholo, yahan type karo, phir 1 button dabao.") }
 
-    // APK Download QR Bitmap
     val downloadQrBitmap = remember { generateQrBitmap(Constants.APK_DOWNLOAD_URL, 512) }
+    val adbController = remember { AdbController(context) }
 
     fun appendLog(msg: String) {
         logText = "$logText\n$msg"
     }
 
+    fun runFullSetup() {
+        if (pairingCode.trim().length < 6 && !adbController.isConnected()) {
+            Toast.makeText(context, "Pehle 6-digit pairing code likho", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        isWorking = true
+        appendLog("Poora setup shuru: connect + Device Owner + saari permissions...")
+
+        scope.launch {
+            try {
+                if (!adbController.isConnected()) {
+                    withContext(Dispatchers.IO) {
+                        adbController.pairAndConnectFromCode(pairingCode, object : AdbController.ProgressListener {
+                            override fun onLog(message: String) {
+                                appendLog(message)
+                            }
+                        })
+                    }
+                    isConnected = true
+                    appendLog("Connected. Ab Device Owner laga raha hoon...")
+                }
+
+                var ownerOk = false
+                var ownerMsg = ""
+                val workflow = ProvisionWorkflow(context)
+                withContext(Dispatchers.IO) {
+                    workflow.runDeviceOwnerOnly(object : ProvisionWorkflow.Listener {
+                        override fun onLog(message: String) {
+                            appendLog(message)
+                        }
+
+                        override fun onComplete(success: Boolean, message: String) {
+                            ownerOk = success
+                            ownerMsg = message
+                        }
+                    })
+                }
+                isConnected = adbController.isConnected()
+                appendLog(ownerMsg)
+                if (ownerOk) {
+                    appendLog("Complete: Device Owner + cable wali saari permissions.")
+                    Toast.makeText(context, "Full Device Owner ON ho gaya", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(context, "Fail: $ownerMsg", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                isConnected = false
+                appendLog("Error: ${e.message}")
+                appendLog("Check: same Wi-Fi, Wireless debugging ON, pairing dialog khula, Google account nahi.")
+                Toast.makeText(context, "Connection fail: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                isWorking = false
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "ADB Customer Setup",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = Color.Black
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.Black)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
+            TopBar(onBack = {
+                adbController.disconnect()
+                onBack()
+            })
         },
         containerColor = Color.White
     ) { padding ->
@@ -100,309 +133,117 @@ fun WirelessAdbSetupScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 20.dp)
-                .verticalScroll(scrollState),
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.Start
         ) {
             Spacer(modifier = Modifier.height(10.dp))
 
-            // ==========================================
-            // STEP 1: Customer installs APK (scan QR)
-            // ==========================================
             Text(
-                "Step 1 - Customer installs APK (scan QR)",
+                "Asaan Wireless Setup",
                 fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = ThemeBrown
+                fontSize = 20.sp,
+                color = Color.Black
             )
-            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "Show this QR to the customer. They scan it to download and install the apk. Wait until install finishes.",
-                fontSize = 12.5.sp,
+                "Cable nahi. Device Owner + lock permissions cable jaisi.",
+                fontSize = 13.sp,
                 color = TextSubColor,
-                lineHeight = 17.sp
+                modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
             )
+
+            StepCard("1", "APK install") {
+                Text(
+                    "Customer is QR se app download kare. Install complete hone ka wait karo.",
+                    fontSize = 12.5.sp,
+                    color = TextSubColor,
+                    lineHeight = 17.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        elevation = CardDefaults.cardElevation(2.dp),
+                        modifier = Modifier.size(200.dp)
+                    ) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            if (downloadQrBitmap != null) {
+                                Image(
+                                    bitmap = downloadQrBitmap.asImageBitmap(),
+                                    contentDescription = "Download APK QR",
+                                    modifier = Modifier.size(170.dp)
+                                )
+                            } else {
+                                Text("QR load...", fontSize = 12.sp, color = Color.Gray)
+                            }
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(14.dp))
 
-            // QR Display Card
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    elevation = CardDefaults.cardElevation(2.dp),
-                    modifier = Modifier.size(230.dp)
+            StepCard("2", "Customer phone (2 minute)") {
+                Text(
+                    "• Google account ADD NA karo\n" +
+                        "• Settings → About → Build number 7 dafa\n" +
+                        "• Developer options → Wireless debugging ON\n" +
+                        "• Dono phones same Wi-Fi\n" +
+                        "• Wireless debugging → Pair device with pairing code\n" +
+                        "• Dialog KHULA rakho",
+                    fontSize = 12.5.sp,
+                    color = TextSubColor,
+                    lineHeight = 18.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            StepCard("3", "Code + 1 button") {
+                OutlinedTextField(
+                    value = pairingCode,
+                    onValueChange = { if (it.length <= 6) pairingCode = it.filter { c -> c.isDigit() } },
+                    label = { Text("6-digit pairing code") },
+                    placeholder = { Text("115999") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = ThemeBrown,
+                        unfocusedBorderColor = Color.LightGray
+                    )
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { runFullSetup() },
+                    enabled = !isWorking,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemeBrown)
                 ) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        if (downloadQrBitmap != null) {
-                            Image(
-                                bitmap = downloadQrBitmap.asImageBitmap(),
-                                contentDescription = "Download APK QR Code",
-                                modifier = Modifier.size(200.dp)
-                            )
-                        } else {
-                            Text("Generating QR...", fontSize = 12.sp, color = Color.Gray)
-                        }
+                    if (isWorking) {
+                        CircularProgressIndicator(Modifier.size(20.dp), color = Color.White)
+                        Spacer(Modifier.width(8.dp))
+                        Text("CHAL RAHA HAI...", fontWeight = FontWeight.Bold)
+                    } else {
+                        Text("CONNECT + DEVICE OWNER ON", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ==========================================
-            // STEP 2: Developer options
-            // ==========================================
-            Text(
-                "Step 2 - Turn on Developer options (customer phone)",
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = ThemeBrown
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "Settings → About phone → tap Build number 7 times. Developer options appears in Settings.",
-                fontSize = 12.5.sp,
-                color = TextSubColor,
-                lineHeight = 17.sp
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // ==========================================
-            // STEP 3: Wireless Debugging
-            // ==========================================
-            Text(
-                "Step 3 - Turn on Wireless debugging (customer phone)",
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = ThemeBrown
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "Settings → Developer options → Wireless debugging → ON.\nKeep customer phone and this phone on the same Wi-Fi.",
-                fontSize = 12.5.sp,
-                color = TextSubColor,
-                lineHeight = 17.sp
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Customer Phone IP & Port Field (REQUIRED)
-            OutlinedTextField(
-                value = targetIpPort,
-                onValueChange = { targetIpPort = it },
-                label = { Text("Customer IP & Port (Shown under Wireless Debugging)") },
-                placeholder = { Text("e.g. 192.168.1.15:37129 (REQUIRED)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ThemeBrown,
-                    unfocusedBorderColor = Color.LightGray
+                Text(
+                    "Yeh button connect karega, Device Owner set karega, SMS/location/overlay/anti-uninstall — cable wali saari permissions.",
+                    fontSize = 11.sp,
+                    color = TextSubColor,
+                    modifier = Modifier.padding(top = 8.dp),
+                    lineHeight = 15.sp
                 )
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Wi-Fi pairing code input field
-            OutlinedTextField(
-                value = pairingCode,
-                onValueChange = { if (it.length <= 6) pairingCode = it },
-                label = { Text("Wi-Fi pairing code (6 digits)") },
-                placeholder = { Text("e.g. 115999") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = ThemeBrown,
-                    unfocusedBorderColor = Color.LightGray
-                )
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // PAIR & CONNECT Button
-            Button(
-                onClick = {
-                    if (targetIpPort.trim().isEmpty() || !targetIpPort.contains(":")) {
-                        Toast.makeText(context, "Please enter Customer Phone IP & Port (e.g. 192.168.1.15:37129)", Toast.LENGTH_LONG).show()
-                        return@Button
-                    }
-                    if (pairingCode.trim().length < 6) {
-                        Toast.makeText(context, "Please enter 6-digit Wi-Fi pairing code", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
-
-                    isPairing = true
-                    val hostIp = parseIpFromInput(targetIpPort, context)
-                    val hostPort = parsePortFromInput(targetIpPort)
-
-                    appendLog("Connecting via Wireless ADB code $pairingCode...")
-                    appendLog("Target Device: $hostIp:$hostPort")
-                    copyToClipboard(context, DPM_COMMAND_WIRELESS)
-
-                    scope.launch {
-                        appendLog("Connecting to $hostIp:$hostPort...")
-                        val result = com.pksafe.lock.manager.util.AdbSocketEngine.executeRemoteCommand(
-                            hostIp, hostPort, "echo ADB_CONNECTED"
-                        )
-                        
-                        isPairing = false
-                        if (result.success) {
-                            isConnected = true
-                            appendLog("Pairing status: Connected successfully! ✅")
-                            Toast.makeText(context, "Pairing successful! Tap 'SET DEVICE OWNER'", Toast.LENGTH_LONG).show()
-                        } else {
-                            isConnected = false
-                            appendLog("❌ Connection Error: ${result.message}")
-                            appendLog("⚠️ Please verify Customer IP:Port and ensure Wireless Debugging is ON.")
-                            Toast.makeText(context, "Connection failed. Please check IP & Port.", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = ThemeBrown)
-            ) {
-                if (isPairing) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("PAIRING...", fontWeight = FontWeight.Bold)
-                } else {
-                    Text("PAIR & CONNECT", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ==========================================
-            // STEP 4: Pair instructions
-            // ==========================================
-            Text(
-                "Step 4 - Pair with pairing code (customer phone)",
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = ThemeBrown
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "On customer phone: Developer options → Wireless debugging → Pair device with pairing code.\nKeep that dialog open. Enter the 6-digit Wi-Fi pairing code below on this phone, then tap Pair & Connect.",
-                fontSize = 12.5.sp,
-                color = TextSubColor,
-                lineHeight = 17.sp
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ==========================================
-            // STEP 5: Set Device Owner
-            // ==========================================
-            Text(
-                "Step 5 - Set Device Owner",
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = ThemeBrown
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "After PKLocker is installed on the customer phone (no Google account), tap Set Device Owner below.",
-                fontSize = 12.5.sp,
-                color = TextSubColor,
-                lineHeight = 17.sp
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // SET DEVICE OWNER & AUTO-PERMISSIONS Button
-            Button(
-                onClick = {
-                    isSettingOwner = true
-                    appendLog("Executing Device Owner & Auto-Granting All Permissions over ADB...")
-                    copyToClipboard(context, DPM_COMMAND_WIRELESS)
-
-                    scope.launch {
-                        val hostIp = parseIpFromInput(targetIpPort, context)
-                        val hostPort = parsePortFromInput(targetIpPort)
-
-                        // 1. Set Device Owner
-                        appendLog("1/5 Setting Device Owner...")
-                        val result1 = com.pksafe.lock.manager.util.AdbSocketEngine.executeRemoteCommand(
-                            hostIp, hostPort, DPM_COMMAND_WIRELESS
-                        )
-                        appendLog("Device Owner Result: ${result1.message}")
-
-                        // 2. Auto-Grant Display Over Other Apps (Overlay)
-                        appendLog("2/5 Granting Overlay Lock Screen Permission...")
-                        com.pksafe.lock.manager.util.AdbSocketEngine.executeRemoteCommand(
-                            hostIp, hostPort, "appops set com.pksafe.lock.manager SYSTEM_ALERT_WINDOW allow"
-                        )
-
-                        // 3. Auto-Grant Anti-Uninstall Accessibility Guard
-                        appendLog("3/5 Enabling Anti-Uninstall Accessibility Guard...")
-                        com.pksafe.lock.manager.util.AdbSocketEngine.executeRemoteCommand(
-                            hostIp, hostPort, "settings put secure enabled_accessibility_services com.pksafe.lock.manager/com.pksafe.lock.manager.service.AntiUninstallService"
-                        )
-                        com.pksafe.lock.manager.util.AdbSocketEngine.executeRemoteCommand(
-                            hostIp, hostPort, "settings put secure accessibility_enabled 1"
-                        )
-
-                        // 4. Auto-Grant Critical Runtime Permissions (SMS / Location)
-                        appendLog("4/5 Granting Offline SMS & Location Permissions...")
-                        com.pksafe.lock.manager.util.AdbSocketEngine.executeRemoteCommand(
-                            hostIp, hostPort, "pm grant com.pksafe.lock.manager android.permission.RECEIVE_SMS"
-                        )
-                        com.pksafe.lock.manager.util.AdbSocketEngine.executeRemoteCommand(
-                            hostIp, hostPort, "pm grant com.pksafe.lock.manager android.permission.READ_SMS"
-                        )
-                        com.pksafe.lock.manager.util.AdbSocketEngine.executeRemoteCommand(
-                            hostIp, hostPort, "pm grant com.pksafe.lock.manager android.permission.ACCESS_FINE_LOCATION"
-                        )
-
-                        isSettingOwner = false
-                        appendLog("5/5 All Permissions & Device Owner Activated Automatically! 🎉")
-                        Toast.makeText(context, "Full Setup & All Permissions Activated Automatically!", Toast.LENGTH_LONG).show()
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = ThemeBrown)
-            ) {
-                if (isSettingOwner) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("SETTING OWNER...", fontWeight = FontWeight.Bold)
-                } else {
-                    Text("SET DEVICE OWNER", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // DISCONNECT Button
-            TextButton(
-                onClick = {
-                    isConnected = false
-                    pairingCode = ""
-                    targetIpPort = ""
-                    appendLog("Disconnected from device.")
-                    Toast.makeText(context, "Disconnected", Toast.LENGTH_SHORT).show()
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("DISCONNECT", color = ThemeBrown, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Status Indicator
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
                         .size(10.dp)
@@ -411,53 +252,45 @@ fun WirelessAdbSetupScreen(
                             shape = RoundedCornerShape(5.dp)
                         )
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = if (isConnected) "Connected" else "Not connected",
+                    if (isConnected) "Connected" else "Not connected",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = Color.Black
+                    fontSize = 14.sp
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            TextButton(
+                onClick = {
+                    adbController.disconnect()
+                    isConnected = false
+                    pairingCode = ""
+                    appendLog("Disconnected.")
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("DISCONNECT", color = ThemeBrown, fontWeight = FontWeight.Bold)
+            }
 
-            // LOG WINDOW AT BOTTOM
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "Log",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = Color.Black
-                )
+                Text("Log", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
                         onClick = {
                             copyToClipboard(context, logText)
-                            Toast.makeText(context, "Logs copied to clipboard!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Logs copied", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.size(32.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.ContentCopy,
-                            contentDescription = "Copy Logs",
-                            tint = ThemeBrown,
-                            modifier = Modifier.size(18.dp)
-                        )
+                        Icon(Icons.Default.ContentCopy, "Copy", tint = ThemeBrown, modifier = Modifier.size(18.dp))
                     }
-                    Text(
-                        "Copy",
-                        fontSize = 12.sp,
-                        color = ThemeBrown,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Text("Copy", fontSize = 12.sp, color = ThemeBrown, fontWeight = FontWeight.SemiBold)
                 }
             }
-            Spacer(modifier = Modifier.height(6.dp))
 
             Surface(
                 color = LogBgColor,
@@ -466,28 +299,54 @@ fun WirelessAdbSetupScreen(
                     .fillMaxWidth()
                     .heightIn(min = 120.dp, max = 200.dp)
             ) {
-                Column(
+                Text(
+                    text = logText,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = Color(0xFF334155),
+                    lineHeight = 16.sp,
                     modifier = Modifier
-                        .fillMaxSize()
                         .padding(12.dp)
                         .verticalScroll(rememberScrollState())
-                ) {
-                    Text(
-                        text = logText,
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color(0xFF334155),
-                        lineHeight = 16.sp
-                    )
-                }
+                )
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
-// === HELPER UTILS ===
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TopBar(onBack: () -> Unit) {
+    TopAppBar(
+        title = {
+            Text("Asaan Wireless Setup", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Black)
+        },
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.Black)
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+    )
+}
+
+@Composable
+private fun StepCard(num: String, title: String, content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
+        border = BorderStroke(1.dp, Color(0xFFFDE68A))
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Text("$num. $title", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = ThemeBrown)
+            Spacer(Modifier.height(8.dp))
+            content()
+        }
+    }
+}
 
 private fun generateQrBitmap(content: String, size: Int): Bitmap? {
     return try {
@@ -500,56 +359,12 @@ private fun generateQrBitmap(content: String, size: Int): Bitmap? {
             }
         }
         bitmap
-    } catch (e: Exception) { null }
+    } catch (e: Exception) {
+        null
+    }
 }
 
 private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    val clip = ClipData.newPlainText("ADB Command", text)
-    clipboard.setPrimaryClip(clip)
-}
-
-private fun parseIpFromInput(input: String, context: Context): String {
-    val trimmed = input.trim()
-    if (trimmed.contains(":")) {
-        val parts = trimmed.split(":")
-        if (parts[0].isNotBlank()) return parts[0].trim()
-    } else if (trimmed.isNotBlank()) {
-        return trimmed
-    }
-    return "127.0.0.1"
-}
-
-private fun parsePortFromInput(input: String): Int {
-    val trimmed = input.trim()
-    if (trimmed.contains(":")) {
-        val parts = trimmed.split(":")
-        if (parts.size > 1) {
-            return parts[1].trim().toIntOrNull() ?: 5555
-        }
-    }
-    return 5555
-}
-
-private fun openBugjaegerOrAdb(context: Context, onLog: (String) -> Unit) {
-    try {
-        val pm = context.packageManager
-        val installedApps = pm.getInstalledPackages(0)
-        var launchIntent: Intent? = null
-        for (app in installedApps) {
-            if (app.packageName.contains("bugjaeger", ignoreCase = true)) {
-                launchIntent = pm.getLaunchIntentForPackage(app.packageName)
-                if (launchIntent != null) break
-            }
-        }
-
-        if (launchIntent != null) {
-            context.startActivity(launchIntent)
-            onLog("Opened Bugjaeger helper app")
-        } else {
-            onLog("Command copied to clipboard: $DPM_COMMAND_WIRELESS")
-        }
-    } catch (e: Exception) {
-        onLog("Executing ADB shell command via socket")
-    }
+    clipboard.setPrimaryClip(ClipData.newPlainText("ADB Log", text))
 }

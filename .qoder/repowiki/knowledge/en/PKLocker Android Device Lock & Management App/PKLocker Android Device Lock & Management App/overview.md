@@ -1,0 +1,1 @@
+Android application that enforces device lockdown for EMI-backed terminals, providing shopkeeper management UI and customer lock screens via Device Owner, Accessibility Service, and SMS-based offline controls.

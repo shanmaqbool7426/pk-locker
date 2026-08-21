@@ -1,0 +1,1 @@
+Kotlin + Jetpack Compose (Material3, Navigation Compose, Adaptive Navigation Suite), Retrofit + Gson for HTTP, Firebase Cloud Messaging + Analytics, Google Play Services (Code Scanner, Location, Maps, Maps Compose), WorkManager, Coil for images, ZXing core, NanoHTTPD for local APK server, Android DevicePolicyManager + AccessibilityService for enterprise-grade lockdown.

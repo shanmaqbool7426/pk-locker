@@ -117,7 +117,7 @@ fun ProvisioningQrScreen(
         }
     }
 
-    // Generate QR content
+    // Generate QR content (Simplified for better compatibility)
     val qrContent = remember(apkHash, apkUrl, signature) {
         if (apkUrl.isEmpty()) return@remember ""
         try {
@@ -125,7 +125,7 @@ fun ProvisioningQrScreen(
             val pkg = context.packageName
             val adminComponent = "$pkg/com.pksafe.lock.manager.receiver.AdminReceiver"
 
-            // Core Provisioning Extras
+            // Core Provisioning Extras (Simplified for Samsung compatibility)
             json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME", adminComponent)
             json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME", pkg)
             json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION", apkUrl)
@@ -134,22 +134,22 @@ fun ProvisioningQrScreen(
             // This is CRITICAL for Device Owner provisioning via QR.
             json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM", signature)
 
-            // Package Checksum (SHA-256 of the APK file)
+            // Package Checksum (SHA-256 of the APK file) - Optional but recommended
             if (apkHash.isNotEmpty()) {
                 json.put("android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM", apkHash)
             }
 
-            // Important UI/System Flags
+            // Simplified UI/System Flags (Remove extras that might trigger Samsung blocks)
             json.put("android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED", true)
             json.put("android.app.extra.PROVISIONING_SKIP_ENCRYPTION", true)
-            json.put("android.app.extra.PROVISIONING_USE_MOBILE_DATA", true) // Allow download over data
-            json.put("android.app.extra.PROVISIONING_LOCALE", "en_US")
-            json.put("android.app.extra.PROVISIONING_TIME_ZONE", "GMT")
+            json.put("android.app.extra.PROVISIONING_USE_MOBILE_DATA", true)
             
-            // Pass extras to the app after setup
+            // Minimal locale/timezone to avoid compatibility issues
+            json.put("android.app.extra.PROVISIONING_LOCALE", "en_US")
+            
+            // Simplified extras bundle
             json.put("android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE", JSONObject().apply {
                 put("setup_source", "qr_code")
-                put("is_full_control", true)
             })
 
             json.toString()
@@ -340,9 +340,10 @@ fun ProvisioningQrScreen(
                     Text(
                         "1️⃣ Naye phone ko Factory Reset karein\n" +
                         "2️⃣ Welcome screen par 6 dafa tap karein (QR scanner khulega)\n" +
-                        "3️⃣ Pehle WiFi se connect karein (usi WiFi se jis par shopkeeper phone hai)\n" +
+                        "3️⃣ Pehle WiFi se connect karein (same WiFi as shopkeeper phone)\n" +
                         "4️⃣ Yeh QR code scan karein\n" +
-                        "5️⃣ Setup automatically complete hoga! ✅",
+                        "5️⃣ Setup automatically complete hoga! ✅\n\n" +
+                        "⚠️ Samsung Users: Agar QR fail ho, to Cable Setup use karein",
                         fontSize = 11.sp,
                         color = Color(0xFF0369A1),
                         lineHeight = 18.sp

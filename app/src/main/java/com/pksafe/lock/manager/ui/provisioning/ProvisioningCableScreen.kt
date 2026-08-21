@@ -95,11 +95,10 @@ fun ProvisioningCableScreen(onBack: () -> Unit) {
     var isExecuting        by remember { mutableStateOf(false) }
     var isCompletedSuccess by remember { mutableStateOf(false) }
     var logText by remember { mutableStateOf(
-        "⚡ Ready.\n\nSetup:\n" +
-        "1. Customer phone: Developer Options ON\n" +
-        "2. USB Debugging: ON\n" +
-        "3. C-to-C cable dono phones mein lagao\n" +
-        "4. ACTIVATE dabao → Customer phone pe 'Allow' dabao"
+        "⚡ Ready.\n\nSetup (Sirf 3 Steps):\n" +
+        "1. Customer phone: USB Debugging ON\n" +
+        "2. C-to-C cable dono phones mein lagao\n" +
+        "3. ACTIVATE dabao → Customer phone pe 'Allow' dabao"
     )}
     fun appendLog(msg: String) { logText = "$logText\n$msg" }
 
@@ -255,9 +254,7 @@ fun ProvisioningCableScreen(onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("CHECKLIST", color = Color(0xFF94A3B8), fontWeight = FontWeight.Bold, fontSize = 11.sp, letterSpacing = 1.2.sp)
-                    Step(Icons.Default.PersonRemove, "Customer phone se Google accounts hatain",         done = true, color = Green)
-                    Step(Icons.Default.DeveloperMode, "Customer phone: Developer Options ON",            done = true, color = Green)
+                    Text("CHECKLIST (Sirf 3 Steps)", color = Color(0xFF94A3B8), fontWeight = FontWeight.Bold, fontSize = 11.sp, letterSpacing = 1.2.sp)
                     Step(Icons.Default.BugReport,    "Customer phone: USB Debugging ON",                done = true, color = Green)
                     Step(Icons.Default.Cable,        "C-to-C Cable dono phones mein lagao",            done = usbDevice != null, color = Blue)
                     Step(Icons.Default.Lock,         "ACTIVATE dabao + customer 'Allow' kare",          done = hasUsbPermission, color = Yellow)

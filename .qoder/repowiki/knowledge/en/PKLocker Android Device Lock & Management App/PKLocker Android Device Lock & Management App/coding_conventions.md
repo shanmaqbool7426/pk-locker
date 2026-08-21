@@ -1,0 +1,6 @@
+- Feature UI is split into per-feature directories under `ui/<feature>/` containing a `<Feature>Screen.kt` and matching `<Feature>ViewModel.kt`, keeping state and presentation co-located.
+- All network calls go through a single Retrofit `ApiService` interface annotated with `@GET/@POST/@PUT` and suspend functions, with auth passed via a `@Header("Authorization")` parameter.
+- Device policy enforcement is funneled through `LockManager`, which wraps every `DevicePolicyManager` call and checks `isAdminActive()` / `isDeviceOwner()` before applying restrictions.
+- System event handling is delegated to exported `BroadcastReceiver`s declared in `AndroidManifest.xml` (boot, SIM state, SMS, admin lifecycle) rather than inline listeners.
+- App state and flags (locked, customer, IMEI, tokens) are persisted in a single `PKLockerPrefs` SharedPreferences instance and observed via `OnSharedPreferenceChangeListener` inside composables.
+- Permissions are requested lazily at runtime using `rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission())` and guarded by `LaunchedEffect` checks that show persistent dialogs when missing.

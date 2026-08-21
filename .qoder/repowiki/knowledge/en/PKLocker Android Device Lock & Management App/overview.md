@@ -1,0 +1,1 @@
+Gradle multi-module Android project that builds the PKLocker device-owner lock app (app module) alongside a shared data API contract, all coordinated through centralized Gradle version catalogs and Google Services.

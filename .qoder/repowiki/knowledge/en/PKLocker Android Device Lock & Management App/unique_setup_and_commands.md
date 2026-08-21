@@ -1,0 +1,1 @@
+Build and sign the APK using the Gradle wrapper from the repo root; release keystores (`prod.keystore`, `release.keystore`, `release2.keystore`, `release3.keystore`) and the Firebase config (`google-services.json`) must be present at the project root for successful builds.

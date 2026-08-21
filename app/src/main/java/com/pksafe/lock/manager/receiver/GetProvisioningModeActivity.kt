@@ -3,6 +3,7 @@ package com.pksafe.lock.manager.receiver
 import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 
@@ -22,12 +23,17 @@ class GetProvisioningModeActivity : Activity() {
         Log.d("PROVISIONING_MODE", "=== GetProvisioningModeActivity called ===")
         Log.d("PROVISIONING_MODE", "Intent action: ${intent?.action}")
 
-        // Respond: We want Fully Managed Device (Device Owner) mode
         val resultIntent = Intent().apply {
             putExtra(
                 DevicePolicyManager.EXTRA_PROVISIONING_MODE,
                 DevicePolicyManager.PROVISIONING_MODE_FULLY_MANAGED_DEVICE
             )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                putIntegerArrayListExtra(
+                    DevicePolicyManager.EXTRA_PROVISIONING_ALLOWED_PROVISIONING_MODES,
+                    arrayListOf(DevicePolicyManager.PROVISIONING_MODE_FULLY_MANAGED_DEVICE)
+                )
+            }
         }
 
         Log.d("PROVISIONING_MODE", "Responding with PROVISIONING_MODE_FULLY_MANAGED_DEVICE")

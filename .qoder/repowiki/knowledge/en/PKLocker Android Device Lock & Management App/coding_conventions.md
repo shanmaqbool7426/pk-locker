@@ -1,0 +1,2 @@
+- Dependency versions are declared centrally in `gradle/libs.versions.toml` and consumed via `libs.versions.*` aliases rather than inline version strings.
+- Plugin application is delegated to the root `build.gradle.kts` with `apply false`, letting each subproject opt into plugins individually.

@@ -45,18 +45,34 @@ class AdminReceiver : DeviceAdminReceiver() {
             val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
             val compName = ComponentName(context, AdminReceiver::class.java)
 
-            // Grant critical permissions to self as Device Owner
             if (dpm.isDeviceOwnerApp(context.packageName)) {
                 val permissions = listOf(
                     Manifest.permission.READ_PHONE_STATE,
                     Manifest.permission.RECEIVE_SMS,
                     Manifest.permission.READ_SMS,
-                    Manifest.permission.SEND_SMS
+                    Manifest.permission.SEND_SMS,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.POST_NOTIFICATIONS
                 )
                 permissions.forEach { perm ->
-                    dpm.setPermissionGrantState(compName, context.packageName, perm, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
+                    try {
+                        dpm.setPermissionGrantState(
+                            compName,
+                            context.packageName,
+                            perm,
+                            DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED
+                        )
+                    } catch (e: Exception) {
+                        Log.w("ADMIN_RECEIVER", "Could not grant $perm: ${e.message}")
+                    }
                 }
-                Log.d("ADMIN_RECEIVER", "Critical permissions granted to self")
+                try {
+                    dpm.setUninstallBlocked(compName, context.packageName, true)
+                } catch (e: Exception) {
+                    Log.w("ADMIN_RECEIVER", "Uninstall block: ${e.message}")
+                }
+                Log.d("ADMIN_RECEIVER", "Device Owner permissions granted")
             }
 
             val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
