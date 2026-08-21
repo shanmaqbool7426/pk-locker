@@ -10,6 +10,15 @@ object DeviceOwnerSetup {
     const val ACCESSIBILITY_COMPONENT =
         "$PACKAGE/com.pksafe.lock.manager.service.AntiUninstallService"
 
+    // Shell snippet that appends our service to existing enabled accessibility services
+    // instead of overwriting them, and enables accessibility.
+    const val ACCESSIBILITY_ENABLE_COMMAND =
+        "comp=\"$ACCESSIBILITY_COMPONENT\"; " +
+        "svc=\"\$(settings get secure enabled_accessibility_services)\"; " +
+        "if [ \"\$svc\" = \"null\" ] || [ -z \"\$svc\" ]; then settings put secure enabled_accessibility_services \"\$comp\"; " +
+        "elif echo \"\$svc\" | grep -vq \"\$comp\"; then settings put secure enabled_accessibility_services \"\${svc}:\${comp}\"; fi; " +
+        "settings put secure accessibility_enabled 1"
+
     val runtimePermissions = listOf(
         "android.permission.READ_PHONE_STATE",
         "android.permission.RECEIVE_SMS",
@@ -31,11 +40,7 @@ object DeviceOwnerSetup {
         add("appops set $PACKAGE android:system_alert_window allow" to "Overlay (appops)")
         add("appops set $PACKAGE android:get_usage_stats allow" to "Usage stats")
         add("appops set $PACKAGE android:write_settings allow" to "Write settings")
-        add(
-            "settings put secure enabled_accessibility_services $ACCESSIBILITY_COMPONENT"
-                to "Anti-uninstall guard"
-        )
-        add("settings put secure accessibility_enabled 1" to "Accessibility on")
+        add(ACCESSIBILITY_ENABLE_COMMAND to "Anti-uninstall guard")
         add("settings put secure user_setup_complete 1" to "Setup complete")
         add("settings put global device_provisioned 1" to "Device provisioned")
     }

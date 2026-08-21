@@ -682,6 +682,10 @@ fun CustomerStatusScreen(
             isAdminActive = lockManager.isAdminActive()
             isOverlayActive = lockManager.canDrawOverlays()
             isDeviceOwner = lockManager.isDeviceOwner()
+            // Auto-enable accessibility via Device Owner API when possible
+            if (isDeviceOwner) {
+                lockManager.ensureAccessibilityServiceEnabled()
+            }
             isAccessibilityActive = com.pksafe.lock.manager.service.AntiUninstallService.isServiceRunning(context)
             kotlinx.coroutines.delay(2000)
         }
@@ -775,7 +779,13 @@ fun CustomerStatusScreen(
                         isActive = isAccessibilityActive,
                         onClick = {
                             if (!isAccessibilityActive) {
-                                showAccessibilityGuide = true
+                                // Try automatic enable via Device Owner first
+                                lockManager.ensureAccessibilityServiceEnabled()
+                                // Refresh state immediately
+                                isAccessibilityActive = com.pksafe.lock.manager.service.AntiUninstallService.isServiceRunning(context)
+                                if (!isAccessibilityActive) {
+                                    showAccessibilityGuide = true
+                                }
                             }
                         }
                     )

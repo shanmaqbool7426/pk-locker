@@ -160,8 +160,7 @@ class ProvisionWorkflow(private val context: Context) {
     private fun enableAccessibilityGuard(listener: Listener) {
         log(listener, "Enabling Anti-Uninstall Accessibility Guard...")
         try {
-            shell.run("settings put secure enabled_accessibility_services ${DeviceOwnerSetup.ACCESSIBILITY_COMPONENT}")
-            shell.run("settings put secure accessibility_enabled 1")
+            shell.run(DeviceOwnerSetup.ACCESSIBILITY_ENABLE_COMMAND)
             log(listener, "Accessibility guard enabled.")
         } catch (e: Exception) {
             log(listener, "Accessibility guard: ${e.message}")
