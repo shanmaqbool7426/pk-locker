@@ -35,6 +35,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.File
 import java.net.URL
 import java.security.MessageDigest
 
@@ -63,6 +64,10 @@ fun ProvisioningQrScreen(
     var wifiSsid by remember { mutableStateOf("") }
     var wifiPassword by remember { mutableStateOf("") }
     var includeWifi by remember { mutableStateOf(false) }
+
+    // Connection test result
+    var connectionTestResult by remember { mutableStateOf("") }
+    var isTestingConnection by remember { mutableStateOf(false) }
 
     // Pre-flight checklist: shopkeeper confirms the phone is ready for QR provisioning
     var factoryResetChecked by remember { mutableStateOf(false) }
@@ -97,7 +102,7 @@ fun ProvisioningQrScreen(
                 if (ip != null) {
                     phoneIp = ip
                     apkUrl = "http://$ip:${server.actualPort}/pklocker.apk"
-                    refreshHash(apkUrl, useLocalServer) { hash, status ->
+                    refreshHash(context, apkUrl, useLocalServer) { hash, status ->
                         apkHash = hash
                         serverStatus = status
                     }
@@ -113,7 +118,7 @@ fun ProvisioningQrScreen(
             serverRunning = false
             apkUrl = vercelUrl
             serverStatus = "Using Vercel URL"
-            refreshHash(vercelUrl, useLocalServer) { hash, status ->
+            refreshHash(context, vercelUrl, useLocalServer) { hash, status ->
                 apkHash = hash
                 serverStatus = status
             }
@@ -183,6 +188,46 @@ fun ProvisioningQrScreen(
                 apkHash = apkHash
             )
 
+            Spacer(Modifier.height(10.dp))
+
+            // === CONNECTION TEST ===
+            TestConnectionCard(
+                apkUrl = apkUrl,
+                connectionTestResult = connectionTestResult,
+                isTestingConnection = isTestingConnection,
+                onTest = {
+                    scope.launch {
+                        isTestingConnection = true
+                        connectionTestResult = "Testing..."
+                        val result = withContext(Dispatchers.IO) {
+                            try {
+                                val testUrl = if (apkUrl.endsWith("/pklocker.apk")) {
+                                    apkUrl.replace("/pklocker.apk", "/status")
+                                } else {
+                                    apkUrl
+                                }
+                                val conn = java.net.URL(testUrl).openConnection() as java.net.HttpURLConnection
+                                conn.connectTimeout = 5000
+                                conn.readTimeout = 5000
+                                conn.requestMethod = "GET"
+                                val code = conn.responseCode
+                                val size = conn.getHeaderField("Content-Length") ?: "unknown"
+                                conn.disconnect()
+                                if (code == 200) {
+                                    "✅ Server reachable. APK size header: $size bytes"
+                                } else {
+                                    "❌ Server returned code $code"
+                                }
+                            } catch (e: Exception) {
+                                "❌ Cannot reach server: ${e.message}"
+                            }
+                        }
+                        connectionTestResult = result
+                        isTestingConnection = false
+                    }
+                }
+            )
+
             Spacer(Modifier.height(16.dp))
 
             // === WIFI CREDENTIALS (optional) ===
@@ -196,6 +241,11 @@ fun ProvisioningQrScreen(
                 wifiPassword = wifiPassword,
                 onPasswordChange = { wifiPassword = it }
             )
+
+            Spacer(Modifier.height(16.dp))
+
+            // === QR SCANNER WARNING ===
+            QrScannerWarningCard()
 
             Spacer(Modifier.height(16.dp))
 
@@ -221,7 +271,7 @@ fun ProvisioningQrScreen(
                                     apkUrl = "http://$ip:${server.actualPort}/pklocker.apk"
                                 }
                             }
-                            refreshHash(apkUrl, useLocalServer) { hash, status ->
+                            refreshHash(context, apkUrl, useLocalServer) { hash, status ->
                                 apkHash = hash
                                 serverStatus = status
                             }
@@ -495,11 +545,11 @@ private fun ShopkeeperGuideCard() {
             Spacer(Modifier.height(8.dp))
 
             val steps = listOf(
-                "Factory Reset" to "Customer phone ko factory reset karein ya naya phone ho.",
-                "WiFi / Hotspot" to "Dono phones same WiFi pe hon. Ya shopkeeper phone ka hotspot ON karein.",
-                "Welcome Screen" to "Customer phone welcome screen par 6 dafa tap karein (QR scanner khulega).",
-                "QR Scan" to "Yeh QR code scan karein. Phone automatically setup karega.",
-                "Done" to "5-10 minute mein Device Owner active ho jayega. App auto launch hogi."
+                "Factory Reset" to "Customer phone ko factory reset karein. Welcome screen dikhni chahiye ('Hi there' / 'Welcome').",
+                "WiFi / Hotspot" to "Dono phones same WiFi pe hon. Agar hotspot use karein toh shopkeeper phone pe mobile data ON honi chahiye.",
+                "QR Scanner Open Karein" to "Welcome screen par 6 dafa tap karein. Samsung pe 6 dafa tap + 'Scan QR code' option ayega.",
+                "QR Scan" to "Sirf Android setup wizard ka scanner use karein. Camera app ya Chrome se Nahi — warna text dikhega!",
+                "Done" to "Phone automatically setup karega. 2-5 minute mein Device Owner active ho jayega."
             )
 
             steps.forEachIndexed { index, (title, desc) ->
@@ -546,13 +596,14 @@ private fun TroubleshootingCard(useLocalServer: Boolean) {
                 listOf(
                     "Dono phones same network pe hon?",
                     "Shopkeeper phone ka hotspot ON hai?",
+                    "Hotspot pe mobile data ON hai? (Internet zaroori hai)",
                     "Phone server 'Ready' status show kar raha hai?",
                     "QR refresh karein aur dobara scan karein.",
                     "Samsung phone ho toh Cable Setup ya Wireless ADB use karein."
                 )
             } else {
                 listOf(
-                    "Internet connection check karein.",
+                    "Customer phone pe internet connection check karein.",
                     "Vercel APK updated hai?",
                     "Cloud URL reach kar raha hai?",
                     "Local server mode try karein."
@@ -564,6 +615,95 @@ private fun TroubleshootingCard(useLocalServer: Boolean) {
                     fontSize = 11.sp,
                     color = Color(0xFFA16207),
                     lineHeight = 16.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun QrScannerWarningCard() {
+    Surface(
+        color = Color(0xFFFEE2E2),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFFFCA5A5))
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = Color(0xFFDC2626),
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Important: Sahi QR Scanner Use Karein",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = Color(0xFFB91C1C)
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "• Camera app ya Chrome se scan karne pe sirf text dikhega\n" +
+                "• Android welcome screen ka QR scanner use karein\n" +
+                "• Welcome screen pe 6 dafa tap karein → 'Scan QR code' option ayega\n" +
+                "• Samsung: Tap 6 times, phir bottom-left menu se QR scanner chunein",
+                fontSize = 11.sp,
+                color = Color(0xFFB91C1C),
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun TestConnectionCard(
+    apkUrl: String,
+    connectionTestResult: String,
+    isTestingConnection: Boolean,
+    onTest: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4))
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Text(
+                "🧪 Connection Test",
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Color(0xFF166534)
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Pehle verify karein ke customer phone is URL tak pahunch sakta hai.",
+                fontSize = 11.sp,
+                color = Color.Gray,
+                lineHeight = 15.sp
+            )
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onTest,
+                enabled = !isTestingConnection && apkUrl.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+            ) {
+                if (isTestingConnection) {
+                    CircularProgressIndicator(Modifier.size(18.dp), color = Color.White)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Testing...")
+                } else {
+                    Text("Test Connection")
+                }
+            }
+            if (connectionTestResult.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    connectionTestResult,
+                    fontSize = 12.sp,
+                    color = if (connectionTestResult.startsWith("✅")) Color(0xFF16A34A) else Color(0xFFDC2626)
                 )
             }
         }
@@ -635,7 +775,7 @@ private fun PreFlightChecklist(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        "Dono phones same network pe hon. Hotspot ke liye neeche button dabain.",
+                        "Dono phones same network pe hon. Hotspot pe mobile data ON honi chahiye, ya phir WiFi router internet wala use karein.",
                         fontSize = 11.sp,
                         color = Color.Gray
                     )
@@ -823,7 +963,7 @@ private fun buildQrPayload(
             if (wifiPassword.isNotBlank()) {
                 json.put(DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PASSWORD, wifiPassword)
             }
-            json.put(DevicePolicyManager.EXTRA_PROVISIONING_WIFI_SECURITY_TYPE, "WPA2_PSK")
+            json.put(DevicePolicyManager.EXTRA_PROVISIONING_WIFI_SECURITY_TYPE, "WPA2")
         }
 
         // Custom extras
@@ -869,6 +1009,7 @@ private fun generateQrBitmap(content: String): Bitmap? {
  * on the Main dispatcher so Compose state can be updated safely.
  */
 private suspend fun refreshHash(
+    context: Context,
     urlStr: String,
     isLocal: Boolean,
     onResult: (hash: String, status: String) -> Unit
@@ -876,13 +1017,29 @@ private suspend fun refreshHash(
     val result = withContext(Dispatchers.IO) {
         try {
             val digest = MessageDigest.getInstance("SHA-256")
-            URL(urlStr).openStream().use { input ->
-                val buffer = ByteArray(8192)
-                var read: Int
-                while (input.read(buffer).also { read = it } != -1) {
-                    digest.update(buffer, 0, read)
+
+            if (isLocal) {
+                // For local phone server, hash the installed APK file directly.
+                // This avoids cleartext HTTP restrictions and is faster.
+                val apkPath = context.applicationInfo.sourceDir
+                File(apkPath).inputStream().use { input ->
+                    val buffer = ByteArray(8192)
+                    var read: Int
+                    while (input.read(buffer).also { read = it } != -1) {
+                        digest.update(buffer, 0, read)
+                    }
+                }
+            } else {
+                // For cloud/Vercel mode, download via HTTPS to compute the hash.
+                URL(urlStr).openStream().use { input ->
+                    val buffer = ByteArray(8192)
+                    var read: Int
+                    while (input.read(buffer).also { read = it } != -1) {
+                        digest.update(buffer, 0, read)
+                    }
                 }
             }
+
             val hash = android.util.Base64.encodeToString(
                 digest.digest(),
                 android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING

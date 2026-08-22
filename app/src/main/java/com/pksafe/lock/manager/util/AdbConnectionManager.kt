@@ -28,10 +28,10 @@ import kotlin.Throws
  * Based on the proven muntashirakon ADB library approach.
  */
 class AdbConnectionManager private constructor(context: Context) : AbsAdbConnectionManager() {
-
+               
     private var privateKey: PrivateKey? = null
     private var certificate: Certificate? = null
-
+                
     init {
         setApi(Build.VERSION.SDK_INT)
         privateKey = readPrivateKeyFromFile(context)

@@ -1,27 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Network Security Configuration for PKLocker
-    - Allows cleartext (HTTP) traffic to local/private IP ranges
-      used for device-to-device locker communication
-    - All other traffic uses HTTPS by default
-    - This tells Play Protect the HTTP usage is intentional, not a vulnerability
--->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false">
+    <!-- Allow cleartext HTTP traffic for local provisioning and admin API endpoints -->
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
-            <certificates src="system" />
+            <certificates src="system"/>
         </trust-anchors>
     </base-config>
-
-    <!-- Allow HTTP for local network communication (locker devices on LAN) -->
-    <domain-config cleartextTrafficPermitted="true">
-        <!-- Private IP ranges for locker device communication -->
-        <domain includeSubdomains="true">192.168.0.0</domain>
-        <domain includeSubdomains="true">192.168.100.0</domain>
-        <domain includeSubdomains="true">10.0.0.0</domain>
-        <domain includeSubdomains="true">172.16.0.0</domain>
-        <!-- Localhost for local API -->
-        <domain includeSubdomains="true">localhost</domain>
-        <domain includeSubdomains="true">127.0.0.1</domain>
-    </domain-config>
 </network-security-config>
