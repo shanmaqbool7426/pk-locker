@@ -11,40 +11,47 @@ import java.util.Properties
 /**
  * NFC Provisioning Helper: Allows a Master/Shopkeeper phone to setup a target phone
  * by just bumping them together on the "Welcome" screen.
+ *
+ * IMPORTANT: The signature checksum is computed from the CURRENTLY INSTALLED APK.
+ * Do NOT hardcode it. A mismatch will cause NFC provisioning to fail.
  */
 class NfcProvisioner(private val context: Context) : NfcAdapter.CreateNdefMessageCallback {
 
     private val packageName = context.packageName
     private val adminReceiver = "$packageName/com.pksafe.lock.manager.receiver.AdminReceiver"
-    private val apkDownloadUrl = "https://pk-locker-api.vercel.app/apk/update.apk"
-    private val signatureChecksum = "1iQjA_ONpwgKEiR-LCCgmPBPxvn2jcou3qfwciD5r1Q"
 
     override fun createNdefMessage(event: NfcEvent?): NdefMessage {
+        val signatureChecksum = ProvisioningQrScreenHelper.getAppSignatureHash(context)
+        val apkDownloadUrl = if (ApkServer.isRunning()) {
+            val port = ApkServer.getActualPort()
+            val ip = ProvisioningQrScreenHelper.getBestDeviceIpAddress(context)
+            if (!ip.isNullOrBlank()) "http://$ip:$port/pklocker.apk"
+            else "https://pk-locker-api.vercel.app/apk/update.apk"
+        } else {
+            "https://pk-locker-api.vercel.app/apk/update.apk"
+        }
+
         val props = Properties()
-        
+
         // 1. Mandatory Enrollment Properties
         props[DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME] = packageName
         props[DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME] = adminReceiver
         props[DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION] = apkDownloadUrl
         props[DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM] = signatureChecksum
-        
+
         // 2. Extra flags for professional UX
         props[DevicePolicyManager.EXTRA_PROVISIONING_LOCALE] = "en_US"
         props[DevicePolicyManager.EXTRA_PROVISIONING_TIME_ZONE] = "GMT"
         props[DevicePolicyManager.EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED] = "true"
-        
-        // 3. Optional: WiFi credentials (If you want to auto-connect WiFi)
-        // props[DevicePolicyManager.EXTRA_PROVISIONING_WIFI_SSID] = "Shop_WiFi"
-        // props[DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PASSWORD] = "shop123456"
-        
+
         val byteStream = java.io.ByteArrayOutputStream()
         props.store(byteStream, "Enterprise Provisioning")
-        
+
         val record = NdefRecord.createMime(
-            DevicePolicyManager.MIME_TYPE_PROVISIONING_NFC, 
+            DevicePolicyManager.MIME_TYPE_PROVISIONING_NFC,
             byteStream.toByteArray()
         )
-        
+
         return NdefMessage(arrayOf(record))
     }
 }

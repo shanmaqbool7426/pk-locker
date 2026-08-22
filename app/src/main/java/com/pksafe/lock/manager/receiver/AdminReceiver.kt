@@ -25,18 +25,36 @@ class AdminReceiver : DeviceAdminReceiver() {
     override fun onProfileProvisioningComplete(context: Context, intent: Intent) {
         Log.d("ADMIN_RECEIVER", "Provisioning Complete — Device Owner Active")
 
+        // Save provisioning completion with timestamp so the QR screen can detect success
+        context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("provisioning_complete", true)
+            .putBoolean("is_customer", true)
+            .putString("provisioning_method", "qr")
+            .putLong("provisioning_completed_at", System.currentTimeMillis())
+            .apply()
+
         // Fetch IMEI first, then mark as customer
         fetchAndSaveImei(context)
         // Apply Device Owner restrictions immediately
         applyDeviceOwnerProtection(context)
 
+        // Notify any listening UI that provisioning finished
+        try {
+            context.sendBroadcast(Intent("com.pksafe.lock.manager.PROVISIONING_COMPLETE"))
+        } catch (e: Exception) {
+            Log.w("ADMIN_RECEIVER", "Could not send provisioning complete broadcast: ${e.message}")
+        }
+
         // Force start the app to finalize setup
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-        launchIntent?.apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            putExtra("provisioning_mode", "qr")
+        if (launchIntent != null) {
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            launchIntent.putExtra("provisioning_mode", "qr")
+            context.startActivity(launchIntent)
+        } else {
+            Log.e("ADMIN_RECEIVER", "No launch intent found — app may not be installed correctly")
         }
-        context.startActivity(launchIntent)
     }
 
     private fun applyDeviceOwnerProtection(context: Context) {
