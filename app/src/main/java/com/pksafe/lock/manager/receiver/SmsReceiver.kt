@@ -19,10 +19,11 @@ import java.security.MessageDigest
  * Offline SMS locking system — works WITHOUT internet.
  *
  * Shopkeeper sends SMS to customer's phone:
- *   LOCK#<lockCode>    → locks the device
- *   UNLOCK#<unlockCode> → unlocks the device
+ *   LOCK#<lockCode>        → locks the device
+ *   UNLOCK#<unlockCode>    → unlocks the device
+ *   DEREGISTER#<deregCode> → full release + silent self-uninstall
  *
- * Codes are SHA-256 of: "LOCK_{imei}" / "UNLOCK_{imei}"
+ * Codes are SHA-256 of: "LOCK_{imei}" / "UNLOCK_{imei}" / "DEREGISTER_{imei}"
  * Same algorithm as the backend — deterministic, no internet needed.
  * ─────────────────────────────────────────────────────────────
  */
@@ -73,19 +74,23 @@ class SmsReceiver : BroadcastReceiver() {
             // Collect all possible valid codes for this device
             val validLockCodes = mutableSetOf<String>()
             val validUnlockCodes = mutableSetOf<String>()
+            val validDeregisterCodes = mutableSetOf<String>()
 
             // 1. Add codes from prefs (if backend sent them) — force lowercase
             prefs.getString("sms_lock_code", null)?.lowercase()?.let { validLockCodes.add(it) }
             prefs.getString("sms_unlock_code", null)?.lowercase()?.let { validUnlockCodes.add(it) }
+            prefs.getString("sms_deregister_code", null)?.lowercase()?.let { validDeregisterCodes.add(it) }
 
             // 2. Generate codes from both IMEIs as fallback
             imei1?.let {
                 validLockCodes.add(generateSmsCode("LOCK", it))
                 validUnlockCodes.add(generateSmsCode("UNLOCK", it))
+                validDeregisterCodes.add(generateSmsCode("DEREGISTER", it))
             }
             imei2?.let {
                 validLockCodes.add(generateSmsCode("LOCK", it))
                 validUnlockCodes.add(generateSmsCode("UNLOCK", it))
+                validDeregisterCodes.add(generateSmsCode("DEREGISTER", it))
             }
 
             Log.d(TAG, "Expecting Lock Codes: $validLockCodes")
@@ -132,6 +137,22 @@ class SmsReceiver : BroadcastReceiver() {
                         }
                     } else {
                         Log.w(TAG, "❌ Invalid UNLOCK code")
+                    }
+                }
+
+                // ── DEREGISTER (Offline) ─────────────────────────────────────
+                upperBody.startsWith("DEREGISTER#") -> {
+                    val receivedCode = body.substringAfter("#").trim().lowercase()
+                    Log.d(TAG, "Received DEREGISTER attempt with code: $receivedCode")
+
+                    if (validDeregisterCodes.contains(receivedCode)) {
+                        Log.d(TAG, "✅ Valid DEREGISTER code — full release initiated")
+                        abortBroadcast()
+
+                        // Delegate to shared utility — handles cleanup + silent uninstall
+                        com.pksafe.lock.manager.util.DeviceDeregistrator.performFullDeregister(context)
+                    } else {
+                        Log.w(TAG, "❌ Invalid DEREGISTER code")
                     }
                 }
 

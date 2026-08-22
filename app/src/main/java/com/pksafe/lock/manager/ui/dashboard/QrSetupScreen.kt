@@ -27,6 +27,11 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.pksafe.lock.manager.util.Constants
 
+private val TextTitle = Color(0xFF0F172A)
+private val TextSubtitle = Color(0xFF64748B)
+private val AppBg = Color(0xFFF8FAFC)
+private val PrimaryBlue = Color(0xFF2563EB)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QrSetupScreen(

@@ -13,9 +13,6 @@ interface ApiService {
     @POST("auth/login")
     suspend fun loginShopkeeper(@Body request: LoginRequest): Response<LoginResponse>
 
-    @POST("auth/register")
-    suspend fun signupShopkeeper(@Body request: SignupRequest): Response<SignupResponse>
-
     // --- Devices Management ---
     @POST("devices/register")
     suspend fun registerDevice(
@@ -41,7 +38,7 @@ interface ApiService {
     @GET("devices/dashboard-analytics")
     suspend fun getDashboardAnalytics(
         @Header("Authorization") token: String
-    ): Response<StatsResponse>
+    ): Response<DashboardAnalyticsResponse>
 
     @POST("devices/{imei}/lock")
     suspend fun lockDevice(
@@ -64,7 +61,6 @@ interface ApiService {
 
     @POST("devices/update-token")
     suspend fun updateFcmToken(
-        @Header("Authorization") token: String,
         @Body body: Map<String, String>
     ): Response<RegistrationResponse>
 
@@ -92,6 +88,29 @@ interface ApiService {
         @Path("imei") imei: String
     ): Response<RegistrationResponse>
 
+    // Heartbeat: lightweight ping that updates lastSeen on server
+    // and returns current device state for missed-command detection
+    @POST("devices/{imei}/heartbeat")
+    suspend fun sendHeartbeat(
+        @Path("imei") imei: String
+    ): Response<HeartbeatResponse>
+
+    // Command acknowledgment: device tells server it received and processed an FCM command
+    @POST("devices/{imei}/command-ack")
+    suspend fun sendCommandAck(
+        @Path("imei") imei: String,
+        @Body body: Map<String, String>
+    ): Response<RegistrationResponse>
+
+    // Activity Log (Audit Trail): paginated history of all actions on a device
+    @GET("devices/{imei}/activity")
+    suspend fun getActivityLog(
+        @Header("Authorization") token: String,
+        @Path("imei") imei: String,
+        @retrofit2.http.Query("page") page: Int = 1,
+        @retrofit2.http.Query("limit") limit: Int = 50
+    ): Response<ActivityLogResponse>
+
     @POST("devices/{imei}/deregister")
     suspend fun deregisterDevice(
         @Header("Authorization") token: String,
@@ -118,7 +137,8 @@ interface ApiService {
     @POST("emis/{emiId}/mark-paid")
     suspend fun markEmiAsPaid(
         @Header("Authorization") token: String,
-        @Path("emiId") emiId: String
+        @Path("emiId") emiId: String,
+        @Body body: Map<String, Any> = emptyMap()
     ): Response<RegistrationResponse>
 
     @POST("emis/device/{imei}")

@@ -43,7 +43,6 @@ class LockService : Service() {
     private lateinit var windowManager: WindowManager
     private var lockView: View? = null
     private val CHANNEL_ID = "LockServiceChannel"
-    private val MASTER_UNLOCK_CODE = "123456"
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -198,11 +197,16 @@ class LockService : Service() {
         }
 
         btnUnlock?.setOnClickListener {
-            // Dynamic Master Code: Last 6 digits of IMEI (Fallback to 123456 only if IMEI is invalid/missing)
+            // Secure Master Code: SHA-256 hash of IMEI (first 8 hex chars)
+            // 4.3 billion combinations vs old 1 million (last 6 digits of IMEI)
             val savedImei = prefs.getString("device_imei", "") ?: ""
-            val dynamicMasterCode = if (savedImei.length >= 6) savedImei.takeLast(6) else "123456"
+            val masterCode = try {
+                val hash = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest("MASTER_${savedImei}".toByteArray())
+                hash.joinToString("") { "%02x".format(it) }.take(8)
+            } catch (_: Exception) { "123456" }
 
-            if (codeInput?.text.toString() == dynamicMasterCode) {
+            if (codeInput?.text.toString().equals(masterCode, ignoreCase = true)) {
                 prefs.edit().putBoolean("is_locked", false).apply()
                 // Fully remove hardware restrictions as well
                 try {
@@ -214,6 +218,39 @@ class LockService : Service() {
             } else {
                 Toast.makeText(this, "Invalid Security Code!", Toast.LENGTH_SHORT).show()
                 codeInput?.text?.clear()
+            }
+        }
+
+        // --- WhatsApp Help & Support ---
+        lockView?.findViewById<View>(R.id.btnWhatsAppSupport)?.setOnClickListener {
+            try {
+                val shopNameStr = prefs.getString("shop_name", "Authorized Dealer") ?: "Authorized Dealer"
+                val emiAmountStr = prefs.getString("emi_amount", "") ?: ""
+                val emiDueDateStr = prefs.getString("emi_due_date", "") ?: ""
+                val deviceInfo = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
+                val message = "Assalam o Alaikum,\n" +
+                        "Mera device lock ho gaya hai.\n" +
+                        "Device: $deviceInfo\n" +
+                        "Shop: $shopNameStr\n" +
+                        "EMI: $emiAmountStr (Due: $emiDueDateStr)\n" +
+                        "Please mujh se rabta karein."
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    data = Uri.parse(
+                        "https://wa.me/923069829158?text=${Uri.encode(message)}"
+                    )
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(intent)
+            } catch (_: Exception) {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        data = Uri.parse("https://play.google.com/store/apps/details?id=com.whatsapp")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(intent)
+                } catch (_: Exception) {
+                    Toast.makeText(this@LockService, "WhatsApp install nahi hai", Toast.LENGTH_SHORT).show()
+                }
             }
         }
 
@@ -277,6 +314,13 @@ class LockService : Service() {
                             } catch (e: Exception) { rawDate }
                         } else "Contact Provider"
 
+                        // Extract additional payment info
+                        val totalBalance = device.balance.toInt()
+                        val totalPaid = emiSummary.totalPaidAmount?.toInt() ?: 0
+                        val paidInstallments = emiSummary.paid ?: 0
+                        val totalInstallments = emiSummary.total ?: 0
+                        val nextRemaining = emiSummary.nextEmi?.remaining?.toInt() ?: 0
+
                         // Persist so next cold-start of LockService also gets fresh data
                         val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
                         prefs.edit()
@@ -284,9 +328,14 @@ class LockService : Service() {
                             .putString("shop_phone",   shopPhone)
                             .putString("emi_amount",   emiAmount)
                             .putString("emi_due_date", formattedDate)
+                            .putInt("total_balance",   totalBalance)
+                            .putInt("total_paid",      totalPaid)
+                            .putInt("paid_installments", paidInstallments)
+                            .putInt("total_installments", totalInstallments)
+                            .putInt("next_remaining",  nextRemaining)
                             .apply()
 
-                        Log.d("LOCK_REFRESH", "Live data fetched: shop=$shopName emi=$emiAmount due=$formattedDate")
+                        Log.d("LOCK_REFRESH", "Live data fetched: shop=$shopName emi=$emiAmount due=$formattedDate balance=$totalBalance")
 
                         // ── Push updates to the overlay on the main thread ────────
                         withContext(Dispatchers.Main) {
@@ -301,6 +350,16 @@ class LockService : Service() {
                                 }
                                 v.findViewById<TextView>(R.id.tvEmiAmount)?.text = emiAmount
                                 v.findViewById<TextView>(R.id.tvDueDate)?.text  = formattedDate
+                                // Update payment progress
+                                v.findViewById<TextView>(R.id.tvBalanceAmount)?.apply {
+                                    text = "Rs. ${totalBalance}"
+                                    visibility = View.VISIBLE
+                                }
+                                v.findViewById<TextView>(R.id.tvInstallmentProgress)?.apply {
+                                    text = "${paidInstallments}/${totalInstallments} Paid"
+                                    visibility = View.VISIBLE
+                                }
+                                v.findViewById<View>(R.id.paymentInfoSection)?.visibility = View.VISIBLE
                             }
                         }
                     }

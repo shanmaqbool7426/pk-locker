@@ -181,6 +181,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- Silent self-uninstall receiver for deregister flow -->
+        <receiver
+            android:name=".receiver.SelfUninstallReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.pksafe.lock.manager.SELF_UNINSTALL" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

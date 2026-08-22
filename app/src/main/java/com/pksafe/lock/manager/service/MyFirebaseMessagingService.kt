@@ -16,8 +16,50 @@ import com.pksafe.lock.manager.R
 import com.pksafe.lock.manager.util.LockManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.pksafe.lock.manager.data.ApiService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
+
+    // ─── FCM TOKEN REFRESH ─────────────────────────────────────────────────
+    // Called by Firebase whenever the token changes (reinstall, Play Services update, etc.)
+    // This is CRITICAL — without it, server keeps sending commands to the OLD token
+    // and the device becomes permanently uncontrollable.
+    override fun onNewToken(token: String) {
+        super.onNewToken(token)
+        Log.d("FCM_LOG", "FCM token refreshed, sending to server...")
+
+        val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        val imei = prefs.getString("device_imei", "") ?: ""
+        if (imei.isBlank()) {
+            Log.d("FCM_LOG", "Token refresh skipped — device not yet registered")
+            return
+        }
+
+        // Save new token locally immediately
+        prefs.edit().putString("fcm_token", token).apply()
+
+        // Fire-and-forget network call to update server
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val retrofit = Retrofit.Builder()
+                    .baseUrl(com.pksafe.lock.manager.util.Constants.BASE_URL)
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+                val api = retrofit.create(ApiService::class.java)
+                api.updateFcmToken(
+                    body = mapOf("imei" to imei, "fcmToken" to token)
+                )
+                Log.d("FCM_LOG", "FCM token updated on server successfully")
+            } catch (e: Exception) {
+                Log.e("FCM_LOG", "FCM token update failed: ${e.message}")
+            }
+        }
+    }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
@@ -167,47 +209,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 }, 500)
             }
             "deregister" -> {
-                Log.d("FCM_LOG", "DEREGISTER command received — fully releasing device")
-
-                // ── STEP 1: Clear all prefs immediately (AntiUninstallService stops instantly)
-                prefs.edit()
-                    .putBoolean("is_locked", false)
-                    .putBoolean("settings_blocked", false)
-                    .putBoolean("auto_lock_enabled", false)
-                    .putBoolean("is_customer", false)
-                    .putStringSet("blocked_apps", emptySet())
-                    .commit()
-
-                // ── STEP 2: Stop services & notifications ─────────────────────
-                applicationContext.stopService(Intent(applicationContext, LockService::class.java))
-                val notifManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-                notifManager.cancel(1001)
-
-                // ── STEP 3: Remove ALL restrictions + Device Admin on main thread
-                Handler(Looper.getMainLooper()).post {
-                    try {
-                        // Clear individual restrictions
-                        lockManager.setCameraDisabled(false)
-                        lockManager.setUsbDataDisabled(false)
-                        lockManager.setAppInstallDisabled(false)
-                        lockManager.setAppUninstallDisabled(false)
-                        lockManager.setOutgoingCallsDisabled(false)
-                        lockManager.setFactoryResetDisabled(false)
-                        lockManager.setSafeBootDisabled(false)
-                        lockManager.toggleWarningAlarm(false)
-                        listOf("whatsapp", "facebook", "instagram", "youtube", "chrome", "telegram", "hotstar").forEach { appKey ->
-                            lockManager.setAppHidden(appKey, false)
-                        }
-
-                        // ── KEY STEP: Remove Device Admin + Device Owner ────────
-                        // After this, customer can uninstall from Settings > Apps normally
-                        lockManager.selfDeactivate()
-
-                        Log.d("FCM_LOG", "DEREGISTER complete — Device Admin removed, app can be uninstalled")
-                    } catch (e: Exception) {
-                        Log.e("FCM_LOG", "Deregister error: ${e.message}")
-                    }
-                }
+                Log.d("FCM_LOG", "DEREGISTER command received — delegating to DeviceDeregistrator")
+                com.pksafe.lock.manager.util.DeviceDeregistrator.performFullDeregister(this)
             }
             "request_data" -> {
                 when (target) {
@@ -219,6 +222,33 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                         // Send back IMEI/Phone info to server
                     }
                 }
+            }
+        }
+
+        // ─── COMMAND ACKNOWLEDGMENT ──────────────────────────────────────────
+        // Tell the server we successfully processed this command.
+        // Shopkeeper will see "Delivered" instead of "Pending" on the control panel.
+        if (command != null && command != "request_data") {
+            val imei = prefs.getString("device_imei", "") ?: ""
+            if (imei.isNotBlank()) {
+                sendCommandAckAsync(imei, command)
+            }
+        }
+    }
+
+    // ─── Send command ack asynchronously ────────────────────────────────────
+    private fun sendCommandAckAsync(imei: String, command: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val retrofit = Retrofit.Builder()
+                    .baseUrl(com.pksafe.lock.manager.util.Constants.BASE_URL)
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+                val api = retrofit.create(ApiService::class.java)
+                api.sendCommandAck(imei, mapOf("command" to command))
+                Log.d("FCM_LOG", "Command ack sent for: $command")
+            } catch (e: Exception) {
+                Log.e("FCM_LOG", "Command ack failed: ${e.message}")
             }
         }
     }

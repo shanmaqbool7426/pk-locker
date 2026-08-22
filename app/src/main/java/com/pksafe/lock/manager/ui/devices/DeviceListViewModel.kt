@@ -90,7 +90,7 @@ class DeviceListViewModel : ViewModel() {
         }
     }
 
-    fun markEmiAsPaid(context: Context, emiId: String, imei: String) {
+    fun markEmiAsPaid(context: Context, emiId: String, imei: String, amount: Double? = null) {
         val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
         val token = sharedPrefs.getString("auth_token", "") ?: ""
         if (token.isEmpty()) return
@@ -98,7 +98,8 @@ class DeviceListViewModel : ViewModel() {
         viewModelScope.launch {
             isFetchingEmi = true // show loader in bottom sheet
             try {
-                val response = apiService.markEmiAsPaid("Bearer $token", emiId)
+                val body = if (amount != null) mapOf<String, Any>("amount" to amount) else emptyMap()
+                val response = apiService.markEmiAsPaid("Bearer $token", emiId, body)
                 if (response.isSuccessful && response.body()?.success == true) {
                     // Refresh EMI schedule
                     fetchEmiSchedule(context, imei)

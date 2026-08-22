@@ -20,6 +20,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -33,6 +34,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -51,7 +54,6 @@ import com.pksafe.lock.manager.ui.emi.EmiListScreen
 import com.pksafe.lock.manager.ui.login.LoginScreen
 import com.pksafe.lock.manager.ui.provisioning.ProvisioningQrScreen
 import com.pksafe.lock.manager.ui.provisioning.NfcSetupScreen
-import com.pksafe.lock.manager.ui.registration.RegistrationScreen
 import com.pksafe.lock.manager.ui.theme.PKLockerTheme
 import com.pksafe.lock.manager.ui.theme.PrimaryDark
 import com.pksafe.lock.manager.ui.theme.SuccessGreen
@@ -326,8 +328,9 @@ fun MainAppEntryPoint() {
 
     // ─── BACKGROUND SYNC TRIGGER ──────────────────────────────────────────
     LaunchedEffect(isCustomer, deviceImei) {
-        if (isCustomer && !deviceImei.isNullOrBlank() && !locationPermissionMissing) {
-            scheduleLocationSync(context)
+        if (isCustomer && !deviceImei.isNullOrBlank()) {
+            if (!locationPermissionMissing) scheduleLocationSync(context)
+            scheduleHeartbeat(context)
         }
     }
 
@@ -413,21 +416,12 @@ fun MainAppEntryPoint() {
             )
         }
     } else if (!isUserLoggedIn) {
-        var isSigningUp by rememberSaveable { mutableStateOf(false) }
-        
-        if (isSigningUp) {
-            com.pksafe.lock.manager.ui.login.SignupScreen(
-                onBackToLogin = { isSigningUp = false }
-            )
-        } else {
-            LoginScreen(
-                onLoginSuccess = { 
-                    isUserLoggedIn = true 
-                    sharedPrefs.edit().putBoolean("is_logged_in", true).apply()
-                },
-                onNavigateToSignup = { isSigningUp = true }
-            )
-        }
+        LoginScreen(
+            onLoginSuccess = { 
+                isUserLoggedIn = true 
+                sharedPrefs.edit().putBoolean("is_logged_in", true).apply()
+            }
+        )
     } else {
         PKLockerApp(
             isAdmin = true, 
@@ -454,7 +448,7 @@ private fun syncTokenToServer(imei: String, token: String) {
     
     CoroutineScope(Dispatchers.IO).launch {
         try {
-            apiService.updateFcmToken("", mapOf("imei" to imei, "fcmToken" to token))
+            apiService.updateFcmToken(mapOf("imei" to imei, "fcmToken" to token))
             Log.d("SYNC_TOKEN", "Token synced for IMEI: $imei")
         } catch (e: Exception) {
             Log.e("SYNC_TOKEN", "Failed to sync: ${e.message}")
@@ -473,6 +467,22 @@ private fun scheduleLocationSync(context: Context) {
         workRequest
     )
     Log.d("LOCATION_SYNC", "Location sync scheduled for every 30 mins")
+}
+
+// ─── HEARTBEAT WORKER SCHEDULING ─────────────────────────────────────────
+// Pings server every 2 hours, catches missed commands after offline periods
+private fun scheduleHeartbeat(context: Context) {
+    val workRequest = androidx.work.PeriodicWorkRequestBuilder<com.pksafe.lock.manager.service.ConnectivityWorker>(
+        com.pksafe.lock.manager.service.ConnectivityWorker.HEARTBEAT_INTERVAL,
+        java.util.concurrent.TimeUnit.MILLISECONDS
+    ).build()
+
+    androidx.work.WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+        "HeartbeatSync",
+        androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+        workRequest
+    )
+    Log.d("HEARTBEAT", "Heartbeat scheduled — every ${com.pksafe.lock.manager.service.ConnectivityWorker.HEARTBEAT_INTERVAL / 3600000} hours")
 }
 
 private fun syncShopkeeperTokenToServer(authToken: String, token: String) {
@@ -516,6 +526,7 @@ private fun fetchAndSaveSmsCodesForCustomer(context: Context, imei: String) {
                     
                     val lockCode   = device.smsCodes?.lockCode
                     val unlockCode = device.smsCodes?.unlockCode
+                    val deregisterCode = device.smsCodes?.deregisterCode
                     
                     val shopName = device.shopkeeper?.shopName ?: device.shopkeeper?.name ?: "Authorized Dealer"
                     val shopPhone = device.shopkeeper?.phone ?: "Contact Provider"
@@ -543,6 +554,7 @@ private fun fetchAndSaveSmsCodesForCustomer(context: Context, imei: String) {
                         .edit()
                         .putString("sms_lock_code", lockCode)
                         .putString("sms_unlock_code", unlockCode)
+                        .putString("sms_deregister_code", deregisterCode)
                         .putString("shop_name", shopName)
                         .putString("shop_phone", shopPhone)
                         .putString("emi_amount", "Rs. ${emiAmount?.toInt() ?: 0}")
@@ -935,6 +947,11 @@ fun CustomerLockScreen(onReset: () -> Unit) {
     var shopPhone by remember { mutableStateOf(sharedPrefs.getString("shop_phone", "Contact Provider") ?: "Contact Provider") }
     var emiDue by remember { mutableStateOf(sharedPrefs.getString("emi_amount", "Rs. 2,500") ?: "Rs. 2,500") }
     var dueDate by remember { mutableStateOf(sharedPrefs.getString("emi_due_date", "20 March") ?: "20 March") }
+    var totalBalance by remember { mutableIntStateOf(sharedPrefs.getInt("total_balance", 0)) }
+    var totalPaid by remember { mutableIntStateOf(sharedPrefs.getInt("total_paid", 0)) }
+    var paidInstallments by remember { mutableIntStateOf(sharedPrefs.getInt("paid_installments", 0)) }
+    var totalInstallments by remember { mutableIntStateOf(sharedPrefs.getInt("total_installments", 0)) }
+    var nextRemaining by remember { mutableIntStateOf(sharedPrefs.getInt("next_remaining", 0)) }
 
     // Listen for pref changes (e.g. when fetchAndSaveSmsCodesForCustomer completes)
     DisposableEffect(Unit) {
@@ -944,6 +961,11 @@ fun CustomerLockScreen(onReset: () -> Unit) {
                 "shop_phone" -> shopPhone = prefs.getString("shop_phone", "Contact Provider") ?: "Contact Provider"
                 "emi_amount" -> emiDue = prefs.getString("emi_amount", "Rs. 2,500") ?: "Rs. 2,500"
                 "emi_due_date" -> dueDate = prefs.getString("emi_due_date", "20 March") ?: "20 March"
+                "total_balance" -> totalBalance = prefs.getInt("total_balance", 0)
+                "total_paid" -> totalPaid = prefs.getInt("total_paid", 0)
+                "paid_installments" -> paidInstallments = prefs.getInt("paid_installments", 0)
+                "total_installments" -> totalInstallments = prefs.getInt("total_installments", 0)
+                "next_remaining" -> nextRemaining = prefs.getInt("next_remaining", 0)
             }
         }
         sharedPrefs.registerOnSharedPreferenceChangeListener(listener)
@@ -1061,6 +1083,44 @@ fun CustomerLockScreen(onReset: () -> Unit) {
                         }
                     }
 
+                    // Payment Progress — shown when data is available
+                    if (totalInstallments > 0) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = Color(0xFF333333))
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column {
+                                Text("REMAINING BALANCE", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 9.sp)
+                                Text("Rs. $totalBalance", color = Color(0xFFF59E0B), fontWeight = FontWeight.Black, fontSize = 16.sp)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("INSTALLMENTS", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 9.sp)
+                                Text("${paidInstallments}/${totalInstallments} Paid", color = Color(0xFF10B981), fontWeight = FontWeight.Black, fontSize = 16.sp)
+                            }
+                        }
+
+                        // Progress bar
+                        if (totalInstallments > 0) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LinearProgressIndicator(
+                                progress = { paidInstallments.toFloat() / totalInstallments },
+                                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                                color = Color(0xFF10B981),
+                                trackColor = Color(0xFF10B981).copy(alpha = 0.15f),
+                            )
+                        }
+
+                        // Show remaining amount for next EMI if partially paid
+                        if (nextRemaining > 0 && nextRemaining < totalBalance) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                "Next EMI remaining: Rs. $nextRemaining",
+                                color = Color(0xFFF59E0B),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(24.dp))
                     
                     Surface(color = Color.White.copy(0.05f), shape = RoundedCornerShape(12.dp)) {
@@ -1076,11 +1136,77 @@ fun CustomerLockScreen(onReset: () -> Unit) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Contact button removed as per request
+            // ── WhatsApp Help & Support ──
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        try {
+                            val deviceInfo = android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL
+                            val message = "Assalam o Alaikum,\n" +
+                                    "Mera device lock ho gaya hai.\n" +
+                                    "Device: $deviceInfo\n" +
+                                    "Shop: $shopName\n" +
+                                    "EMI: $emiDue (Due: $dueDate)\n" +
+                                    "Please mujh se rabta karein."
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                data = android.net.Uri.parse(
+                                    "https://wa.me/923069829158?text=${android.net.Uri.encode(message)}"
+                                )
+                            }
+                            context.startActivity(intent)
+                        } catch (_: Exception) {
+                            try {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                    data = android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.whatsapp")
+                                }
+                                context.startActivity(intent)
+                            } catch (_: Exception) { }
+                        }
+                    },
+                shape = RoundedCornerShape(16.dp),
+                color = Color.Transparent,
+                border = null
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.horizontalGradient(listOf(Color(0xFF25D366), Color(0xFF128C7E))),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Chat,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                "Shopkeeper se Rabta Karein",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "WhatsApp — +92 306 9829158",
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
             
@@ -1110,16 +1236,8 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var selectedDeviceImei by remember { mutableStateOf<String?>(null) }
     var selectedDeviceName by remember { mutableStateOf<String?>(null) }
-    var showBuyKeysPopup by remember { mutableStateOf(false) }
 
     fun navigateSafe(dest: AppDestinations) {
-        if (dest == AppDestinations.REGISTRATION) {
-            val available = stats?.android?.availableKeys ?: 0
-            if (available <= 0) {
-                showBuyKeysPopup = true
-                return
-            }
-        }
         currentDestination = dest
     }
 
@@ -1130,32 +1248,6 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
             onBack = { selectedDeviceImei = null }
         )
     } else {
-        if (showBuyKeysPopup) {
-            AlertDialog(
-                onDismissRequest = { showBuyKeysPopup = false },
-                containerColor = Color.White,
-                icon = { Icon(Icons.Default.Key, contentDescription = null, tint = Color(0xFFEA580C), modifier = Modifier.size(32.dp)) },
-                title = { Text("Zero Available Keys", fontWeight = FontWeight.Bold, color = Color(0xFF1E293B)) },
-                text = { Text("You do not have any available keys to register a new device. Please buy keys to continue.", color = Color(0xFF64748B)) },
-                confirmButton = {
-                    Button(
-                        onClick = { 
-                            showBuyKeysPopup = false
-                            navigateSafe(AppDestinations.BUY_KEYS) 
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4F46E5))
-                    ) {
-                        Text("Buy Keys Now", fontWeight = FontWeight.Bold)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showBuyKeysPopup = false }) {
-                        Text("Cancel", color = Color(0xFF64748B))
-                    }
-                }
-            )
-        }
-
         NavigationSuiteScaffold(
             navigationSuiteItems = {
                 AppDestinations.entries.filter { 
@@ -1193,18 +1285,11 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                                 "Phone QR" -> navigateSafe(AppDestinations.PHONE_QR)
                                 "Easy Setup" -> navigateSafe(AppDestinations.EASY_SETUP)
                                 "Video Help" -> navigateSafe(AppDestinations.VIDEO_HELP)
-                                "Register Device" -> navigateSafe(AppDestinations.REGISTRATION)
                                 "Buy Keys" -> navigateSafe(AppDestinations.BUY_KEYS)
                                 "NFC Setup" -> navigateSafe(AppDestinations.NFC_SETUP)
                                 "Key Requests" -> navigateSafe(AppDestinations.ADMIN_KEYS)
                             }
                         })
-                        AppDestinations.REGISTRATION -> if (isAdmin) RegistrationScreen(
-                            onRegistrationSuccess = {
-                                viewModel.fetchDevices(context) // Refresh the list
-                                currentDestination = AppDestinations.LIST // Navigate to Devices tab
-                            }
-                        )
                         AppDestinations.LIST -> if (isAdmin) DeviceListScreen(
                             onDeviceClick = { imei, name ->
                                 selectedDeviceImei = imei
@@ -1256,7 +1341,6 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
 
 enum class AppDestinations(val label: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home),
-    REGISTRATION("Register", Icons.Default.AppRegistration),
     LIST("Devices", Icons.Default.List),
     BUY_KEYS("Buy Keys", Icons.Default.Key),
     EMI_LIST("EMIs", Icons.Default.CalendarMonth),

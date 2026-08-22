@@ -1,11 +1,9 @@
 package com.pksafe.lock.manager.ui.registration
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,6 +12,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -36,12 +35,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pksafe.lock.manager.ui.theme.*
 import com.pksafe.lock.manager.util.LockManager
 
-// Local color constants for consistent premium look
-private val SurfaceWhite = Color.White
-private val SoftBg = Color(0xFFF8FAFC)
-private val BrandAccent = Color(0xFF2563EB)
-private val TextDark = Color(0xFF0F172A)
-private val TextMuted = Color(0xFF64748B)
+// ═════════════════════════════════════════════════════════════════════════════
+//  PK LOCKER — Registration Screen (Professional Redesign)
+//  All business logic preserved. UI completely refreshed.
+// ═════════════════════════════════════════════════════════════════════════════
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,15 +50,14 @@ fun RegistrationScreen(
     val context = LocalContext.current
     val lockManager = LockManager(context)
 
-    // Automatically navigate back after success
     LaunchedEffect(viewModel.isSuccess) {
         if (viewModel.isSuccess) {
-            kotlinx.coroutines.delay(1500) // Let the user see the "Success" card
+            kotlinx.coroutines.delay(1500)
             onRegistrationSuccess()
         }
     }
 
-    // Image Picker Launcher - Customer
+    // ─── Image Pickers ──────────────────────────────────────────────────────
     val customerImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
             val base64 = viewModel.convertUriToBase64(context, it)
@@ -69,8 +65,6 @@ fun RegistrationScreen(
             else Toast.makeText(context, "Failed to load image", Toast.LENGTH_SHORT).show()
         }
     }
-
-    // Image Picker Launcher - Guarantor
     val guarantorImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
             val base64 = viewModel.convertUriToBase64(context, it)
@@ -78,8 +72,6 @@ fun RegistrationScreen(
             else Toast.makeText(context, "Failed to load image", Toast.LENGTH_SHORT).show()
         }
     }
-
-    // Image Picker Launcher - Profile
     val profileImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
             val base64 = viewModel.convertUriToBase64(context, it)
@@ -88,7 +80,7 @@ fun RegistrationScreen(
         }
     }
 
-    // Notification Permission Launcher
+    // ─── Notification Permission ────────────────────────────────────────────
     var hasNotificationPermission by remember {
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -96,7 +88,6 @@ fun RegistrationScreen(
             } else true
         )
     }
-
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         hasNotificationPermission = granted
     }
@@ -104,8 +95,13 @@ fun RegistrationScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Device Registration", fontWeight = FontWeight.ExtraBold, color = TextDark) },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = SurfaceWhite)
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Register Device", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = TextTitle)
+                        Text("Add new customer to your portfolio", fontSize = 11.sp, color = TextMuted)
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CardWhite)
             )
         },
         containerColor = SoftBg
@@ -117,174 +113,189 @@ fun RegistrationScreen(
                 .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
-            
 
-
-            // --- DEVICE HARDWARE ---
-            SectionHeader("Device Identity", Icons.Default.Smartphone)
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    ModernTextField(
-                        value = viewModel.imei,
-                        onValueChange = { viewModel.imei = it },
-                        label = "Primary IMEI / Serial",
-                        icon = Icons.Default.QrCodeScanner,
-                        trailingIcon = true,
-                        onIconClick = { viewModel.startScanner(context) }
-                    )
-                    ModernTextField(value = viewModel.imei2, onValueChange = { viewModel.imei2 = it }, label = "Secondary IMEI (Optional)")
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(modifier = Modifier.weight(1f)) { ModernTextField(viewModel.brand, { viewModel.brand = it }, "Brand") }
-                        Box(modifier = Modifier.weight(1f)) { ModernTextField(viewModel.model, { viewModel.model = it }, "Model") }
-                    }
-                }
-            }
-
-            // --- CUSTOMER DETAILS ---
-            SectionHeader("Customer Information", Icons.Default.Face)
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    ModernTextField(viewModel.name, { viewModel.name = it }, "Full Name", Icons.Default.Badge)
-                    ModernTextField(viewModel.cnic, { viewModel.cnic = it }, "CNIC Number", keyboardType = KeyboardType.Number)
-                    ModernTextField(viewModel.phone, { viewModel.phone = it }, "Phone Number", Icons.Default.Call, keyboardType = KeyboardType.Phone)
-                    
-                    Text("Customer Photos", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextMuted, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            ImagePickerButton(imagePath = viewModel.profilePicture, label = "Customer Photo") { profileImageLauncher.launch("image/*") }
-                        }
-                        Box(modifier = Modifier.weight(1f)) {
-                            ImagePickerButton(imagePath = viewModel.customerCnicImage, label = "Customer CNIC") { customerImageLauncher.launch("image/*") }
+            // ═══ SECTION 1: DEVICE IDENTITY ════════════════════════════════════
+            FormSectionHeader(
+                step = "1",
+                title = "Device Identity",
+                icon = Icons.Default.Smartphone,
+                subtitle = "Enter the device hardware details"
+            )
+            FormCard {
+                FormField(
+                    value = viewModel.imei,
+                    onValueChange = { viewModel.imei = it },
+                    label = "Primary IMEI / Serial",
+                    icon = Icons.Default.QrCodeScanner,
+                    trailingAction = {
+                        IconButton(onClick = { viewModel.startScanner(context) }) {
+                            Icon(Icons.Default.QrCodeScanner, "Scan IMEI", tint = BrandBlue, modifier = Modifier.size(20.dp))
                         }
                     }
-                }
-            }
-
-            // --- GUARANTOR DETAILS ---
-            SectionHeader("Guarantor Verification", Icons.Default.Group)
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    ModernTextField(viewModel.guarantorName, { viewModel.guarantorName = it }, "Guarantor Name", Icons.Default.PersonSearch)
-                    ModernTextField(viewModel.guarantorPhone, { viewModel.guarantorPhone = it }, "Guarantor Phone", keyboardType = KeyboardType.Phone)
-                    ModernTextField(viewModel.guarantorAddress, { viewModel.guarantorAddress = it }, "Address")
-                    
-                    Text("Guarantor ID Proof", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextMuted, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
-                    ImagePickerButton(imagePath = viewModel.guarantorCnicImage, label = "Capture Guarantor CNIC") { guarantorImageLauncher.launch("image/*") }
-                }
-            }
-
-            // --- FINANCE / EMI ---
-            SectionHeader("Payment & EMI Terms", Icons.Default.AccountBalanceWallet)
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    ModernTextField(viewModel.productName, { viewModel.productName = it }, "Product / Model Name")
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(modifier = Modifier.weight(1f)) { ModernTextField(viewModel.totalPrice, { viewModel.totalPrice = it }, "Total Price", keyboardType = KeyboardType.Decimal) }
-                        Box(modifier = Modifier.weight(1f)) { ModernTextField(viewModel.downPayment, { viewModel.downPayment = it }, "Down Payment", keyboardType = KeyboardType.Decimal) }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                FormField(
+                    value = viewModel.imei2,
+                    onValueChange = { viewModel.imei2 = it },
+                    label = "Secondary IMEI (Optional)",
+                    icon = Icons.Default.SimCard
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        FormField(viewModel.brand, { viewModel.brand = it }, "Brand", Icons.Default.Brush)
                     }
-                    ModernTextField(viewModel.emiTenure, { viewModel.emiTenure = it }, "Tenure (Months)", keyboardType = KeyboardType.Number)
-                    
+                    Box(modifier = Modifier.weight(1f)) {
+                        FormField(viewModel.model, { viewModel.model = it }, "Model", Icons.Default.ModelTraining)
+                    }
+                }
+            }
+
+            // ═══ SECTION 2: CUSTOMER INFO ══════════════════════════════════════
+            FormSectionHeader(
+                step = "2",
+                title = "Customer Information",
+                icon = Icons.Default.Face,
+                subtitle = "Personal details & identification"
+            )
+            FormCard {
+                FormField(viewModel.name, { viewModel.name = it }, "Full Name", Icons.Default.Badge)
+                Spacer(modifier = Modifier.height(8.dp))
+                FormField(viewModel.cnic, { viewModel.cnic = it }, "CNIC Number", Icons.Default.CreditCard, keyboardType = KeyboardType.Number)
+                Spacer(modifier = Modifier.height(8.dp))
+                FormField(viewModel.phone, { viewModel.phone = it }, "Phone Number", Icons.Default.Call, keyboardType = KeyboardType.Phone)
+
+                // Photos
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Photos", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextTitle)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        PhotoPicker(
+                            image = viewModel.profilePicture,
+                            label = "Customer Photo",
+                            icon = Icons.Default.Person
+                        ) { profileImageLauncher.launch("image/*") }
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        PhotoPicker(
+                            image = viewModel.customerCnicImage,
+                            label = "CNIC Photo",
+                            icon = Icons.Default.CreditCard
+                        ) { customerImageLauncher.launch("image/*") }
+                    }
+                }
+            }
+
+            // ═══ SECTION 3: GUARANTOR ══════════════════════════════════════════
+            FormSectionHeader(
+                step = "3",
+                title = "Guarantor Details",
+                icon = Icons.Default.Group,
+                subtitle = "Guarantor verification for security"
+            )
+            FormCard {
+                FormField(viewModel.guarantorName, { viewModel.guarantorName = it }, "Guarantor Name", Icons.Default.PersonSearch)
+                Spacer(modifier = Modifier.height(8.dp))
+                FormField(viewModel.guarantorPhone, { viewModel.guarantorPhone = it }, "Phone Number", Icons.Default.Call, keyboardType = KeyboardType.Phone)
+                Spacer(modifier = Modifier.height(8.dp))
+                FormField(viewModel.guarantorAddress, { viewModel.guarantorAddress = it }, "Address", Icons.Default.LocationOn)
+
+                Spacer(modifier = Modifier.height(12.dp))
+                PhotoPicker(
+                    image = viewModel.guarantorCnicImage,
+                    label = "Guarantor CNIC",
+                    icon = Icons.Default.CreditCard,
+                    fullWidth = true
+                ) { guarantorImageLauncher.launch("image/*") }
+            }
+
+            // ═══ SECTION 4: PAYMENT & EMI ═════════════════════════════════════
+            FormSectionHeader(
+                step = "4",
+                title = "Payment & EMI Terms",
+                icon = Icons.Default.AccountBalanceWallet,
+                subtitle = "Define loan amount and installment plan"
+            )
+            FormCard {
+                FormField(viewModel.productName, { viewModel.productName = it }, "Product / Model Name", Icons.Default.Inventory2)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        FormField(viewModel.totalPrice, { viewModel.totalPrice = it }, "Total Price (PKR)", Icons.Default.AttachMoney, keyboardType = KeyboardType.Decimal)
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        FormField(viewModel.downPayment, { viewModel.downPayment = it }, "Down Payment", Icons.Default.PriceCheck, keyboardType = KeyboardType.Decimal)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                FormField(viewModel.emiTenure, { viewModel.emiTenure = it }, "Tenure (Months)", Icons.Default.Schedule, keyboardType = KeyboardType.Number)
+
+                // ── Auto-Computed Summary ───────────────────────────────────
+                val total = viewModel.totalPrice.toDoubleOrNull() ?: 0.0
+                val down = viewModel.downPayment.toDoubleOrNull() ?: 0.0
+                val balance = (total - down).coerceAtLeast(0.0)
+                val tenure = viewModel.emiTenure.toIntOrNull() ?: 0
+                val emiAmount = if (tenure > 0) balance / tenure else 0.0
+
+                if (total > 0) {
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    // --- DYNAMIC PAYMENT SUMMARY (Real-time auto calculation) ---
-                    val total = viewModel.totalPrice.toDoubleOrNull() ?: 0.0
-                    val down = viewModel.downPayment.toDoubleOrNull() ?: 0.0
-                    val balance = (total - down).coerceAtLeast(0.0)
-                    val tenure = viewModel.emiTenure.toIntOrNull() ?: 0
-                    val emiAmount = if (tenure > 0) balance / tenure else 0.0
-
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFEFF6FF), // Light Blue Background
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Calculate, null, tint = BrandAccent, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("AUTO-COMPUTED SCHEDULE", fontSize = 11.sp, fontWeight = FontWeight.Black, color = BrandAccent)
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Column {
-                                    Text("Remaining Balance", fontSize = 12.sp, color = TextMuted)
-                                    Text("Rs. ${balance.toInt()}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextDark)
-                                }
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text("Monthly Installment", fontSize = 12.sp, color = TextMuted)
-                                    Text(
-                                        text = "Rs. ${emiAmount.toInt()} /mo", 
-                                        fontSize = 18.sp, 
-                                        fontWeight = FontWeight.ExtraBold, 
-                                        color = Color(0xFF16A34A) // Green text for output
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    EmiSummaryCard(balance = balance, emiAmount = emiAmount, tenure = tenure)
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-            // Professional Action Button
+            // ═══ SUBMIT BUTTON ═════════════════════════════════════════════════
             Button(
-                onClick = { 
+                onClick = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
                         notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     } else viewModel.registerDevice(context)
                 },
-                modifier = Modifier.fillMaxWidth().height(64.dp), // Slightly taller for premium feel
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandAccent), 
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                modifier = Modifier.fillMaxWidth().height(58.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
                 enabled = !viewModel.isLoading
             ) {
                 if (viewModel.isLoading) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
                 } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Verified, null, modifier = Modifier.size(20.dp), tint = Color.White)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("FINALIZE REGISTRATION", fontWeight = FontWeight.Black, fontSize = 15.sp, letterSpacing = 1.sp, color = Color.White)
-                    }
+                    Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("REGISTER DEVICE", fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = 0.5.sp)
                 }
             }
 
-            // Result Messages
+            // ── Result Messages ────────────────────────────────────────────
             viewModel.message?.let { msg ->
-                Card(
-                    modifier = Modifier.padding(top = 20.dp).fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (viewModel.isSuccess) Color(0xFFF0FDF4) else Color(0xFFFEF2F2)
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (viewModel.isSuccess) SuccessSurface else DangerSurface,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (viewModel.isSuccess) Success.copy(alpha = 0.2f) else Danger.copy(alpha = 0.2f)
                     )
                 ) {
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(
-                            if(viewModel.isSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
+                            if (viewModel.isSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
                             null,
-                            tint = if(viewModel.isSuccess) Color(0xFF16A34A) else Color(0xFFDC2626)
+                            tint = if (viewModel.isSuccess) Success else Danger,
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(Modifier.width(12.dp))
-                        Text(msg, color = if(viewModel.isSuccess) Color(0xFF16A34A) else Color(0xFFDC2626), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            msg,
+                            color = if (viewModel.isSuccess) Success else Danger,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
                     }
                 }
             }
@@ -294,78 +305,190 @@ fun RegistrationScreen(
     }
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+//  FORM COMPONENTS
+// ═════════════════════════════════════════════════════════════════════════════
+
 @Composable
-fun SectionHeader(title: String, icon: ImageVector) {
+private fun FormSectionHeader(step: String, title: String, icon: ImageVector, subtitle: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 10.dp, start = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 28.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, null, tint = BrandAccent, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(text = title.uppercase(), fontSize = 12.sp, fontWeight = FontWeight.Black, color = BrandAccent, letterSpacing = 1.5.sp)
+        // Step number badge
+        Surface(
+            shape = CircleShape,
+            color = BrandBlue,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(step, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
+            }
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(
+                text = title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextTitle
+            )
+            Text(
+                text = subtitle,
+                fontSize = 11.sp,
+                color = TextMuted
+            )
+        }
     }
 }
 
+@Composable
+private fun FormCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = CardWhite),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            content()
+        }
+    }
+}
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FormField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    icon: ImageVector? = null,
+    trailingAction: (@Composable () -> Unit)? = null,
+    keyboardType: KeyboardType = KeyboardType.Text
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium) },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        leadingIcon = icon?.let {
+            { Icon(it, null, modifier = Modifier.size(20.dp), tint = TextMuted) }
+        },
+        trailingIcon = trailingAction,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = BrandBlue,
+            unfocusedBorderColor = BorderLight,
+            focusedContainerColor = SurfaceGray.copy(alpha = 0.5f),
+            unfocusedContainerColor = SurfaceGray.copy(alpha = 0.3f),
+            focusedTextColor = TextTitle,
+            unfocusedTextColor = TextTitle,
+            focusedLabelColor = BrandBlue,
+            unfocusedLabelColor = TextMuted
+        ),
+        singleLine = true,
+        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+    )
+}
 
 @Composable
-fun ImagePickerButton(imagePath: String?, label: String, onClick: () -> Unit) {
+private fun PhotoPicker(
+    image: String?,
+    label: String,
+    icon: ImageVector = Icons.Default.AddAPhoto,
+    fullWidth: Boolean = false,
+    onClick: () -> Unit
+) {
+    val hasImage = image != null
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(110.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFFF1F5F9))
-            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+            .then(if (fullWidth) Modifier.fillMaxWidth() else Modifier.fillMaxWidth())
+            .height(100.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (hasImage) SuccessSurface else SurfaceGray)
+            .border(
+                1.dp,
+                if (hasImage) Success.copy(alpha = 0.3f) else BorderLight,
+                RoundedCornerShape(14.dp)
+            )
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        if (imagePath != null) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF16A34A), modifier = Modifier.size(32.dp))
-                Text("DOCUMENT CAPTURED", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF16A34A))
-                Text("Tap to change", fontSize = 10.sp, color = TextMuted)
+        if (hasImage) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.CheckCircle, null, tint = Success, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text("Captured", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Success)
+                    Text("Tap to change", fontSize = 10.sp, color = TextMuted)
+                }
             }
         } else {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.AddAPhoto, null, tint = TextMuted, modifier = Modifier.size(32.dp))
-                Spacer(Modifier.height(8.dp))
-                Text(label, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = TextMuted)
+                Icon(icon, null, tint = TextSubtle, modifier = Modifier.size(26.dp))
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(label, fontWeight = FontWeight.Medium, fontSize = 12.sp, color = TextMuted)
             }
         }
     }
 }
 
 @Composable
-fun ModernTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    icon: ImageVector? = null,
-    trailingIcon: Boolean = false,
-    onIconClick: (() -> Unit)? = null,
-    keyboardType: KeyboardType = KeyboardType.Text
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color(0xFF475569)) }, // Darker Slate for Label
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
-        leadingIcon = icon?.let { { Icon(it, null, modifier = Modifier.size(20.dp), tint = Color(0xFF1E293B)) } }, // Darker icon
-        trailingIcon = if (trailingIcon) { { IconButton(onClick = { onIconClick?.invoke() }) { Icon(icon!!, null, tint = BrandAccent) } } } else null,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = BrandAccent,
-            unfocusedBorderColor = Color(0xFFCBD5E1), // Proper border color
-            focusedContainerColor = Color(0xFFF8FAFC), // Slight tint
-            unfocusedContainerColor = Color(0xFFF8FAFC),
-            focusedTextColor = Color.Black,
-            unfocusedTextColor = Color.Black,
-            focusedLabelColor = BrandAccent,
-            unfocusedLabelColor = Color(0xFF475569) // Clearly visible unfocused label
-        ),
-        singleLine = true,
-        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold) // Bolder input text
-    )
+private fun EmiSummaryCard(balance: Double, emiAmount: Double, tenure: Int) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = BrandBlueSurface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, BrandBlue.copy(alpha = 0.15f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Calculate, null, tint = BrandBlue, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("AUTO-CALCULATED", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = BrandBlue, letterSpacing = 1.sp)
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("Balance", fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        "Rs. ${balance.toInt()}",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextTitle
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Monthly EMI", fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        "Rs. ${emiAmount.toInt()} /mo",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Success
+                    )
+                }
+            }
+            if (tenure > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BrandBlue.copy(alpha = 0.08f)
+                ) {
+                    Text(
+                        "$tenure monthly installments",
+                        fontSize = 11.sp,
+                        color = BrandBlue,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
+        }
+    }
 }

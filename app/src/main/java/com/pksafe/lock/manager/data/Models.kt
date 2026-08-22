@@ -16,9 +16,6 @@ data class Shopkeeper(
 data class LoginRequest(val phone: String, val password: String)
 data class LoginResponse(val success: Boolean, val message: String, val token: String? = null, val shopkeeper: Shopkeeper? = null)
 
-data class SignupRequest(val name: String, val password: String, val phone: String, val shopName: String, val role: String = "shopkeeper", val referredByPhone: String? = null)
-data class SignupResponse(val success: Boolean, val message: String, val shopkeeper: Shopkeeper? = null)
-
 // --- Dashboard Stats ---
 data class StatsResponse(val success: Boolean, val data: DashboardData)
 data class DashboardData(
@@ -31,16 +28,18 @@ data class PlatformKeys(val totalKeys: Int, val usedKeys: Int, val availableKeys
 data class DeviceStats(val total: Int, val locked: Int, val deregistered: Int)
 
 data class DashboardAnalytics(
-    val monthlyCollection: Double,
-    val collectionRate: String,
-    val highRiskCount: Int,
-    val overdueTrend: List<OverdueEntry>,
-    val bestCustomers: List<BestCustomerEntry>,
-    val deviceStats: AnalyticsDeviceStats
+    val monthlyCollection: Double? = 0.0,
+    val collectionRate: String? = "0",
+    val highRiskCount: Int? = 0,
+    val overdueTrend: List<OverdueEntry>? = emptyList(),
+    val bestCustomers: List<BestCustomerEntry>? = emptyList(),
+    val deviceStats: AnalyticsDeviceStats? = null
 )
 data class OverdueEntry(val month: Int, val count: Int)
 data class BestCustomerEntry(val name: String, val amount: Double)
-data class AnalyticsDeviceStats(val locked: Int, val unlocked: Int)
+data class AnalyticsDeviceStats(val locked: Int = 0, val unlocked: Int = 0)
+
+data class DashboardAnalyticsResponse(val success: Boolean, val data: DashboardAnalytics)
 
 // --- Devices ---
 data class DeviceListResponse(val success: Boolean, val count: Int, val data: List<DeviceResponse>)
@@ -72,7 +71,11 @@ data class DeviceResponse(
     @SerializedName("location") val location: LocationData? = null,
     @SerializedName("geofence") val geofence: GeofenceData? = null,
     @SerializedName("locationHistory") val locationHistory: List<LocationEntry>? = null,
-    @SerializedName("shopkeeper") val shopkeeper: Shopkeeper? = null
+    @SerializedName("shopkeeper") val shopkeeper: Shopkeeper? = null,
+    @SerializedName("lastSeen") val lastSeen: String? = null,
+    @SerializedName("lastCommand") val lastCommand: String? = null,
+    @SerializedName("lastCommandSentAt") val lastCommandSentAt: String? = null,
+    @SerializedName("lastCommandAckAt") val lastCommandAckAt: String? = null
 )
 
 data class DeviceControls(
@@ -134,6 +137,7 @@ data class EmiScheduleData(
 data class EmiScheduleSummary(
     val total: Int,
     val paid: Int,
+    val partial: Int = 0,
     val unpaid: Int,
     val paidTotal: Double,
     val unpaidTotal: Double
@@ -143,6 +147,7 @@ data class EmiInstallmentItem(
     val installmentNumber: Int,
     val dueDate: String,
     val amount: Double,
+    val paidAmount: Double = 0.0,
     val status: String
 )
 
@@ -155,13 +160,17 @@ data class CustomerDetailData(
 data class EmiSummary(
     @SerializedName("total") val total: Int? = 0,
     @SerializedName("paid") val paid: Int? = 0,
+    @SerializedName("partial") val partial: Int? = 0,
     @SerializedName("unpaid") val unpaid: Int? = 0,
+    @SerializedName("totalPaidAmount") val totalPaidAmount: Double? = 0.0,
     @SerializedName("schedule") val schedule: List<EmiInstallment>? = null,
     @SerializedName("nextEmi") val nextEmi: NextEmi? = null
 )
 data class NextEmi(
-    @SerializedName("amount") val amount: Double? = 0.0, 
-    @SerializedName("dueDate") val dueDate: String? = null
+    @SerializedName("amount") val amount: Double? = 0.0,
+    @SerializedName("dueDate") val dueDate: String? = null,
+    @SerializedName("paidAmount") val paidAmount: Double? = 0.0,
+    @SerializedName("remaining") val remaining: Double? = 0.0
 )
 
 
@@ -172,7 +181,7 @@ data class EmiInstallment(
     val status: String
 )
 
-data class SmsCodes(val lockCode: String? = null, val unlockCode: String? = null)
+data class SmsCodes(val lockCode: String? = null, val unlockCode: String? = null, val deregisterCode: String? = null)
 
 data class DeviceRegistrationRequest(
     @SerializedName("imei") val imei: String,
@@ -218,6 +227,18 @@ data class AdvancedControlRequest(
     @SerializedName("state") val state: Any
 )
 
+// --- Heartbeat Response ---
+data class HeartbeatResponse(
+    val success: Boolean,
+    val data: HeartbeatData? = null
+)
+data class HeartbeatData(
+    val status: String? = null,           // "Locked" or "Unlocked"
+    val isDeregistered: Boolean = false,
+    val controls: DeviceControls? = null,
+    val appRestrictions: AppRestrictions? = null
+)
+
 // --- Key Orders ---
 data class KeyOrder(
     @SerializedName("_id") val id: String,
@@ -251,4 +272,24 @@ data class KeyRequest(
     @SerializedName("numKeys") val numKeys: Int,
     @SerializedName("paymentProofImage") val paymentProofImage: String,
     @SerializedName("platform") val platform: String = "android"
+)
+
+// --- Activity Log (Audit Trail) ---
+data class ActivityLogResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("data") val data: List<ActivityLogItem> = emptyList(),
+    @SerializedName("pagination") val pagination: ActivityPagination? = null
+)
+data class ActivityLogItem(
+    @SerializedName("_id") val id: String = "",
+    @SerializedName("action") val action: String = "",
+    @SerializedName("details") val details: String = "",
+    @SerializedName("performedBy") val performedBy: String = "",
+    @SerializedName("timestamp") val timestamp: String = ""
+)
+data class ActivityPagination(
+    @SerializedName("page") val page: Int = 1,
+    @SerializedName("limit") val limit: Int = 50,
+    @SerializedName("total") val total: Int = 0,
+    @SerializedName("pages") val pages: Int = 1
 )

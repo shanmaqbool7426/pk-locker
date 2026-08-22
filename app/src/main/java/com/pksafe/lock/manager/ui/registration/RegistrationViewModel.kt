@@ -135,7 +135,7 @@ class RegistrationViewModel : ViewModel() {
                     // FCM Token sync for the newly registered IMEI if needed 
                     // (But usually this happens on the actual customer device)
                     if (fcmToken.isNotEmpty()) {
-                        apiService.updateFcmToken("Bearer $token", mapOf("imei" to imei, "fcmToken" to fcmToken))
+                        apiService.updateFcmToken(mapOf("imei" to imei, "fcmToken" to fcmToken))
                     }
 
                     isSuccess = true

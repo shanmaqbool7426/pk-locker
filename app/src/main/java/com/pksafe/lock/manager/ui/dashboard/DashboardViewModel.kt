@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pksafe.lock.manager.data.ApiService
+import com.pksafe.lock.manager.data.DashboardAnalytics
 import com.pksafe.lock.manager.data.DashboardData
 import kotlinx.coroutines.launch
 import retrofit2.Retrofit
@@ -16,6 +17,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 class DashboardViewModel : ViewModel() {
 
     var dashboardData by mutableStateOf<DashboardData?>(null)
+    var analytics by mutableStateOf<DashboardAnalytics?>(null)
     var shopName by mutableStateOf("Shopkeeper")
     var shopPhone by mutableStateOf("")
     var isAdmin by mutableStateOf(false)
@@ -23,7 +25,7 @@ class DashboardViewModel : ViewModel() {
     var errorMessage by mutableStateOf<String?>(null)
 
     private val retrofit = Retrofit.Builder()
-        .baseUrl(com.pksafe.lock.manager.util.Constants.BASE_URL) 
+        .baseUrl(com.pksafe.lock.manager.util.Constants.BASE_URL)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
@@ -35,9 +37,10 @@ class DashboardViewModel : ViewModel() {
         shopPhone = sharedPrefs.getString("shop_phone", "") ?: ""
         isAdmin = sharedPrefs.getBoolean("is_admin", false)
         val token = sharedPrefs.getString("auth_token", "") ?: ""
-        
+
         if (token.isNotEmpty()) {
             fetchStats("Bearer $token")
+            fetchAnalytics("Bearer $token")
         } else {
             errorMessage = "Authentication required"
         }
@@ -59,6 +62,19 @@ class DashboardViewModel : ViewModel() {
                 errorMessage = "Connection Failed"
             } finally {
                 isLoading = false
+            }
+        }
+    }
+
+    private fun fetchAnalytics(token: String) {
+        viewModelScope.launch {
+            try {
+                val response = apiService.getDashboardAnalytics(token)
+                if (response.isSuccessful && response.body()?.success == true) {
+                    analytics = response.body()?.data
+                }
+            } catch (e: Exception) {
+                Log.e("DASHBOARD_VM", "Error fetching analytics", e)
             }
         }
     }

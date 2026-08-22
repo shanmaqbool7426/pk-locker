@@ -39,7 +39,6 @@ private val TextMuted = Color(0xFF64748B)
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    onNavigateToSignup: () -> Unit,
     viewModel: LoginViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -207,6 +206,47 @@ fun LoginScreen(
                 Icon(Icons.Default.Dns, null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(12.dp))
                 Text("SETUP CUSTOMER LOCK SCREEN", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ── WhatsApp Contact for Account Creation ──
+            Button(
+                onClick = {
+                    try {
+                        val message = "Assalam o Alaikum,\n" +
+                                "Mujhe PK Locker shopkeeper account banana hai.\n" +
+                                "Please meri account create kar dein.\n\n" +
+                                "Naam:\n" +
+                                "Dukaan ka naam:\n" +
+                                "Phone number:\n" +
+                                "City:"
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                            data = android.net.Uri.parse(
+                                "https://wa.me/923069829158?text=${android.net.Uri.encode(message)}"
+                            )
+                        }
+                        context.startActivity(intent)
+                    } catch (_: Exception) {
+                        try {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                data = android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.whatsapp")
+                            }
+                            context.startActivity(intent)
+                        } catch (_: Exception) { }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+            ) {
+                Icon(Icons.Default.Chat, null, modifier = Modifier.size(20.dp), tint = Color.White)
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Account Banwayein", fontWeight = FontWeight.Black, fontSize = 14.sp, color = Color.White)
+                    Text("WhatsApp: +92 306 9829158", fontSize = 10.sp, color = Color.White.copy(alpha = 0.85f))
+                }
             }
 
             Spacer(modifier = Modifier.height(40.dp))
