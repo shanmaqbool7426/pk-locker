@@ -18,6 +18,8 @@ class AdminReceiver : DeviceAdminReceiver() {
         Log.d("ADMIN_RECEIVER", "PK Locker Admin Enabled — attempting IMEI fetch")
         // ADB device owner: fetch IMEI immediately on admin enable
         fetchAndSaveImei(context)
+        // Apply Device Owner restrictions immediately (uninstall block, factory reset block, etc.)
+        applyDeviceOwnerProtection(context)
     }
 
     override fun onProfileProvisioningComplete(context: Context, intent: Intent) {
@@ -25,6 +27,8 @@ class AdminReceiver : DeviceAdminReceiver() {
 
         // Fetch IMEI first, then mark as customer
         fetchAndSaveImei(context)
+        // Apply Device Owner restrictions immediately
+        applyDeviceOwnerProtection(context)
 
         // Force start the app to finalize setup
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
@@ -33,6 +37,15 @@ class AdminReceiver : DeviceAdminReceiver() {
             putExtra("provisioning_mode", "qr")
         }
         context.startActivity(launchIntent)
+    }
+
+    private fun applyDeviceOwnerProtection(context: Context) {
+        try {
+            com.pksafe.lock.manager.util.LockManager(context).applyDeviceOwnerProtection()
+            Log.d("ADMIN_RECEIVER", "Device Owner protection applied")
+        } catch (e: Exception) {
+            Log.e("ADMIN_RECEIVER", "Could not apply Device Owner protection: ${e.message}")
+        }
     }
 
     override fun onDisabled(context: Context, intent: Intent) {

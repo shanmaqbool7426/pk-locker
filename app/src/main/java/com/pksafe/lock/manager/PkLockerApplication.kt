@@ -21,6 +21,22 @@ class PkLockerApplication : Application() {
         super.onCreate()
         // Fix random number generation for older Android versions
         PRNGFixes.apply()
+
+        // Auto-enable accessibility guard if this app is already Device Owner.
+        // This runs on every app cold start so the guard stays active after ADB/cable setup.
+        val lockManager = com.pksafe.lock.manager.util.LockManager(this)
+        try {
+            lockManager.ensureAccessibilityServiceEnabled()
+        } catch (_: Exception) {
+            // Ignore: will retry in MainActivity UI loop
+        }
+        // Apply reliable Device Owner restrictions (uninstall block, factory reset block, etc.)
+        // This works even when accessibility service cannot be auto-enabled.
+        try {
+            lockManager.applyDeviceOwnerProtection()
+        } catch (_: Exception) {
+            // Ignore: will retry in MainActivity UI loop
+        }
     }
 
     override fun attachBaseContext(base: android.content.Context) {

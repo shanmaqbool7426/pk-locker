@@ -111,7 +111,13 @@ fun WirelessAdbSetupScreen(
             } catch (e: Exception) {
                 isConnected = false
                 appendLog("Error: ${e.message}")
-                appendLog("Check: same Wi-Fi, Wireless debugging ON, pairing dialog khula, Google account nahi.")
+                appendLog("Check:")
+                appendLog("• Same Wi-Fi pe dono phones")
+                appendLog("• Wireless debugging ON hai target pe")
+                appendLog("• 'Pair with pairing code' dialog KHULA hai")
+                appendLog("• Code expire nahi hua (2 min mein expire hota hai)")
+                appendLog("• Google account add nahi hai target pe")
+                appendLog("Try again: fresh pairing code lein aur button dabain.")
                 Toast.makeText(context, "Connection fail: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
                 isWorking = false

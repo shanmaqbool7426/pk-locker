@@ -74,14 +74,20 @@ class LockManager(private val context: Context) {
 
     /**
      * Properly enables AntiUninstallService via Device Owner API.
-     * ADB "settings put" alone does NOT reliably start the service on Samsung Android 13/14.
+     * ADB "settings put" alone does NOT reliably start the service on Samsung/vivo Android 13/14/15.
      * DevicePolicyManager.setSecureSetting() is the correct enterprise API for Device Owners.
-     * Call this every time the customer app starts.
+     * Returns true if the setting was written successfully.
      */
-    fun ensureAccessibilityServiceEnabled() {
-        if (!isDeviceOwner()) return
+    fun ensureAccessibilityServiceEnabled(): Boolean {
+        if (!isDeviceOwner()) {
+            Log.w("LOCK_MANAGER", "Cannot enable accessibility: not device owner")
+            return false
+        }
+
+        val componentName = ComponentName(context, com.pksafe.lock.manager.service.AntiUninstallService::class.java)
+        val serviceName = componentName.flattenToString()
+
         try {
-            val serviceName = "${context.packageName}/com.pksafe.lock.manager.service.AntiUninstallService"
             // Use Device Owner enterprise API — this ACTUALLY starts the service
             devicePolicyManager.setSecureSetting(
                 adminComponent,
@@ -93,17 +99,75 @@ class LockManager(private val context: Context) {
                 Settings.Secure.ACCESSIBILITY_ENABLED,
                 "1"
             )
-            Log.d("LOCK_MANAGER", "Accessibility service enabled via DPM setSecureSetting")
+            Log.d("LOCK_MANAGER", "Accessibility service enabled via DPM setSecureSetting: $serviceName")
+            return true
         } catch (e: Exception) {
             Log.e("LOCK_MANAGER", "DPM setSecureSetting failed: ${e.message}")
-            // Fallback: try direct Settings.Secure write
-            try {
-                val serviceName = "${context.packageName}/com.pksafe.lock.manager.service.AntiUninstallService"
-                Settings.Secure.putString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, serviceName)
-                Settings.Secure.putInt(context.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
-            } catch (e2: Exception) {
-                Log.e("LOCK_MANAGER", "Fallback also failed: ${e2.message}")
-            }
+        }
+
+        // Fallback 1: try direct Settings.Secure write (works only if app has WRITE_SECURE_SETTINGS)
+        try {
+            Settings.Secure.putString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, serviceName)
+            Settings.Secure.putInt(context.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
+            Log.d("LOCK_MANAGER", "Accessibility service enabled via direct Settings.Secure write")
+            return true
+        } catch (e: Exception) {
+            Log.e("LOCK_MANAGER", "Direct Settings.Secure write failed: ${e.message}")
+        }
+
+        return false
+    }
+
+    /**
+     * Applies Device Owner restrictions that protect PK Locker without needing
+     * accessibility service. This is the RELIABLE way on Samsung/vivo Android 14+.
+     */
+    fun applyDeviceOwnerProtection(): Boolean {
+        if (!isDeviceOwner()) {
+            Log.w("LOCK_MANAGER", "Cannot apply DPM protection: not device owner")
+            return false
+        }
+        var ok = true
+        try {
+            // Block uninstallation of PK Locker specifically
+            devicePolicyManager.setUninstallBlocked(adminComponent, context.packageName, true)
+            Log.d("LOCK_MANAGER", "setUninstallBlocked applied")
+        } catch (e: Exception) {
+            Log.e("LOCK_MANAGER", "setUninstallBlocked failed: ${e.message}")
+            ok = false
+        }
+        try {
+            // Prevent factory reset
+            devicePolicyManager.addUserRestriction(adminComponent, UserManager.DISALLOW_FACTORY_RESET)
+            Log.d("LOCK_MANAGER", "DISALLOW_FACTORY_RESET applied")
+        } catch (e: Exception) {
+            Log.e("LOCK_MANAGER", "DISALLOW_FACTORY_RESET failed: ${e.message}")
+            ok = false
+        }
+        try {
+            // Prevent safe boot
+            devicePolicyManager.addUserRestriction(adminComponent, UserManager.DISALLOW_SAFE_BOOT)
+            Log.d("LOCK_MANAGER", "DISALLOW_SAFE_BOOT applied")
+        } catch (e: Exception) {
+            Log.e("LOCK_MANAGER", "DISALLOW_SAFE_BOOT failed: ${e.message}")
+            ok = false
+        }
+        try {
+            // Prevent USB debugging changes
+            devicePolicyManager.addUserRestriction(adminComponent, UserManager.DISALLOW_DEBUGGING_FEATURES)
+            Log.d("LOCK_MANAGER", "DISALLOW_DEBUGGING_FEATURES applied")
+        } catch (e: Exception) {
+            Log.e("LOCK_MANAGER", "DISALLOW_DEBUGGING_FEATURES failed: ${e.message}")
+            ok = false
+        }
+        return ok
+    }
+
+    fun isUninstallBlocked(): Boolean {
+        return try {
+            devicePolicyManager.isUninstallBlocked(adminComponent, context.packageName)
+        } catch (e: Exception) {
+            false
         }
     }
 

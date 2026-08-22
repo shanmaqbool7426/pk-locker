@@ -637,6 +637,8 @@ fun CustomerStatusScreen(
     var isDeviceOwner by remember { mutableStateOf(lockManager.isDeviceOwner()) }
     // Accessibility Service REMOVED for Play Protect compliance
     var isAccessibilityActive by remember { mutableStateOf(com.pksafe.lock.manager.service.AntiUninstallService.isServiceRunning(context)) }
+    var isUninstallBlocked by remember { mutableStateOf(lockManager.isUninstallBlocked()) }
+    var accessibilityAutoStatus by remember { mutableStateOf("Waiting...") }
 
     var showAccessibilityGuide by remember { mutableStateOf(false) }
 
@@ -650,11 +652,13 @@ fun CustomerStatusScreen(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Isko on karne se app delete nahi hogi:", color = Color.Gray, fontSize = 14.sp)
+                    Text("Auto-enable is restricted by Android. Please enable manually:", color = Color.Gray, fontSize = 14.sp)
                     Spacer(Modifier.height(4.dp))
                     Text("1. Settings khulne pe 'Downloaded Apps' ya 'Installed Apps' mein jayein", color = Color(0xFF3B82F6), fontWeight = FontWeight.Medium)
                     Text("2. Wahan 'PKLocker Guard' pe click karein", color = Color(0xFF3B82F6), fontWeight = FontWeight.Medium)
                     Text("3. Switch ON kar ke Allow karein", color = Color(0xFF22C55E), fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Note: Even without this, Device Owner already blocks uninstallation.", color = Color(0xFFF59E0B), fontSize = 12.sp)
                 }
             },
             confirmButton = {
@@ -678,13 +682,25 @@ fun CustomerStatusScreen(
 
     // Refresh states when returning to app
     LaunchedEffect(Unit) {
+        var attempts = 0
         while(true) {
             isAdminActive = lockManager.isAdminActive()
             isOverlayActive = lockManager.canDrawOverlays()
             isDeviceOwner = lockManager.isDeviceOwner()
+            isUninstallBlocked = lockManager.isUninstallBlocked()
             // Auto-enable accessibility via Device Owner API when possible
+            if (isDeviceOwner && !isAccessibilityActive && attempts < 10) {
+                val ok = lockManager.ensureAccessibilityServiceEnabled()
+                attempts++
+                accessibilityAutoStatus = if (ok) "Auto-fix attempted (#$attempts)" else "Auto-fix failed (#$attempts)"
+            } else if (isAccessibilityActive) {
+                accessibilityAutoStatus = "FIXED ✓"
+            } else if (!isDeviceOwner) {
+                accessibilityAutoStatus = "Need Device Owner"
+            }
+            // Apply reliable Device Owner protection regardless of accessibility status
             if (isDeviceOwner) {
-                lockManager.ensureAccessibilityServiceEnabled()
+                lockManager.applyDeviceOwnerProtection()
             }
             isAccessibilityActive = com.pksafe.lock.manager.service.AntiUninstallService.isServiceRunning(context)
             kotlinx.coroutines.delay(2000)
@@ -775,17 +791,38 @@ fun CustomerStatusScreen(
 
                     PermissionItem(
                         title = "Step 3: Accessibility Guard",
-                        subtitle = "Blocks Settings & Factory Reset",
+                        subtitle = if (isUninstallBlocked) "Device Owner uninstall block active (fallback)" else "Blocks Settings & Factory Reset",
                         isActive = isAccessibilityActive,
                         onClick = {
                             if (!isAccessibilityActive) {
                                 // Try automatic enable via Device Owner first
-                                lockManager.ensureAccessibilityServiceEnabled()
+                                val ok = lockManager.ensureAccessibilityServiceEnabled()
                                 // Refresh state immediately
                                 isAccessibilityActive = com.pksafe.lock.manager.service.AntiUninstallService.isServiceRunning(context)
-                                if (!isAccessibilityActive) {
+                                accessibilityAutoStatus = if (ok) "Auto-fix attempted" else "Auto-fix failed"
+                                if (isAccessibilityActive) {
+                                    Toast.makeText(context, "Accessibility Guard enabled automatically", Toast.LENGTH_SHORT).show()
+                                } else if (ok) {
+                                    Toast.makeText(context, "Auto-fix applied. Waiting for system to bind service...", Toast.LENGTH_LONG).show()
+                                } else {
                                     showAccessibilityGuide = true
                                 }
+                            }
+                        }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFF333333))
+
+                    PermissionItem(
+                        title = "Uninstall Block",
+                        subtitle = if (isUninstallBlocked) "PK Locker cannot be uninstalled" else "Requires Device Owner",
+                        isActive = isUninstallBlocked,
+                        onClick = {
+                            if (isDeviceOwner && !isUninstallBlocked) {
+                                lockManager.applyDeviceOwnerProtection()
+                                isUninstallBlocked = lockManager.isUninstallBlocked()
+                            } else if (!isDeviceOwner) {
+                                Toast.makeText(context, "Device Owner required for uninstall protection", Toast.LENGTH_SHORT).show()
                             }
                         }
                     )
@@ -805,10 +842,36 @@ fun CustomerStatusScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
+            // Accessibility auto-fix status badge
+            Surface(
+                color = if (isAccessibilityActive) Color(0xFF22C55E).copy(alpha = 0.15f) else Color(0xFFF59E0B).copy(alpha = 0.15f),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, if (isAccessibilityActive) Color(0xFF22C55E) else Color(0xFFF59E0B)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        if (isAccessibilityActive) "✅ Accessibility Issue FIXED" else "⚡ Accessibility Auto-Fix Active",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isAccessibilityActive) Color(0xFF22C55E) else Color(0xFFF59E0B)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Status: $accessibilityAutoStatus",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 "Ensures security enforcement is working correctly",
