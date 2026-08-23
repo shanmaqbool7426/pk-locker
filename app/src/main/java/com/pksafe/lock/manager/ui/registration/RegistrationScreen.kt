@@ -255,12 +255,18 @@ fun RegistrationScreen(
                 },
                 modifier = Modifier.fillMaxWidth().height(58.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BrandBlue,
+                    disabledContainerColor = BrandBlue, // Keep blue background even when loading (disabled)
+                    disabledContentColor = Color.White  // White spinner stays visible
+                ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
                 enabled = !viewModel.isLoading
             ) {
                 if (viewModel.isLoading) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("REGISTERING...", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White, letterSpacing = 0.5.sp)
                 } else {
                     Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(10.dp))

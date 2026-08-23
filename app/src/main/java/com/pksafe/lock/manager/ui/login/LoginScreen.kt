@@ -166,11 +166,17 @@ fun LoginScreen(
                         modifier = Modifier.fillMaxWidth().height(60.dp),
                         enabled = !viewModel.isLoading,
                         shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BrandBlue,
+                            disabledContainerColor = BrandBlue,
+                            disabledContentColor = Color.White
+                        ),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                     ) {
                         if (viewModel.isLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp, color = Color.White)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text("SIGNING IN...", fontWeight = FontWeight.Black, fontSize = 15.sp, color = Color.White, letterSpacing = 1.sp)
                         } else {
                             Text("SIGN IN", fontWeight = FontWeight.Black, fontSize = 15.sp, letterSpacing = 1.sp)
                         }
@@ -301,7 +307,8 @@ fun LoginInput(
                 focusedBorderColor = BrandBlue,
                 unfocusedBorderColor = Color(0xFFF1F5F9),
                 focusedTextColor = TextTitle,
-                unfocusedTextColor = TextTitle
+                unfocusedTextColor = TextTitle,
+                cursorColor = BrandBlue
             ),
             singleLine = true
         )

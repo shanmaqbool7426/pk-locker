@@ -232,9 +232,15 @@ fun ControlPanelScreen(
                             onClick = { selectedTab = index },
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(title, fontSize = 13.sp, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium)
+                                    Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        title,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium
+                                    )
                                 }
                             },
                             selectedContentColor = Primary,
@@ -444,14 +450,14 @@ private fun ModeSelector(
     ) {
         Row(modifier = Modifier.padding(6.dp)) {
             ModeButton(
-                text = "Online (Internet)",
+                text = "Online",
                 icon = Icons.Default.CloudSync,
                 isSelected = isOnline,
                 modifier = Modifier.weight(1f),
                 onClick = onOnlineClick
             )
             ModeButton(
-                text = "Offline (SMS)",
+                text = "Offline SMS",
                 icon = Icons.Default.Sms,
                 isSelected = !isOnline,
                 modifier = Modifier.weight(1f),
@@ -479,12 +485,14 @@ private fun ModeButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            Icon(icon, contentDescription = null, tint = if (isSelected) Color.White else TextSecondary, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(6.dp))
+            Icon(icon, contentDescription = null, tint = if (isSelected) Color.White else TextSecondary, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = text,
                 color = if (isSelected) Color.White else TextSecondary,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
             )
         }
@@ -530,35 +538,28 @@ private fun OnlineActionsContent(
     }
 
     if (showDeregisterDialog) {
-        var confirmText by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showDeregisterDialog = false },
-            title = { Text("De-register Device?", fontWeight = FontWeight.Bold, color = Danger) },
+            title = { Text("Deregister Device?", fontWeight = FontWeight.Bold, color = Danger) },
             text = {
-                Column {
-                    Text("This device will be permanently removed and all restrictions cleared.", color = TextSecondary)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = confirmText,
-                        onValueChange = { confirmText = it },
-                        placeholder = { Text("Type CONFIRM", fontSize = 12.sp) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
+                Text(
+                    "This device will be permanently removed and all restrictions cleared. The customer's device will be unlocked and freed.",
+                    color = TextSecondary,
+                    fontSize = 14.sp
+                )
             },
             confirmButton = {
                 Button(
                     onClick = {
                         showDeregisterDialog = false
-                        viewModel.deregisterDevice(context, imei) { /* back handled by list refresh */ }
+                        viewModel.deregisterDevice(context, imei) { }
                     },
-                    enabled = confirmText.trim().uppercase() == "CONFIRM",
                     colors = ButtonDefaults.buttonColors(containerColor = Danger),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("De-register", fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Yes, Deregister", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -566,6 +567,127 @@ private fun OnlineActionsContent(
                     Text("Cancel", color = TextSecondary)
                 }
             },
+            containerColor = CardWhite,
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
+
+    // ── SMS Fallback Dialog (shown after deregister) ──────────────────────
+    val result = viewModel.deregisterResult
+    if (result != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.clearDeregisterResult() },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        if (result.fcmDelivered) Icons.Default.CheckCircle else Icons.Default.Warning,
+                        null,
+                        tint = if (result.fcmDelivered) Success else Warning,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        if (result.fcmDelivered) "Deregistered" else "SMS Bhejein",
+                        fontWeight = FontWeight.Bold,
+                        color = if (result.fcmDelivered) Success else Warning
+                    )
+                }
+            },
+            text = {
+                if (result.fcmDelivered) {
+                    Text(
+                        "FCM command customer device tak bhej diya gaya hai. App automatic remove ho jayega.",
+                        color = TextSecondary,
+                        fontSize = 14.sp
+                    )
+                } else {
+                    Column {
+                        Text(
+                            "Customer ke device tak FCM nahi pohncha. App remove karne ke liye SMS bhejein:",
+                            color = TextSecondary,
+                            fontSize = 13.sp
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        val phone = result.smsFallback?.customerPhone ?: ""
+                        if (phone.isNotEmpty()) {
+                            Text("Customer: $phone", fontSize = 12.sp, color = TextPrimary, fontWeight = FontWeight.Medium)
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        val smsCode = "DEREGISTER#${result.smsFallback?.code ?: ""}"
+                        Surface(
+                            color = Color(0xFFF1F5F9),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                smsCode,
+                                fontSize = 10.sp,
+                                color = TextPrimary,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Yeh SMS customer ke phone pe bhejein — app automatic remove ho jayega.",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                if (result.fcmDelivered) {
+                    Button(
+                        onClick = { viewModel.clearDeregisterResult() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Done", fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                val smsCode = "DEREGISTER#${result.smsFallback?.code ?: ""}"
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("SMS Code", smsCode))
+                                Toast.makeText(context, "Code copied!", Toast.LENGTH_SHORT).show()
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Copy", fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = {
+                                val phone = result.smsFallback?.customerPhone ?: ""
+                                val smsCode = "DEREGISTER#${result.smsFallback?.code ?: ""}"
+                                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                    data = Uri.parse("smsto:$phone")
+                                    putExtra("sms_body", smsCode)
+                                }
+                                try {
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "SMS app not available", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Send, null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Send SMS", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            },
+            dismissButton = if (!result.fcmDelivered) {
+                { TextButton(onClick = { viewModel.clearDeregisterResult() }) { Text("Later", color = TextSecondary) } }
+            } else null,
             containerColor = CardWhite,
             shape = RoundedCornerShape(20.dp)
         )
@@ -725,6 +847,12 @@ private fun OfflineActionsContent(device: DeviceResponse?) {
     val customerPhone = device?.phoneNumber ?: ""
     val lockCode = device?.smsCodes?.lockCode ?: ""
     val unlockCode = device?.smsCodes?.unlockCode ?: ""
+    val deregisterCode = device?.smsCodes?.deregisterCode
+        ?: try {
+            val hash = java.security.MessageDigest.getInstance("SHA-256")
+                .digest("DEREGISTER_${device?.imei ?: ""}".toByteArray())
+            hash.joinToString("") { "%02x".format(it) }
+        } catch (_: Exception) { "" }
 
     fun sendSms(body: String) {
         if (customerPhone.isBlank()) {
@@ -754,6 +882,12 @@ private fun OfflineActionsContent(device: DeviceResponse?) {
             color = Success,
             onClick = { sendSms("UNLOCK#$unlockCode") }
         )
+        SmsCommandButton(
+            text = "Send Deregister SMS",
+            icon = Icons.Default.PersonRemove,
+            color = Color(0xFF7C3AED),
+            onClick = { sendSms("DEREGISTER#$deregisterCode") }
+        )
     }
 
     Spacer(modifier = Modifier.height(16.dp))
@@ -763,6 +897,8 @@ private fun OfflineActionsContent(device: DeviceResponse?) {
             KeyCopyRow(label = "Lock Key", code = lockCode, context = context)
             Spacer(modifier = Modifier.height(10.dp))
             KeyCopyRow(label = "Unlock Key", code = unlockCode, context = context)
+            Spacer(modifier = Modifier.height(10.dp))
+            KeyCopyRow(label = "Deregister Key", code = deregisterCode, context = context)
             Spacer(modifier = Modifier.height(10.dp))
             // Emergency Master Code — SHA-256("MASTER_{imei}") first 8 hex chars
             val masterCode = try {
@@ -972,7 +1108,17 @@ private fun EmiScheduleRow(
                         onValueChange = { amountText = it },
                         label = { Text("Amount (PKR)") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                            focusedBorderColor = Primary,
+                            unfocusedBorderColor = Border,
+                            focusedLabelColor = Primary,
+                            unfocusedLabelColor = TextSecondary,
+                            cursorColor = Primary
+                        )
                     )
                 }
             },

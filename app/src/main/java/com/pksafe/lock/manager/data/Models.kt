@@ -268,6 +268,19 @@ data class GenericResponse(
     @SerializedName("message") val message: String
 )
 
+// --- Deregister Response (includes SMS fallback) ---
+data class DeregisterResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("message") val message: String,
+    @SerializedName("fcmDelivered") val fcmDelivered: Boolean = false,
+    @SerializedName("smsFallback") val smsFallback: SmsFallback? = null
+)
+data class SmsFallback(
+    @SerializedName("code") val code: String,
+    @SerializedName("customerPhone") val customerPhone: String,
+    @SerializedName("instruction") val instruction: String
+)
+
 data class KeyRequest(
     @SerializedName("numKeys") val numKeys: Int,
     @SerializedName("paymentProofImage") val paymentProofImage: String,

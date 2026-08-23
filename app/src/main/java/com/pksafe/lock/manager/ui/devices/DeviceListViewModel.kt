@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pksafe.lock.manager.data.AdvancedControlRequest
 import com.pksafe.lock.manager.data.ApiService
+import com.pksafe.lock.manager.data.DeregisterResponse
 import com.pksafe.lock.manager.data.DeviceControls
 import com.pksafe.lock.manager.data.DeviceResponse
 import kotlinx.coroutines.launch
@@ -20,6 +21,7 @@ class DeviceListViewModel : ViewModel() {
     var devices by mutableStateOf<List<DeviceResponse>>(emptyList())
     var isLoading by mutableStateOf(false)
     var errorMessage by mutableStateOf<String?>(null)
+    var deregisterResult by mutableStateOf<DeregisterResponse?>(null)
 
     private val BASE_URL = com.pksafe.lock.manager.util.Constants.BASE_URL 
 
@@ -231,16 +233,24 @@ class DeviceListViewModel : ViewModel() {
             try {
                 val response = apiService.deregisterDevice("Bearer $token", imei)
                 if (response.isSuccessful) {
-                    Log.d("DEREGISTER", "Device released: $imei")
+                    val body = response.body()
+                    deregisterResult = body
+                    Log.d("DEREGISTER", "Device released: $imei, FCM delivered: ${body?.fcmDelivered}")
                     onSuccess()
                 } else {
                     Log.e("DEREGISTER_ERROR", "Failed: ${response.message()}")
+                    errorMessage = "Deregister failed: ${response.message()}"
                 }
             } catch (e: Exception) {
                 Log.e("DEREGISTER_ERROR", "Exception: ${e.message}")
+                errorMessage = "Error: ${e.message}"
             } finally {
                 isLoading = false
             }
         }
+    }
+
+    fun clearDeregisterResult() {
+        deregisterResult = null
     }
 }

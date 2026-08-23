@@ -238,7 +238,12 @@ fun BuyKeysScreen(
                     focusedBorderColor = BrandBlue,
                     unfocusedBorderColor = BorderLight,
                     focusedContainerColor = SurfaceGray.copy(alpha = 0.3f),
-                    unfocusedContainerColor = SurfaceGray.copy(alpha = 0.2f)
+                    unfocusedContainerColor = SurfaceGray.copy(alpha = 0.2f),
+                    focusedTextColor = TextTitle,
+                    unfocusedTextColor = TextTitle,
+                    focusedLabelColor = BrandBlue,
+                    unfocusedLabelColor = TextMuted,
+                    cursorColor = BrandBlue
                 ),
                 singleLine = true
             )
@@ -324,12 +329,18 @@ fun BuyKeysScreen(
                         Button(
                             onClick = { viewModel.submitRequest(context) },
                             enabled = !viewModel.isLoading && keysCount > 0,
-                            colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = BrandBlue,
+                                disabledContainerColor = BrandBlue,
+                                disabledContentColor = Color.White
+                            ),
                             shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.height(48.dp)
                         ) {
                             if (viewModel.isLoading) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Submitting...", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
                             } else {
                                 Icon(Icons.Default.Send, null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))

@@ -54,6 +54,7 @@ import com.pksafe.lock.manager.ui.emi.EmiListScreen
 import com.pksafe.lock.manager.ui.login.LoginScreen
 import com.pksafe.lock.manager.ui.provisioning.ProvisioningQrScreen
 import com.pksafe.lock.manager.ui.provisioning.NfcSetupScreen
+import com.pksafe.lock.manager.ui.registration.RegistrationScreen
 import com.pksafe.lock.manager.ui.theme.PKLockerTheme
 import com.pksafe.lock.manager.ui.theme.PrimaryDark
 import com.pksafe.lock.manager.ui.theme.SuccessGreen
@@ -1260,7 +1261,8 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                     it != AppDestinations.VIDEO_HELP &&
                     it != AppDestinations.NFC_SETUP &&
                     it != AppDestinations.WIRELESS_ADB &&
-                    it != AppDestinations.ADMIN_KEYS
+                    it != AppDestinations.ADMIN_KEYS &&
+                    it != AppDestinations.REGISTRATION
                 }.forEach {
                     item(
                         icon = { Icon(imageVector = it.icon, contentDescription = it.label) },
@@ -1288,6 +1290,7 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                                 "Buy Keys" -> navigateSafe(AppDestinations.BUY_KEYS)
                                 "NFC Setup" -> navigateSafe(AppDestinations.NFC_SETUP)
                                 "Key Requests" -> navigateSafe(AppDestinations.ADMIN_KEYS)
+                                "Register Device" -> navigateSafe(AppDestinations.REGISTRATION)
                             }
                         })
                         AppDestinations.LIST -> if (isAdmin) DeviceListScreen(
@@ -1327,8 +1330,11 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                         AppDestinations.BUY_KEYS -> if (isAdmin) com.pksafe.lock.manager.ui.keys.BuyKeysScreen(
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
+                        AppDestinations.REGISTRATION -> if (isAdmin) RegistrationScreen(
+                            onRegistrationSuccess = { currentDestination = AppDestinations.HOME }
+                        )
                         AppDestinations.NFC_SETUP -> if (isAdmin) NfcSetupScreen(onBack = { currentDestination = AppDestinations.HOME })
-                        AppDestinations.ADMIN_KEYS -> com.pksafe.lock.manager.ui.keys.AdminKeyOrdersScreen(onBack = { currentDestination = AppDestinations.HOME })
+                        AppDestinations.ADMIN_KEYS -> if (isAdmin) com.pksafe.lock.manager.ui.keys.AdminKeyOrdersScreen(onBack = { currentDestination = AppDestinations.HOME })
                         AppDestinations.PROFILE -> com.pksafe.lock.manager.ui.profile.ProfileScreen(
                             onLogout = onLogout
                         )
@@ -1341,6 +1347,7 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
 
 enum class AppDestinations(val label: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home),
+    REGISTRATION("Register", Icons.Default.AppRegistration),
     LIST("Devices", Icons.Default.List),
     BUY_KEYS("Buy Keys", Icons.Default.Key),
     EMI_LIST("EMIs", Icons.Default.CalendarMonth),

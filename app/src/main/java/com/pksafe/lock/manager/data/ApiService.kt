@@ -115,7 +115,7 @@ interface ApiService {
     suspend fun deregisterDevice(
         @Header("Authorization") token: String,
         @Path("imei") imei: String
-    ): Response<RegistrationResponse>
+    ): Response<DeregisterResponse>
 
     // ── Customer-side: fetch device info + smsCodes for offline SMS locking ──
     // This is called when customer activates their device (enters IMEI).

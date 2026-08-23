@@ -917,7 +917,18 @@ fun EmiRescheduleDialog(
                     label = { Text("Add Down Payment (Optional)", fontSize = 12.sp) },
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextTitle,
+                        unfocusedTextColor = TextTitle,
+                        focusedBorderColor = BrandBlue,
+                        unfocusedBorderColor = BorderLight,
+                        focusedContainerColor = SurfaceGray.copy(alpha = 0.3f),
+                        unfocusedContainerColor = SurfaceGray.copy(alpha = 0.2f),
+                        focusedLabelColor = BrandBlue,
+                        unfocusedLabelColor = TextMuted,
+                        cursorColor = BrandBlue
+                    )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -927,7 +938,18 @@ fun EmiRescheduleDialog(
                     label = { Text("Remaining Tenure (Months)", fontSize = 12.sp) },
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextTitle,
+                        unfocusedTextColor = TextTitle,
+                        focusedBorderColor = BrandBlue,
+                        unfocusedBorderColor = BorderLight,
+                        focusedContainerColor = SurfaceGray.copy(alpha = 0.3f),
+                        unfocusedContainerColor = SurfaceGray.copy(alpha = 0.2f),
+                        focusedLabelColor = BrandBlue,
+                        unfocusedLabelColor = TextMuted,
+                        cursorColor = BrandBlue
+                    )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -935,10 +957,21 @@ fun EmiRescheduleDialog(
                     value = customEmiStr,
                     onValueChange = { customEmiStr = it },
                     label = { Text("Custom Monthly EMI (Optional)", fontSize = 12.sp) },
-                    placeholder = { Text("Auto-calculates if empty") },
+                    placeholder = { Text("Auto-calculates if empty", color = TextMuted) },
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextTitle,
+                        unfocusedTextColor = TextTitle,
+                        focusedBorderColor = BrandBlue,
+                        unfocusedBorderColor = BorderLight,
+                        focusedContainerColor = SurfaceGray.copy(alpha = 0.3f),
+                        unfocusedContainerColor = SurfaceGray.copy(alpha = 0.2f),
+                        focusedLabelColor = BrandBlue,
+                        unfocusedLabelColor = TextMuted,
+                        cursorColor = BrandBlue
+                    )
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))

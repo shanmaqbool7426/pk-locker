@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pksafe.lock.manager.ui.theme.*
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
@@ -434,7 +435,17 @@ private fun WifiCard(
                     onValueChange = onSsidChange,
                     label = { Text("WiFi Name / Hotspot SSID") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextTitle,
+                        unfocusedTextColor = TextTitle,
+                        focusedBorderColor = BrandBlue,
+                        unfocusedBorderColor = BorderLight,
+                        focusedLabelColor = BrandBlue,
+                        unfocusedLabelColor = TextMuted,
+                        cursorColor = BrandBlue
+                    )
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
@@ -442,7 +453,17 @@ private fun WifiCard(
                     onValueChange = onPasswordChange,
                     label = { Text("WiFi Password") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextTitle,
+                        unfocusedTextColor = TextTitle,
+                        focusedBorderColor = BrandBlue,
+                        unfocusedBorderColor = BorderLight,
+                        focusedLabelColor = BrandBlue,
+                        unfocusedLabelColor = TextMuted,
+                        cursorColor = BrandBlue
+                    )
                 )
             }
         }
@@ -516,7 +537,11 @@ private fun QrDisplayCard(
                 onClick = onRefresh,
                 enabled = !isVerifying,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF2563EB),
+                    disabledContainerColor = Color(0xFF2563EB),
+                    disabledContentColor = Color.White
+                )
             ) {
                 if (isVerifying) {
                     CircularProgressIndicator(Modifier.size(20.dp), color = Color.White)

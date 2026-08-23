@@ -17,8 +17,10 @@ import kotlinx.coroutines.launch
 import android.net.Uri
 import android.util.Base64
 import java.io.InputStream
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 class RegistrationViewModel : ViewModel() {
 
@@ -53,8 +55,16 @@ class RegistrationViewModel : ViewModel() {
     var message by mutableStateOf<String?>(null)
     var isSuccess by mutableStateOf(false)
 
+    // Extended timeouts for large base64 image uploads (60s connect, 120s read/write)
+    private val okHttpClient = OkHttpClient.Builder()
+        .connectTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
+        .writeTimeout(120, TimeUnit.SECONDS)
+        .build()
+
     private val retrofit = Retrofit.Builder()
         .baseUrl(com.pksafe.lock.manager.util.Constants.BASE_URL)
+        .client(okHttpClient)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
@@ -78,7 +88,6 @@ class RegistrationViewModel : ViewModel() {
         val lockManager = LockManager(context)
         val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
         val token = sharedPrefs.getString("auth_token", "") ?: ""
-        val fcmToken = sharedPrefs.getString("fcm_token", "") ?: ""
 
         if (token.isEmpty()) {
             message = "Error: Please login again."
@@ -132,12 +141,10 @@ class RegistrationViewModel : ViewModel() {
                 
                 if (response.isSuccessful && response.body()?.success == true) {
                     
-                    // FCM Token sync for the newly registered IMEI if needed 
-                    // (But usually this happens on the actual customer device)
-                    if (fcmToken.isNotEmpty()) {
-                        apiService.updateFcmToken(mapOf("imei" to imei, "fcmToken" to fcmToken))
-                    }
-
+                    // Do NOT sync shopkeeper's FCM token to the device record.
+                    // The shopkeeper's token ≠ customer's device token.
+                    // The customer's app will sync its own FCM token on startup
+                    // via MainActivity LaunchedEffect and MyFirebaseMessagingService.onNewToken().
                     isSuccess = true
                     message = "Device Registered successfully!"
                     // CRITICAL: DO NOT set is_customer = true here, as this is the shopkeeper's phone.
@@ -145,9 +152,17 @@ class RegistrationViewModel : ViewModel() {
                     isSuccess = false
                     message = "Failed: ${response.body()?.message ?: response.message()}"
                 }
+            } catch (e: java.net.SocketTimeoutException) {
+                isSuccess = false
+                message = "Server timeout — images bahut bada hai ya network slow hai. Dobara try karein."
+                Log.e("Registration", "Timeout", e)
+            } catch (e: java.net.UnknownHostException) {
+                isSuccess = false
+                message = "Internet connection nahi mil raha. Network check karein."
+                Log.e("Registration", "No internet", e)
             } catch (e: Exception) {
                 isSuccess = false
-                message = "Error: ${e.localizedMessage}"
+                message = "Error: ${e.localizedMessage ?: "Unknown error"}"
                 Log.e("Registration", "Error", e)
             } finally {
                 isLoading = false

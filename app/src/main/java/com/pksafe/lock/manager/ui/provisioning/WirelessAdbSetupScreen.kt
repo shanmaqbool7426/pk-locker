@@ -280,7 +280,11 @@ fun WirelessAdbSetupScreen(
                     enabled = !isWorking,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BrandBlue,
+                        disabledContainerColor = BrandBlue,
+                        disabledContentColor = Color.White
+                    ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                 ) {
                     if (isWorking) {

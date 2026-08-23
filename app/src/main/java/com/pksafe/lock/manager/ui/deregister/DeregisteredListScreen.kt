@@ -75,7 +75,10 @@ fun DeregisteredListScreen(
                             focusedContainerColor = Color(0xFFF1F5F9),
                             unfocusedContainerColor = Color(0xFFF1F5F9),
                             focusedBorderColor = BrandBlue,
-                            unfocusedBorderColor = Color.Transparent
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedTextColor = TextTitle,
+                            unfocusedTextColor = TextTitle,
+                            cursorColor = BrandBlue
                         ),
                         singleLine = true
                     )

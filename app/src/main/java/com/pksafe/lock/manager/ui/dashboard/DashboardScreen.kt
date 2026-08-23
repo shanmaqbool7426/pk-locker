@@ -121,7 +121,7 @@ fun DashboardScreen(
 
             // ── QUICK ACTIONS ──────────────────────────────────────────────
             SectionTitle("Quick Actions")
-            QuickActionsGrid(onMenuItemClick = onMenuItemClick)
+            QuickActionsGrid(onMenuItemClick = onMenuItemClick, isAdmin = viewModel.isAdmin)
 
             // ── HELP & SUPPORT ─────────────────────────────────────────────
             SectionTitle("Help & Support")
@@ -542,21 +542,27 @@ private fun SetupCard(
 //  QUICK ACTIONS GRID
 // ═════════════════════════════════════════════════════════════════════════════
 @Composable
-private fun QuickActionsGrid(onMenuItemClick: (String) -> Unit) {
-    val actions = listOf(
-        ActionItem("Wireless ADB", Icons.Default.WifiTethering, Color(0xFFDBEAFE), Primary, "Wireless ADB"),
-        ActionItem("All Customers", Icons.Default.Groups, Color(0xFFD1FAE5), Success, "Active Customers"),
-        ActionItem("Buy Keys", Icons.Default.Key, Color(0xFFFEF3C7), Warning, "Buy Keys"),
-        ActionItem("EMI Payments", Icons.Default.CalendarMonth, Color(0xFFE0F2FE), Info, "Upcoming EMIs"),
-        ActionItem("Key Requests", Icons.Default.AdminPanelSettings, Color(0xFFFEE2E2), Danger, "Key Requests"),
-        ActionItem("Deregistered", Icons.Default.PersonRemove, Color(0xFFF3E8FF), Color(0xFF7C3AED), "Deregistered")
-    )
+private fun QuickActionsGrid(onMenuItemClick: (String) -> Unit, isAdmin: Boolean) {
+    val actions = buildList {
+        add(ActionItem("Register Device", Icons.Default.PersonAdd, Color(0xFFDBEAFE), Primary, "Register Device"))
+        add(ActionItem("All Customers", Icons.Default.Groups, Color(0xFFD1FAE5), Success, "Active Customers"))
+        add(ActionItem("Buy Keys", Icons.Default.Key, Color(0xFFFEF3C7), Warning, "Buy Keys"))
+        add(ActionItem("EMI Payments", Icons.Default.CalendarMonth, Color(0xFFE0F2FE), Info, "Upcoming EMIs"))
+        if (isAdmin) {
+            add(ActionItem("Key Requests", Icons.Default.AdminPanelSettings, Color(0xFFFEE2E2), Danger, "Key Requests"))
+        }
+        add(ActionItem("Deregistered", Icons.Default.PersonRemove, Color(0xFFF3E8FF), Color(0xFF7C3AED), "Deregistered"))
+    }
 
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
         for (i in actions.indices step 2) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ActionButton(actions[i], Modifier.weight(1f)) { onMenuItemClick(actions[i].route) }
-                ActionButton(actions[i + 1], Modifier.weight(1f)) { onMenuItemClick(actions[i + 1].route) }
+                if (i + 1 < actions.size) {
+                    ActionButton(actions[i + 1], Modifier.weight(1f)) { onMenuItemClick(actions[i + 1].route) }
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
             Spacer(modifier = Modifier.height(12.dp))
         }
