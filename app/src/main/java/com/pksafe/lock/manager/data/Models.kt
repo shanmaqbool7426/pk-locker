@@ -124,6 +124,28 @@ data class LocationEntry(
 )
 
 // --- EMI Schedule Details ---
+// Upcoming EMIs for the shopkeeper (GET /api/emis/upcoming)
+data class UpcomingEmiResponse(
+    val success: Boolean,
+    val count: Int = 0,
+    val data: List<UpcomingEmi> = emptyList()
+)
+data class UpcomingEmi(
+    @SerializedName("_id") val id: String,
+    val customerName: String = "N/A",
+    val mobile: String? = null,
+    val profilePicture: String? = null,
+    val imei: String = "",
+    val totalLoanAmount: Double = 0.0,
+    val emiDate: String? = null,
+    val emiAmount: Double = 0.0,
+    val paidAmount: Double = 0.0,
+    val remaining: Double = 0.0,
+    val installmentNumber: Int = 0,
+    val status: String = "Unpaid", // Unpaid | Partial
+    val platform: String? = "android"
+)
+
 data class DeviceEmiScheduleResponse(val success: Boolean, val data: EmiScheduleData)
 data class EmiScheduleData(
     val imei: String,
@@ -215,6 +237,15 @@ data class RegistrationResponse(
     @SerializedName("success") val success: Boolean,
     @SerializedName("message") val message: String,
     @SerializedName("device") val device: DeviceSummary? = null
+)
+
+// POST /api/emis/:emiId/mark-paid
+// Null fields are omitted by Gson → an empty request tells the backend to
+// record a FULL payment of the remaining amount; a smaller amount records a
+// partial payment (installment becomes "Partial").
+data class MarkPaidRequest(
+    @SerializedName("amount") val amount: Double? = null,
+    @SerializedName("note") val note: String? = null
 )
 data class DeviceSummary(
     @SerializedName("id") val id: String,

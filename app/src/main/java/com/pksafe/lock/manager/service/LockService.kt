@@ -27,7 +27,8 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
 import android.content.IntentFilter
-import android.widget.EditText
+import android.widget.GridLayout
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.pksafe.lock.manager.data.ApiService
@@ -130,10 +131,12 @@ class LockService : Service() {
             @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
         }
 
-        // ─── CRITICAL FIX ────────────────────────────────────────────────────────
-        // Keyboard (numpad) ko properly chalane ke liye FLAG_NOT_TOUCH_MODAL laazmi hai.
-        // Agar yeh na ho toh overlay keyboard ke touches ko block kar deta hai aur
-        // keyboard fauran band ho jata hai jab user type karne ki koshish karta hai.
+        // ─── IME NOTE ──────────────────────────────────────────────────────────
+        // Code entry uses a BUILT-IN hex keypad (no EditText). System keyboards
+        // cannot reliably attach to TYPE_APPLICATION_OVERLAY windows — the IME
+        // flashes open and instantly closes while the user types (focus fight
+        // with the app window below + keyguard state). FLAG_NOT_TOUCH_MODAL is
+        // kept so touches outside the window bounds still reach the system.
         // ─────────────────────────────────────────────────────────────────────────
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -150,7 +153,6 @@ class LockService : Service() {
         ).apply {
             gravity = Gravity.CENTER
             screenOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
 
         val inflater = getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
@@ -185,41 +187,134 @@ class LockService : Service() {
         lockView?.findViewById<TextView>(R.id.tvEmiAmount)?.text = emiAmountStr
         lockView?.findViewById<TextView>(R.id.tvDueDate)?.text = emiDueDateStr
         
-        // --- Hidden Unlock Entry Logic ---
+        // --- Hidden Unlock Entry — built-in hex keypad -----------------------
+        // The system keyboard can NOT be used here: this overlay window fights
+        // with the app window + keyguard for IME focus, so the keyboard opens and
+        // instantly closes. The built-in 0-9/A-F keypad works in every state.
         val tvShowUnlock = lockView?.findViewById<TextView>(R.id.tvShowUnlock)
         val unlockContainer = lockView?.findViewById<View>(R.id.unlockContainer)
-        val btnUnlock = lockView?.findViewById<Button>(R.id.btnSubmitUnlock)
-        val codeInput = lockView?.findViewById<EditText>(R.id.unlockCodeInput)
+        val boxesContainer = lockView?.findViewById<LinearLayout>(R.id.codeBoxesContainer)
+        val keypadGrid = lockView?.findViewById<GridLayout>(R.id.keypadGrid)
+        val btnDelete = lockView?.findViewById<Button>(R.id.btnCodeDelete)
+        val btnVerify = lockView?.findViewById<Button>(R.id.btnSubmitUnlock)
+        val tvCodeStatus = lockView?.findViewById<TextView>(R.id.tvCodeStatus)
+
+        val codeBuffer = StringBuilder()
+        var failedAttempts = 0
+        var keypadLockedUntil = 0L
+
+        fun refreshCodeBoxes() {
+            val container = boxesContainer ?: return
+            for (i in 0 until container.childCount) {
+                val box = container.getChildAt(i) as? TextView ?: continue
+                box.text = if (i < codeBuffer.length) codeBuffer[i].toString() else ""
+            }
+        }
+
+        fun showCodeStatus(message: String?) {
+            tvCodeStatus?.text = message ?: ""
+            tvCodeStatus?.visibility = if (message.isNullOrBlank()) View.GONE else View.VISIBLE
+        }
+
+        fun verifyCode() {
+            if (codeBuffer.length != 8) {
+                showCodeStatus("Code adhura hai (${codeBuffer.length}/8)")
+                return
+            }
+            val entered = codeBuffer.toString().uppercase()
+
+            // ── Valid code sets — same sources as the SMS protocol (SmsReceiver) ──
+            val validUnlock = mutableSetOf<String>()
+            val validRelease = mutableSetOf<String>()
+            prefs.getString("sms_unlock_code", null)?.let { validUnlock.add(it) }
+            prefs.getString("sms_deregister_code", null)?.let { validRelease.add(it) }
+            listOf("device_imei", "device_imei2").forEach { key ->
+                prefs.getString(key, null)?.takeIf { it.isNotBlank() }?.let { imei ->
+                    validUnlock.add(com.pksafe.lock.manager.receiver.SmsReceiver.generateSmsCode("UNLOCK", imei))
+                    validRelease.add(com.pksafe.lock.manager.receiver.SmsReceiver.generateSmsCode("DEREGISTER", imei))
+                }
+            }
+            // Local 8-char MASTER backdoor → temporary unlock (dev/testing)
+            prefs.getString("device_imei", null)?.takeIf { it.isNotBlank() }?.let {
+                validUnlock.add(com.pksafe.lock.manager.receiver.SmsReceiver.generateSmsCode("MASTER", it).take(8))
+            }
+            // 64-char codes typing karna impractical hai — pehle 8 chars bhi accept
+            val unlockSet = validUnlock.flatMap { c -> listOf(c.uppercase(), c.take(8).uppercase()) }.toSet()
+            val releaseSet = validRelease.flatMap { c -> listOf(c.uppercase(), c.take(8).uppercase()) }.toSet()
+
+            when (entered) {
+                in unlockSet -> {
+                    // Temporary unlock — same as SMS "UNLOCK#<code>"
+                    prefs.edit().putBoolean("is_locked", false).commit()
+                    try {
+                        com.pksafe.lock.manager.util.LockManager(this@LockService).unlockDevice()
+                    } catch (e: Exception) {
+                        Log.e("PKL_SERVICE", "Keypad unlock failed", e)
+                    }
+                    stopSelf()
+                }
+                in releaseSet -> {
+                    // Full device release — same as SMS "DEREGISTER#<code>"
+                    Toast.makeText(this@LockService, "Release code accepted — device released", Toast.LENGTH_LONG).show()
+                    com.pksafe.lock.manager.util.DeviceDeregistrator.performFullDeregister(this@LockService)
+                    stopSelf()
+                }
+                else -> {
+                    failedAttempts++
+                    codeBuffer.clear()
+                    refreshCodeBoxes()
+                    if (failedAttempts >= 5) {
+                        keypadLockedUntil = System.currentTimeMillis() + 30_000
+                        failedAttempts = 0
+                        showCodeStatus("Bohot galat attempts — 30 second wait karein")
+                    } else {
+                        showCodeStatus("Invalid code (attempt $failedAttempts/5)")
+                    }
+                }
+            }
+        }
+
+        fun onKeyPressed(ch: String) {
+            val now = System.currentTimeMillis()
+            if (now < keypadLockedUntil) {
+                showCodeStatus("Please wait ${((keypadLockedUntil - now) / 1000) + 1}s")
+                return
+            }
+            if (codeBuffer.length >= 8) return
+            codeBuffer.append(ch)
+            showCodeStatus(null)
+            refreshCodeBoxes()
+            if (codeBuffer.length == 8) verifyCode() // auto-verify on the 8th character
+        }
 
         // Show/Hide unlock code entry
         tvShowUnlock?.setOnClickListener {
             unlockContainer?.visibility = if (unlockContainer?.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-        }
-
-        btnUnlock?.setOnClickListener {
-            // Secure Master Code: SHA-256 hash of IMEI (first 8 hex chars)
-            // 4.3 billion combinations vs old 1 million (last 6 digits of IMEI)
-            val savedImei = prefs.getString("device_imei", "") ?: ""
-            val masterCode = try {
-                val hash = java.security.MessageDigest.getInstance("SHA-256")
-                    .digest("MASTER_${savedImei}".toByteArray())
-                hash.joinToString("") { "%02x".format(it) }.take(8)
-            } catch (_: Exception) { "123456" }
-
-            if (codeInput?.text.toString().equals(masterCode, ignoreCase = true)) {
-                prefs.edit().putBoolean("is_locked", false).apply()
-                // Fully remove hardware restrictions as well
-                try {
-                    com.pksafe.lock.manager.util.LockManager(this@LockService).unlockDevice()
-                } catch (e: Exception) {
-                    Log.e("PKL_SERVICE", "Emergency unlock failed", e)
-                }
-                stopSelf()
-            } else {
-                Toast.makeText(this, "Invalid Security Code!", Toast.LENGTH_SHORT).show()
-                codeInput?.text?.clear()
+            if (unlockContainer?.visibility == View.VISIBLE) {
+                codeBuffer.clear()
+                refreshCodeBoxes()
+                showCodeStatus(null)
             }
         }
+
+        // Hex keypad keys (tag = character)
+        keypadGrid?.let { grid ->
+            for (i in 0 until grid.childCount) {
+                grid.getChildAt(i).setOnClickListener { view ->
+                    (view.tag as? String)?.let { ch -> onKeyPressed(ch) }
+                }
+            }
+        }
+
+        btnDelete?.setOnClickListener {
+            if (codeBuffer.isNotEmpty()) {
+                codeBuffer.deleteCharAt(codeBuffer.length - 1)
+                refreshCodeBoxes()
+                showCodeStatus(null)
+            }
+        }
+
+        btnVerify?.setOnClickListener { verifyCode() }
 
         // --- WhatsApp Help & Support ---
         lockView?.findViewById<View>(R.id.btnWhatsAppSupport)?.setOnClickListener {

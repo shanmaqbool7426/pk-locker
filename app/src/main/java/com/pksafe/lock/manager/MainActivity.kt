@@ -965,7 +965,133 @@ fun CustomerLockScreen(onReset: () -> Unit) {
 
     val context = LocalContext.current
     val sharedPrefs = remember { context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE) }
-    
+
+    // ─── EMERGENCY RELEASE (secret-code protected) ────────────────────────────
+    // The release code is the same DEREGISTER key the shopkeeper sees in the
+    // Control Panel and uses for offline SMS release (DEREGISTER#<code>).
+    // It is deterministic SHA-256("DEREGISTER_{imei}") — verifiable offline.
+    var showReleaseDialog by remember { mutableStateOf(false) }
+    var releaseCodeInput by remember { mutableStateOf("") }
+    var releaseError by remember { mutableStateOf<String?>(null) }
+
+    fun verifyReleaseCode(entered: String): Boolean {
+        val trimmed = entered.trim().lowercase()
+        if (trimmed.isEmpty()) return false
+        val validCodes = mutableSetOf<String>()
+        // 1. Code pushed by the backend (saved after customer IMEI entry)
+        sharedPrefs.getString("sms_deregister_code", null)?.lowercase()?.let {
+            validCodes.add(it)
+            validCodes.add(it.take(8)) // short form — pehle 8 chars bhi accept
+        }
+        // 2. Deterministic offline fallback — same algorithm as SmsReceiver/backend
+        listOf("device_imei", "device_imei2").forEach { key ->
+            sharedPrefs.getString(key, null)?.takeIf { it.isNotBlank() }?.let {
+                val full = com.pksafe.lock.manager.receiver.SmsReceiver.generateSmsCode("DEREGISTER", it)
+                validCodes.add(full)
+                validCodes.add(full.take(8))
+            }
+        }
+        return validCodes.contains(trimmed)
+    }
+
+    if (showReleaseDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showReleaseDialog = false
+                releaseCodeInput = ""
+                releaseError = null
+            },
+            containerColor = Color(0xFF1A1A1A),
+            shape = RoundedCornerShape(24.dp),
+            icon = {
+                Icon(
+                    Icons.Default.AdminPanelSettings, null,
+                    tint = Color(0xFFDC2626),
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    "Emergency Release",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        "Enter the release code provided by the shopkeeper to remove all restrictions from this device.",
+                        color = Color.Gray,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = releaseCodeInput,
+                        onValueChange = {
+                            releaseCodeInput = it
+                            releaseError = null
+                        },
+                        label = { Text("Release Code", color = Color.Gray) },
+                        isError = releaseError != null,
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Color.White,
+                            focusedBorderColor = Color(0xFFDC2626),
+                            unfocusedBorderColor = Color(0xFF444444),
+                            errorBorderColor = Color(0xFFDC2626),
+                            focusedContainerColor = Color(0xFF0F0F0F),
+                            unfocusedContainerColor = Color(0xFF0F0F0F)
+                        ),
+                        supportingText = {
+                            Text("Poora 64-char code ya pehle 8 characters", color = Color.Gray, fontSize = 11.sp)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (releaseError != null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            releaseError ?: "",
+                            color = Color(0xFFDC2626),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (verifyReleaseCode(releaseCodeInput)) {
+                            showReleaseDialog = false
+                            com.pksafe.lock.manager.util.LockManager(context).selfDeactivate()
+                            onReset()
+                        } else {
+                            releaseError = "Invalid release code. Contact the shopkeeper."
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("RELEASE DEVICE", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showReleaseDialog = false
+                    releaseCodeInput = ""
+                    releaseError = null
+                }) {
+                    Text("CANCEL", color = Color.Gray, fontWeight = FontWeight.Medium)
+                }
+            }
+        )
+    }
+
     // ─── REACTIVE PREFS: auto-update when background fetch writes new values ───
     var shopName by remember { mutableStateOf(sharedPrefs.getString("shop_name", "Authorized Dealer") ?: "Authorized Dealer") }
     var shopPhone by remember { mutableStateOf(sharedPrefs.getString("shop_phone", "Contact Provider") ?: "Contact Provider") }
@@ -1233,12 +1359,11 @@ fun CustomerLockScreen(onReset: () -> Unit) {
             }
 
             Spacer(modifier = Modifier.height(20.dp))
-            
-            // Subtle Emergency Release (Debug)
-            TextButton(onClick = { 
-                com.pksafe.lock.manager.util.LockManager(context).selfDeactivate()
-                onReset()
-            }) {
+
+            // Subtle Emergency Release — requires the shopkeeper's secret
+            // DEREGISTER code (same key shown in the shopkeeper Control Panel).
+            // A bare tap can NO LONGER bypass the EMI lock.
+            TextButton(onClick = { showReleaseDialog = true }) {
                 Text("Emergency Local Release", color = Color.White.copy(0.1f), fontSize = 10.sp)
             }
         }
@@ -1323,8 +1448,7 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                             }
                         )
                         AppDestinations.EMI_LIST -> if (isAdmin) EmiListScreen(
-                            onBack = { currentDestination = AppDestinations.HOME },
-                            devices = viewModel.devices
+                            onBack = { currentDestination = AppDestinations.HOME }
                         )
                         AppDestinations.DEREGISTER_LIST -> if (isAdmin) DeregisteredListScreen(
                             onBack = { currentDestination = AppDestinations.HOME }

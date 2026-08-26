@@ -1126,7 +1126,13 @@ private fun EmiScheduleRow(
                 TextButton(onClick = {
                     val amount = amountText.toDoubleOrNull()
                     if (amount != null && amount > 0) {
-                        viewModel?.markEmiAsPaid(context, installment._id, imei, amount)
+                        viewModel?.markEmiAsPaid(context, installment._id, imei, amount) { ok, msg ->
+                            android.widget.Toast.makeText(
+                                context,
+                                if (ok) "✓ $msg" else "✗ $msg",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
                         showPaymentDialog = false
                     }
                 }) {

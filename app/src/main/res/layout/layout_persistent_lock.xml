@@ -306,6 +306,9 @@
             android:textSize="12sp"
             android:textStyle="bold" />
 
+        <!-- Built-in hex keypad — system keyboard cannot attach to lock overlay
+             windows (IME flashes open then instantly closes), so code entry uses
+             its own 0-9/A-F keypad. Works over the keyguard too. -->
         <LinearLayout
             android:id="@+id/unlockContainer"
             android:layout_width="match_parent"
@@ -315,24 +318,86 @@
             android:orientation="vertical"
             android:visibility="gone">
 
-            <EditText
-                android:id="@+id/unlockCodeInput"
-                android:layout_width="200dp"
-                android:layout_height="50dp"
-                android:background="@android:color/white"
-                android:gravity="center"
-                android:hint="00000000"
-                android:inputType="text"
-                android:maxLength="8"
-                android:textColor="#000000" />
+            <!-- 8-digit code display (filled by LockService) -->
+            <LinearLayout
+                android:id="@+id/codeBoxesContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
-            <Button
-                android:id="@+id/btnSubmitUnlock"
-                android:layout_width="200dp"
-                android:layout_height="50dp"
+                <TextView style="@style/CodeBox" />
+                <TextView style="@style/CodeBox" />
+                <TextView style="@style/CodeBox" />
+                <TextView style="@style/CodeBox" />
+                <TextView style="@style/CodeBox" />
+                <TextView style="@style/CodeBox" />
+                <TextView style="@style/CodeBox" />
+                <TextView style="@style/CodeBox" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvCodeStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:backgroundTint="#2E7D32"
-                android:text="VERIFY CODE" />
+                android:textColor="#DC2626"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <GridLayout
+                android:id="@+id/keypadGrid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:columnCount="4">
+
+                <Button style="@style/KeypadKey" android:tag="1" android:text="1" />
+                <Button style="@style/KeypadKey" android:tag="2" android:text="2" />
+                <Button style="@style/KeypadKey" android:tag="3" android:text="3" />
+                <Button style="@style/KeypadKey" android:tag="4" android:text="4" />
+                <Button style="@style/KeypadKey" android:tag="5" android:text="5" />
+                <Button style="@style/KeypadKey" android:tag="6" android:text="6" />
+                <Button style="@style/KeypadKey" android:tag="7" android:text="7" />
+                <Button style="@style/KeypadKey" android:tag="8" android:text="8" />
+                <Button style="@style/KeypadKey" android:tag="9" android:text="9" />
+                <Button style="@style/KeypadKey" android:tag="0" android:text="0" />
+                <Button style="@style/KeypadKey" android:tag="A" android:text="A" />
+                <Button style="@style/KeypadKey" android:tag="B" android:text="B" />
+                <Button style="@style/KeypadKey" android:tag="C" android:text="C" />
+                <Button style="@style/KeypadKey" android:tag="D" android:text="D" />
+                <Button style="@style/KeypadKey" android:tag="E" android:text="E" />
+                <Button style="@style/KeypadKey" android:tag="F" android:text="F" />
+            </GridLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnCodeDelete"
+                    android:layout_width="0dp"
+                    android:layout_height="52dp"
+                    android:layout_margin="3dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="#4A4A4A"
+                    android:text="⌫ DELETE"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnSubmitUnlock"
+                    android:layout_width="0dp"
+                    android:layout_height="52dp"
+                    android:layout_margin="3dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="#2E7D32"
+                    android:text="VERIFY CODE"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
 
         <Space

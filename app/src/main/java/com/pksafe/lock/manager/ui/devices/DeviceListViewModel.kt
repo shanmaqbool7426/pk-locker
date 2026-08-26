@@ -8,13 +8,13 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pksafe.lock.manager.data.AdvancedControlRequest
+import com.pksafe.lock.manager.data.ApiClient
 import com.pksafe.lock.manager.data.ApiService
 import com.pksafe.lock.manager.data.DeregisterResponse
 import com.pksafe.lock.manager.data.DeviceControls
 import com.pksafe.lock.manager.data.DeviceResponse
+import com.pksafe.lock.manager.data.MarkPaidRequest
 import kotlinx.coroutines.launch
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
 
 class DeviceListViewModel : ViewModel() {
 
@@ -23,14 +23,7 @@ class DeviceListViewModel : ViewModel() {
     var errorMessage by mutableStateOf<String?>(null)
     var deregisterResult by mutableStateOf<DeregisterResponse?>(null)
 
-    private val BASE_URL = com.pksafe.lock.manager.util.Constants.BASE_URL 
-
-    private val retrofit = Retrofit.Builder()
-        .baseUrl(BASE_URL)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
-
-    private val apiService = retrofit.create(ApiService::class.java)
+    private val apiService = ApiClient.createApiService()
 
     fun fetchDevices(context: Context) {
         val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
@@ -74,6 +67,10 @@ class DeviceListViewModel : ViewModel() {
         val token = sharedPrefs.getString("auth_token", "") ?: ""
         if (token.isEmpty()) return
 
+        // Clear any previously loaded schedule so the sheet doesn't show another
+        // device's stale data while this device's schedule loads (or if loading fails).
+        selectedEmiSchedule = null
+
         viewModelScope.launch {
             isFetchingEmi = true
             try {
@@ -92,53 +89,102 @@ class DeviceListViewModel : ViewModel() {
         }
     }
 
-    fun markEmiAsPaid(context: Context, emiId: String, imei: String, amount: Double? = null) {
+    // EMI currently being marked as paid — drives the per-installment spinner in the sheet
+    var markingEmiId by mutableStateOf<String?>(null)
+
+    fun markEmiAsPaid(
+        context: Context,
+        emiId: String,
+        imei: String,
+        amount: Double? = null,
+        onResult: (Boolean, String) -> Unit = { _, _ -> }
+    ) {
         val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
         val token = sharedPrefs.getString("auth_token", "") ?: ""
-        if (token.isEmpty()) return
+        if (token.isEmpty()) {
+            onResult(false, "Login required — payment not recorded")
+            return
+        }
 
         viewModelScope.launch {
-            isFetchingEmi = true // show loader in bottom sheet
+            markingEmiId = emiId
             try {
-                val body = if (amount != null) mapOf<String, Any>("amount" to amount) else emptyMap()
-                val response = apiService.markEmiAsPaid("Bearer $token", emiId, body)
+                // amount == null → omitted from JSON → backend pays full remaining
+                val response = apiService.markEmiAsPaid("Bearer $token", emiId, MarkPaidRequest(amount = amount))
                 if (response.isSuccessful && response.body()?.success == true) {
-                    // Refresh EMI schedule
+                    val message = response.body()?.message ?: "EMI marked as paid"
+                    // Refresh EMI schedule + device list so totals update everywhere
                     fetchEmiSchedule(context, imei)
-                    // Also refresh the main list softly so total prices/etc update if needed
                     fetchDevices(context)
+                    onResult(true, message)
                 } else {
-                    errorMessage = "Failed to mark as paid: ${response.body()?.message}"
+                    Log.e("EMI_PAY_ERROR", "mark-paid failed: HTTP ${response.code()}")
+                    onResult(false, parseServerErrorMessage(response))
                 }
             } catch (e: Exception) {
-                Log.e("EMI_PAY_ERROR", "Error: ${e.message}")
-                errorMessage = "Connection error"
+                Log.e("EMI_PAY_ERROR", "mark-paid exception", e)
+                // The request MAY have reached the server even though we never saw
+                // the response (e.g. timeout after the DB write). Refresh the
+                // schedule so the UI reflects reality — if the installment is
+                // already Paid the user won't accidentally pay it twice.
+                fetchEmiSchedule(context, imei)
+                onResult(
+                    false,
+                    "Connection error (${e.javaClass.simpleName}): ${e.message ?: "no detail"}"
+                )
             } finally {
-                isFetchingEmi = false
+                markingEmiId = null
             }
         }
     }
 
-    fun rescheduleEmiPlan(context: Context, imei: String, request: com.pksafe.lock.manager.data.RescheduleEmiRequest) {
+    /** Pulls { message } out of a failed response so the UI can show WHY it failed. */
+    private fun parseServerErrorMessage(response: retrofit2.Response<*>): String {
+        val serverMessage = try {
+            val errorBody = response.errorBody()?.string()
+            if (!errorBody.isNullOrBlank()) {
+                org.json.JSONObject(errorBody).optString("message", "").ifBlank { null }
+            } else null
+        } catch (_: Exception) { null }
+        return serverMessage ?: "Request failed (code ${response.code()})"
+    }
+
+    // True while an APPLY & RE-GENERATE request is in flight — keeps the
+    // reschedule dialog open with a spinner instead of closing silently.
+    var isRescheduling by mutableStateOf(false)
+
+    fun rescheduleEmiPlan(
+        context: Context,
+        imei: String,
+        request: com.pksafe.lock.manager.data.RescheduleEmiRequest,
+        onResult: (Boolean, String) -> Unit = { _, _ -> }
+    ) {
         val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
         val token = sharedPrefs.getString("auth_token", "") ?: ""
-        if (token.isEmpty()) return
+        if (token.isEmpty()) {
+            onResult(false, "Login required — plan not updated")
+            return
+        }
 
         viewModelScope.launch {
-            isFetchingEmi = true
+            isRescheduling = true
             try {
                 val response = apiService.rescheduleEmiPlan("Bearer $token", imei, request)
                 if (response.isSuccessful && response.body()?.success == true) {
+                    // Unpaid installments were deleted + regenerated server-side —
+                    // refresh both the sheet and the device list.
                     fetchEmiSchedule(context, imei)
                     fetchDevices(context)
+                    onResult(true, response.body()?.message ?: "EMI plan updated")
                 } else {
-                    errorMessage = "Failed to restructure EMI: ${response.body()?.message}"
+                    Log.e("EMI_RESCHEDULE_ERROR", "reschedule failed: HTTP ${response.code()}")
+                    onResult(false, parseServerErrorMessage(response))
                 }
             } catch (e: Exception) {
-                Log.e("EMI_RESCHEDULE_ERROR", "Error: ${e.message}")
-                errorMessage = "Connection error"
+                Log.e("EMI_RESCHEDULE_ERROR", "reschedule exception", e)
+                onResult(false, "Connection error (${e.javaClass.simpleName}): ${e.message ?: "no detail"}")
             } finally {
-                isFetchingEmi = false
+                isRescheduling = false
             }
         }
     }

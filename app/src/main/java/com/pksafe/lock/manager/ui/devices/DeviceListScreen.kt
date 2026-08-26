@@ -681,6 +681,43 @@ fun EmiBottomSheetContent(
     ) {
         var showRescheduleDialog by remember { mutableStateOf(false) }
 
+        // ── MARK PAID flow ──────────────────────────────────────────────
+        // Tapping MARK PAID opens a confirm dialog (full or partial amount).
+        // Previously the button fired the API silently — a failed request
+        // looked exactly like a dead button (no dialog, no loader, no error UI).
+        var emiToPay by remember { mutableStateOf<Pair<com.pksafe.lock.manager.data.EmiInstallmentItem, String>?>(null) }
+        var paymentFeedback by remember { mutableStateOf<String?>(null) }
+        
+                // ── RESCHEDULE flow ────────────────────────────────────────────
+                // Last server rejection, shown inline inside the Reconfigure dialog.
+                // Previously the wrong HTTP method (POST vs PUT) made the request 404
+                // silently — dialog just closed with no plan change and no reason.
+                var rescheduleError by remember { mutableStateOf<String?>(null) }
+
+        LaunchedEffect(paymentFeedback) {
+            paymentFeedback?.let {
+                android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
+                paymentFeedback = null
+            }
+        }
+
+        if (emiToPay != null) {
+            MarkPaidDialog(
+                installment = emiToPay!!.first,
+                isMarking = viewModel.markingEmiId != null,
+                onDismiss = { if (viewModel.markingEmiId == null) emiToPay = null },
+                onConfirm = { amount ->
+                    val target = emiToPay
+                    emiToPay = null
+                    if (target != null) {
+                        viewModel.markEmiAsPaid(context, target.first._id, target.second, amount) { ok, msg ->
+                            paymentFeedback = if (ok) "✓ $msg" else "✗ $msg"
+                        }
+                    }
+                }
+            )
+        }
+
         // ── Header ──────────────────────────────────────────────────────────
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Box(
@@ -708,10 +745,15 @@ fun EmiBottomSheetContent(
             }
         }
 
-        if (showRescheduleDialog && scheduleData != null) {
+                if (showRescheduleDialog && scheduleData != null) {
             EmiRescheduleDialog(
                 scheduleData = scheduleData,
-                onDismiss = { showRescheduleDialog = false },
+                isRescheduling = viewModel.isRescheduling,
+                errorMessage = rescheduleError,
+                onDismiss = {
+                    showRescheduleDialog = false
+                    rescheduleError = null
+                },
                 onConfirm = { addedDownpayment: Double, newTenure: Int, customAmount: Double ->
                     val newDown = scheduleData.downPayment + addedDownpayment
                     val newBal = scheduleData.balance - addedDownpayment
@@ -722,8 +764,17 @@ fun EmiBottomSheetContent(
                         downPayment = newDown,
                         balance = newBal.coerceAtLeast(0.0)
                     )
-                    viewModel.rescheduleEmiPlan(context, scheduleData.imei, req)
-                    showRescheduleDialog = false
+                    // Dialog stays open until the server answers — success closes
+                    // it, failure keeps it open with the server's reason inline.
+                    viewModel.rescheduleEmiPlan(context, scheduleData.imei, req) { ok, msg ->
+                        if (ok) {
+                            showRescheduleDialog = false
+                            rescheduleError = null
+                        } else {
+                            rescheduleError = msg
+                        }
+                        paymentFeedback = if (ok) "✓ $msg" else "✗ $msg"
+                    }
                 }
             )
         }
@@ -827,6 +878,15 @@ fun EmiBottomSheetContent(
                                         fontSize = 15.sp,
                                         color = if (isPaid) TextMuted else TextTitle
                                     )
+                                    // Partial payments: show what's still left on this installment
+                                    if (!isPaid && installment.paidAmount > 0) {
+                                        Text(
+                                            "Paid Rs. ${installment.paidAmount.toInt()} · Remaining Rs. ${(installment.amount - installment.paidAmount).toInt()}",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = Warning
+                                        )
+                                    }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Default.Event, null, modifier = Modifier.size(11.dp), tint = TextSubtle)
                                         Spacer(modifier = Modifier.width(4.dp))
@@ -854,14 +914,27 @@ fun EmiBottomSheetContent(
                                         }
                                     }
                                 } else {
+                                    val isMarkingThis = viewModel.markingEmiId == installment._id
                                     Button(
-                                        onClick = { viewModel.markEmiAsPaid(context, installment._id, scheduleData.imei) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                                        onClick = { emiToPay = installment to scheduleData.imei },
+                                        enabled = viewModel.markingEmiId == null,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = BrandBlue,
+                                            disabledContainerColor = SurfaceGray
+                                        ),
                                         shape = RoundedCornerShape(8.dp),
                                         contentPadding = PaddingValues(vertical = 4.dp, horizontal = 12.dp),
                                         modifier = Modifier.height(32.dp)
                                     ) {
-                                        Text("MARK PAID", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        if (isMarkingThis) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(14.dp),
+                                                strokeWidth = 2.dp,
+                                                color = Color.White
+                                            )
+                                        } else {
+                                            Text("MARK PAID", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
                                     }
                                 }
                             }
@@ -874,11 +947,15 @@ fun EmiBottomSheetContent(
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  EMI RESCHEDULE DIALOG  (logic fully preserved)
+//  EMI RESCHEDULE DIALOG
+//  Input validation + live preview + in-flight spinner + inline server errors.
+//  (The request itself is a PUT — see ApiService.rescheduleEmiPlan.)
 // ═════════════════════════════════════════════════════════════════════════════
 @Composable
 fun EmiRescheduleDialog(
     scheduleData: com.pksafe.lock.manager.data.EmiScheduleData,
+    isRescheduling: Boolean,
+    errorMessage: String? = null,
     onDismiss: () -> Unit,
     onConfirm: (extraDown: Double, newTenure: Int, customEmi: Double) -> Unit
 ) {
@@ -886,14 +963,40 @@ fun EmiRescheduleDialog(
     var newTenureStr by remember { mutableStateOf(scheduleData.summary.unpaid.toString()) }
     var customEmiStr by remember { mutableStateOf("") }
 
-    val extraDp = extraDpStr.toDoubleOrNull() ?: 0.0
+    // ── Input validation — APPLY stays disabled until these pass ──
+    val dpInput = extraDpStr.trim().toDoubleOrNull()
+    val tenureInput = newTenureStr.trim().toIntOrNull()
+    val emiInput = customEmiStr.trim().toDoubleOrNull()
+
+    val dpError = when {
+        extraDpStr.isBlank() -> null
+        dpInput == null -> "Invalid amount"
+        dpInput < 0 -> "Cannot be negative"
+        dpInput > scheduleData.balance -> "Exceeds balance Rs. ${scheduleData.balance.toInt()}"
+        else -> null
+    }
+    val tenureError = when {
+        newTenureStr.isBlank() -> "Required"
+        tenureInput == null -> "Invalid number"
+        tenureInput <= 0 -> "Must be at least 1"
+        else -> null
+    }
+    val emiError = when {
+        customEmiStr.isBlank() -> null
+        emiInput == null -> "Invalid amount"
+        emiInput <= 0 -> "Must be greater than 0"
+        else -> null
+    }
+    val isValid = dpError == null && tenureError == null && emiError == null
+
+    val extraDp = dpInput ?: 0.0
     val newBal = (scheduleData.balance - extraDp).coerceAtLeast(0.0)
-    val tenure = newTenureStr.toIntOrNull() ?: 1
-    val overrideEmi = customEmiStr.toDoubleOrNull()
-    val estimatedEmi = overrideEmi ?: if (tenure > 0) newBal / tenure else 0.0
+    val tenure = tenureInput ?: 1
+    val estimatedEmi = emiInput ?: if (tenure > 0) newBal / tenure else 0.0
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        // Can't back out mid-request — wait for the server's answer
+        onDismissRequest = { if (!isRescheduling) onDismiss() },
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Tune, null, tint = BrandBlue)
@@ -915,6 +1018,14 @@ fun EmiRescheduleDialog(
                     value = extraDpStr,
                     onValueChange = { extraDpStr = it },
                     label = { Text("Add Down Payment (Optional)", fontSize = 12.sp) },
+                    isError = dpError != null,
+                    supportingText = {
+                        Text(
+                            dpError ?: "Reduces the balance before re-generating",
+                            fontSize = 10.sp,
+                            color = if (dpError != null) Danger else TextMuted
+                        )
+                    },
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -936,6 +1047,14 @@ fun EmiRescheduleDialog(
                     value = newTenureStr,
                     onValueChange = { newTenureStr = it },
                     label = { Text("Remaining Tenure (Months)", fontSize = 12.sp) },
+                    isError = tenureError != null,
+                    supportingText = {
+                        Text(
+                            tenureError ?: "Unpaid installments will be re-spread over this many months",
+                            fontSize = 10.sp,
+                            color = if (tenureError != null) Danger else TextMuted
+                        )
+                    },
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -958,6 +1077,14 @@ fun EmiRescheduleDialog(
                     onValueChange = { customEmiStr = it },
                     label = { Text("Custom Monthly EMI (Optional)", fontSize = 12.sp) },
                     placeholder = { Text("Auto-calculates if empty", color = TextMuted) },
+                    isError = emiError != null,
+                    supportingText = {
+                        Text(
+                            emiError ?: "Leave empty to split the balance evenly",
+                            fontSize = 10.sp,
+                            color = if (emiError != null) Danger else TextMuted
+                        )
+                    },
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -991,27 +1118,86 @@ fun EmiRescheduleDialog(
                             Text("New EMI:", fontSize = 12.sp, color = TextMuted)
                             Text("Rs. ${estimatedEmi.toInt()}/mo", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Success)
                         }
+                        // A custom EMI with a fixed tenure can leave money
+                        // uncovered (or overcharge) — surface it before regenerating.
+                        if (emiInput != null && tenure > 0) {
+                            val totalPlan = emiInput * tenure
+                            val gap = newBal - totalPlan
+                            if (gap > 0.5 || gap < -0.5) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(verticalAlignment = Alignment.Top) {
+                                    Icon(
+                                        Icons.Default.Warning, null,
+                                        tint = Warning,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        if (gap > 0)
+                                            "EMI × $tenure months = Rs. ${totalPlan.toInt()} — Rs. ${gap.toInt()} will remain unpaid"
+                                        else
+                                            "EMI × $tenure months = Rs. ${totalPlan.toInt()} — Rs. ${(-gap).toInt()} over the new balance",
+                                        fontSize = 10.sp,
+                                        color = Warning,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Server rejection (auth, bad data, network…) stays visible here
+                // instead of the dialog closing silently like before.
+                if (errorMessage != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Danger.copy(alpha = 0.1f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Error, null,
+                                tint = Danger,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(errorMessage, fontSize = 11.sp, color = Danger, fontWeight = FontWeight.Medium)
+                        }
                     }
                 }
             }
         },
         confirmButton = {
             Button(
-                onClick = {
-                    onConfirm(
-                        extraDpStr.toDoubleOrNull() ?: 0.0,
-                        newTenureStr.toIntOrNull() ?: 1,
-                        customEmiStr.toDoubleOrNull() ?: estimatedEmi
-                    )
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                onClick = { onConfirm(extraDp, tenureInput ?: 1, estimatedEmi) },
+                enabled = isValid && !isRescheduling,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BrandBlue,
+                    disabledContainerColor = SurfaceGray
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("APPLY & RE-GENERATE", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                if (isRescheduling) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("APPLYING...", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                } else {
+                    Text("APPLY & RE-GENERATE", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, enabled = !isRescheduling) {
                 Text("CANCEL", color = TextMuted)
             }
         },
@@ -1028,6 +1214,132 @@ fun EmiStatBox(label: String, value: String, bgColor: Color, textColor: Color, m
             Spacer(modifier = Modifier.height(4.dp))
             Text(value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  MARK PAID CONFIRMATION DIALOG
+//  Confirms the payment before hitting the API. Amount field is optional —
+//  blank pays the remaining balance in full, a smaller value records a
+//  partial payment (backend marks the installment as "Partial").
+// ═════════════════════════════════════════════════════════════════════════════
+@Composable
+private fun MarkPaidDialog(
+    installment: com.pksafe.lock.manager.data.EmiInstallmentItem,
+    isMarking: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (amount: Double?) -> Unit
+) {
+    var amountStr by remember { mutableStateOf("") }
+    val remaining = installment.amount - installment.paidAmount
+    val entered = amountStr.trim().toDoubleOrNull()
+    val amountError = when {
+        amountStr.isBlank() -> null // blank = pay the remaining balance in full
+        entered == null -> "Invalid amount"
+        entered <= 0 -> "Amount must be greater than 0"
+        entered > remaining -> "Amount exceeds remaining Rs. ${remaining.toInt()}"
+        else -> null
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!isMarking) onDismiss() },
+        icon = {
+            Icon(
+                Icons.Default.Payments, null,
+                tint = Success,
+                modifier = Modifier.size(32.dp)
+            )
+        },
+        title = {
+            Text(
+                "Pay Installment M${installment.installmentNumber}?",
+                fontWeight = FontWeight.Bold,
+                color = TextTitle
+            )
+        },
+        text = {
+            Column {
+                PaymentDetailRow("Installment", "Rs. ${installment.amount.toInt()}")
+                if (installment.paidAmount > 0) {
+                    PaymentDetailRow("Already Paid", "Rs. ${installment.paidAmount.toInt()}")
+                }
+                PaymentDetailRow("Remaining", "Rs. ${remaining.toInt()}")
+                PaymentDetailRow("Due Date", installment.dueDate.substringBefore("T"))
+
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = amountStr,
+                    onValueChange = { if (it.length <= 8) amountStr = it },
+                    label = { Text("Amount Received (Optional)", fontSize = 12.sp) },
+                    placeholder = { Text("Blank = full Rs. ${remaining.toInt()}", color = TextMuted, fontSize = 12.sp) },
+                    isError = amountError != null,
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextTitle,
+                        unfocusedTextColor = TextTitle,
+                        focusedBorderColor = Success,
+                        unfocusedBorderColor = BorderLight,
+                        focusedContainerColor = SurfaceGray.copy(alpha = 0.3f),
+                        unfocusedContainerColor = SurfaceGray.copy(alpha = 0.2f),
+                        focusedLabelColor = Success,
+                        unfocusedLabelColor = TextMuted,
+                        cursorColor = Success
+                    )
+                )
+                if (amountError != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        amountError,
+                        color = Danger,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(amountStr.trim().toDoubleOrNull()) },
+                enabled = !isMarking && amountError == null,
+                colors = ButtonDefaults.buttonColors(containerColor = Success),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                if (isMarking) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                } else {
+                    Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("CONFIRM PAYMENT", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isMarking) {
+                Text("CANCEL", color = TextMuted)
+            }
+        },
+        containerColor = CardWhite,
+        shape = RoundedCornerShape(24.dp)
+    )
+}
+
+@Composable
+private fun PaymentDetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, fontSize = 12.sp, color = TextMuted)
+        Text(value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextTitle)
     }
 }
 

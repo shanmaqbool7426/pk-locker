@@ -128,6 +128,14 @@ interface ApiService {
     ): Response<CustomerDeviceResponse>
 
     // --- EMI Management ---
+    // All unpaid/partial EMIs for the logged-in shopkeeper, sorted by due date ASC.
+    // days = how far ahead to look (all past-due EMIs are always included).
+    @GET("emis/upcoming")
+    suspend fun getUpcomingEmis(
+        @Header("Authorization") token: String,
+        @retrofit2.http.Query("days") days: Int = 3650
+    ): Response<UpcomingEmiResponse>
+
     @GET("emis/device/{imei}")
     suspend fun getDeviceEmiSchedule(
         @Header("Authorization") token: String,
@@ -138,10 +146,12 @@ interface ApiService {
     suspend fun markEmiAsPaid(
         @Header("Authorization") token: String,
         @Path("emiId") emiId: String,
-        @Body body: Map<String, Any> = emptyMap()
+        @Body body: MarkPaidRequest = MarkPaidRequest()
     ): Response<RegistrationResponse>
 
-    @POST("emis/device/{imei}")
+    // PUT — backend route is router.put('/device/:imei'). A POST hits no route
+    // (404 "Cannot POST"), which made APPLY & RE-GENERATE fail silently.
+    @PUT("emis/device/{imei}")
     suspend fun rescheduleEmiPlan(
         @Header("Authorization") token: String,
         @Path("imei") imei: String,
