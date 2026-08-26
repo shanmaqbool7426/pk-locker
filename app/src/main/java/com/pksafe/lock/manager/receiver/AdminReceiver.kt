@@ -13,13 +13,37 @@ import android.util.Log
 
 class AdminReceiver : DeviceAdminReceiver() {
 
+    companion object {
+        /**
+         * Broadcast action to apply the full Device Owner protection including
+         * DISALLOW_DEBUGGING_FEATURES. Sent by the shopkeeper-side wireless ADB
+         * provisioning flow as the final step, after all permissions are granted.
+         */
+        const val ACTION_APPLY_DEBUG_RESTRICTION =
+            "com.pksafe.lock.manager.ACTION_APPLY_DEBUG_RESTRICTION"
+
+        /**
+         * Broadcast action sent by the shopkeeper-side provisioning flow to tell the
+         * customer app that a wireless ADB provisioning session has started or ended.
+         * Extra "active" (boolean): true while provisioning is in progress, false when
+         * it is finished.
+         */
+        const val ACTION_SET_PROVISIONING_ACTIVE =
+            "com.pksafe.lock.manager.ACTION_SET_PROVISIONING_ACTIVE"
+    }
+
     override fun onEnabled(context: Context, intent: Intent) {
         super.onEnabled(context, intent)
         Log.d("ADMIN_RECEIVER", "PK Locker Admin Enabled — attempting IMEI fetch")
-        // ADB device owner: fetch IMEI immediately on admin enable
+        // ADB device owner: fetch IMEI and runtime permissions immediately on admin enable.
+        // Do NOT apply DISALLOW_DEBUGGING_FEATURES here — even if a shared pref marks
+        // provisioning complete, this callback fires while an active wireless ADB connection
+        // is still granting permissions. Applying the debugging restriction now would drop
+        // the connection before the shopkeeper side finishes.
+        // For QR provisioning the restriction is applied in onProfileProvisioningComplete();
+        // for wireless ADB provisioning it is applied by the final broadcast.
         fetchAndSaveImei(context)
-        // Apply Device Owner restrictions immediately (uninstall block, factory reset block, etc.)
-        applyDeviceOwnerProtection(context)
+        applyDeviceOwnerProtection(context, includeDebuggingRestriction = false)
     }
 
     override fun onProfileProvisioningComplete(context: Context, intent: Intent) {
@@ -36,8 +60,9 @@ class AdminReceiver : DeviceAdminReceiver() {
 
         // Fetch IMEI first, then mark as customer
         fetchAndSaveImei(context)
-        // Apply Device Owner restrictions immediately
-        applyDeviceOwnerProtection(context)
+        // Apply Device Owner restrictions immediately (QR provisioning doesn't use an
+        // active ADB connection, so the debugging restriction can be applied safely).
+        applyDeviceOwnerProtection(context, includeDebuggingRestriction = true)
 
         // Notify any listening UI that provisioning finished
         try {
@@ -57,12 +82,26 @@ class AdminReceiver : DeviceAdminReceiver() {
         }
     }
 
-    private fun applyDeviceOwnerProtection(context: Context) {
+    private fun applyDeviceOwnerProtection(context: Context, includeDebuggingRestriction: Boolean = true) {
         try {
-            com.pksafe.lock.manager.util.LockManager(context).applyDeviceOwnerProtection()
-            Log.d("ADMIN_RECEIVER", "Device Owner protection applied")
+            com.pksafe.lock.manager.util.LockManager(context)
+                .applyDeviceOwnerProtection(includeDebuggingRestriction)
+            Log.d(
+                "ADMIN_RECEIVER",
+                "Device Owner protection applied (debuggingRestriction=$includeDebuggingRestriction)"
+            )
         } catch (e: Exception) {
             Log.e("ADMIN_RECEIVER", "Could not apply Device Owner protection: ${e.message}")
+        }
+    }
+
+    override fun onReceive(context: Context, intent: Intent) {
+        when (intent.action) {
+            ACTION_APPLY_DEBUG_RESTRICTION -> {
+                Log.d("ADMIN_RECEIVER", "Received $ACTION_APPLY_DEBUG_RESTRICTION")
+                applyDeviceOwnerProtection(context, includeDebuggingRestriction = true)
+            }
+            else -> super.onReceive(context, intent)
         }
     }
 

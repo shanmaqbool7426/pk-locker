@@ -161,12 +161,21 @@ fun MainAppEntryPoint() {
     // ─── PERMANENT SECURITY ENFORCEMENT ─────────────────────────────────────
     // For production, we must block Reset as soon as the device is marked as Customer.
     // This happens even if the device is currently "Unlocked".
+    // Skip this during an active wireless provisioning session — applying
+    // DISALLOW_DEBUGGING_FEATURES here would drop the ADB connection before the
+    // shopkeeper side finishes granting permissions.
     LaunchedEffect(isCustomer) {
         if (isCustomer && lockManager.isDeviceOwner()) {
-            // Block Factory Reset, USB, and Debugging PERMANENTLY for customers
-            // We use a custom function that doesn't rely on the "is_locked" flag
-            lockManager.enforcePermanentRestrictions(true)
-            Log.d("SECURITY_ENFORCE", "Permanent Customer Restrictions Applied")
+            val provisioningComplete = sharedPrefs.getBoolean("provisioning_complete", false)
+            val provisioningActive = sharedPrefs.getBoolean("wireless_provisioning_active", false)
+            if (provisioningComplete && !provisioningActive) {
+                // Block Factory Reset, USB, and Debugging PERMANENTLY for customers
+                // We use a custom function that doesn't rely on the "is_locked" flag
+                lockManager.enforcePermanentRestrictions(true)
+                Log.d("SECURITY_ENFORCE", "Permanent Customer Restrictions Applied")
+            } else {
+                Log.d("SECURITY_ENFORCE", "Skipping permanent restrictions: provisioningComplete=$provisioningComplete, active=$provisioningActive")
+            }
         }
     }
 
@@ -711,9 +720,17 @@ fun CustomerStatusScreen(
             } else if (!isDeviceOwner) {
                 accessibilityAutoStatus = "Need Device Owner"
             }
-            // Apply reliable Device Owner protection regardless of accessibility status
+            // Apply reliable Device Owner protection regardless of accessibility status.
+            // Only block ADB/wireless debugging on fully provisioned customer devices,
+            // and never while a wireless provisioning session is actively running.
             if (isDeviceOwner) {
-                lockManager.applyDeviceOwnerProtection()
+                val prefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+                val isCustomer = prefs.getBoolean("is_customer", false)
+                val provisioningComplete = prefs.getBoolean("provisioning_complete", false)
+                val provisioningActive = prefs.getBoolean("wireless_provisioning_active", false)
+                lockManager.applyDeviceOwnerProtection(
+                    includeDebuggingRestriction = isCustomer && provisioningComplete && !provisioningActive
+                )
             }
             isAccessibilityActive = com.pksafe.lock.manager.service.AntiUninstallService.isServiceRunning(context)
             kotlinx.coroutines.delay(2000)
@@ -832,7 +849,13 @@ fun CustomerStatusScreen(
                         isActive = isUninstallBlocked,
                         onClick = {
                             if (isDeviceOwner && !isUninstallBlocked) {
-                                lockManager.applyDeviceOwnerProtection()
+                                val prefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+                                val isCustomer = prefs.getBoolean("is_customer", false)
+                                val provisioningComplete = prefs.getBoolean("provisioning_complete", false)
+                                val provisioningActive = prefs.getBoolean("wireless_provisioning_active", false)
+                                lockManager.applyDeviceOwnerProtection(
+                                    includeDebuggingRestriction = isCustomer && provisioningComplete && !provisioningActive
+                                )
                                 isUninstallBlocked = lockManager.isUninstallBlocked()
                             } else if (!isDeviceOwner) {
                                 Toast.makeText(context, "Device Owner required for uninstall protection", Toast.LENGTH_SHORT).show()

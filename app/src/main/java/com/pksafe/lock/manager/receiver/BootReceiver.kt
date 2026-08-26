@@ -15,7 +15,13 @@ class BootReceiver : BroadcastReceiver() {
             // Re-apply Device Owner protection after reboot
             // (uninstall block, factory reset block, safe boot block, USB debug block)
             if (lockManager.isDeviceOwner()) {
-                lockManager.applyDeviceOwnerProtection()
+                val prefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+                val isCustomer = prefs.getBoolean("is_customer", false)
+                val provisioningComplete = prefs.getBoolean("provisioning_complete", false)
+                val provisioningActive = prefs.getBoolean("wireless_provisioning_active", false)
+                lockManager.applyDeviceOwnerProtection(
+                    includeDebuggingRestriction = isCustomer && provisioningComplete && !provisioningActive
+                )
                 lockManager.ensureAccessibilityServiceEnabled()
             }
 

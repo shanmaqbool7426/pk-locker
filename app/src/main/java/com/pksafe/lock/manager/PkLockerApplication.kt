@@ -1,6 +1,7 @@
 package com.pksafe.lock.manager
 
 import android.app.Application
+import android.content.Context
 import android.os.Build
 import io.github.muntashirakon.adb.PRNGFixes
 import org.conscrypt.Conscrypt
@@ -32,14 +33,28 @@ class PkLockerApplication : Application() {
         }
         // Apply reliable Device Owner restrictions (uninstall block, factory reset block, etc.)
         // This works even when accessibility service cannot be auto-enabled.
+        // Only apply the ADB/wireless-debugging block on fully provisioned customer devices.
+        // On the shopkeeper device (or during active provisioning) this would break the
+        // wireless ADB connection needed to set up / manage customer phones.
+        val prefs = getSharedPreferences("PKLockerPrefs", MODE_PRIVATE)
+        val isCustomer = prefs.getBoolean("is_customer", false)
+        val provisioningComplete = prefs.getBoolean("provisioning_complete", false)
+        val provisioningActive = prefs.getBoolean("wireless_provisioning_active", false)
         try {
-            lockManager.applyDeviceOwnerProtection()
+            // Never apply the ADB-killing restriction while a wireless provisioning
+            // session is actively running; otherwise the shopkeeper connection drops
+            // before all permissions are granted.
+            if (isCustomer && provisioningComplete && !provisioningActive) {
+                lockManager.applyDeviceOwnerProtection(includeDebuggingRestriction = true)
+            } else {
+                lockManager.applyDeviceOwnerProtection(includeDebuggingRestriction = false)
+            }
         } catch (_: Exception) {
             // Ignore: will retry in MainActivity UI loop
         }
     }
 
-    override fun attachBaseContext(base: android.content.Context) {
+    override fun attachBaseContext(base: Context) {
         super.attachBaseContext(base)
         // Initialize Conscrypt as the #1 TLS provider
         // This provides the cipher suites that ADB wireless debugging requires

@@ -35,15 +35,28 @@ class ProvisionWorkflow(private val context: Context) {
      */
     fun runDeviceOwnerOnly(listener: Listener) {
         try {
+            // Tell the customer app that a wireless provisioning session is starting.
+            // This prevents its own auto-protection code from applying
+            // DISALLOW_DEBUGGING_FEATURES while the ADB connection is still needed.
+            setProvisioningActive(listener, active = true)
+
             runPreChecks(listener)
             prepareForDeviceOwner(listener)
             applyDeviceOwner(listener)
             grantCommonPermissions(listener)
             enableAccessibilityGuard(listener)
             markSetupComplete(listener)
+            // Final step: apply DISALLOW_DEBUGGING_FEATURES. This disables ADB and
+            // wireless debugging on the customer device, which intentionally drops
+            // the wireless ADB connection. It is done LAST so all permissions are
+            // already granted before the connection is closed.
+            applyDebuggingRestriction(listener)
             listener.onComplete(true, "Device owner active: $TARGET_PACKAGE")
         } catch (e: Exception) {
             listener.onComplete(false, formatError(e))
+            // Do NOT clear the provisioning flag here. If provisioning failed,
+            // keep the flag true so the customer app won't apply debug restrictions
+            // on its next restart. The flag will be cleared when provisioning succeeds.
         }
     }
 
@@ -175,6 +188,34 @@ class ProvisionWorkflow(private val context: Context) {
             log(listener, "Setup marked as complete.")
         } catch (e: Exception) {
             log(listener, "Setup marking: ${e.message}")
+        }
+    }
+
+    private fun applyDebuggingRestriction(listener: Listener) {
+        log(listener, "Securing device — disabling ADB / wireless debugging...")
+        try {
+            val action = com.pksafe.lock.manager.receiver.AdminReceiver.ACTION_APPLY_DEBUG_RESTRICTION
+            // Send to the dedicated DebugRestrictionReceiver rather than AdminReceiver.
+            // AdminReceiver requires BIND_DEVICE_ADMIN, which ADB shell may not hold;
+            // DebugRestrictionReceiver is exported without that permission so the final
+            // provisioning broadcast is reliably delivered.
+            val cmd = "am broadcast -a $action -n ${TARGET_PACKAGE}/.receiver.DebugRestrictionReceiver"
+            val output = shell.run(cmd)
+            log(listener, if (output.isEmpty()) "Debug restriction triggered" else output.trim())
+        } catch (e: Exception) {
+            // The broadcast may have been delivered but the connection dropped
+            // immediately because DISALLOW_DEBUGGING_FEATURES disables ADB.
+            log(listener, "Debug restriction: ${e.message}")
+        }
+    }
+
+    private fun setProvisioningActive(listener: Listener, active: Boolean) {
+        try {
+            val action = com.pksafe.lock.manager.receiver.AdminReceiver.ACTION_SET_PROVISIONING_ACTIVE
+            val cmd = "am broadcast -a $action -n ${TARGET_PACKAGE}/.receiver.DebugRestrictionReceiver --ez active $active"
+            shell.run(cmd)
+        } catch (e: Exception) {
+            log(listener, "Provisioning active=$active: ${e.message}")
         }
     }
 

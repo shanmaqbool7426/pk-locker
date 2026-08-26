@@ -121,8 +121,14 @@ class LockManager(private val context: Context) {
     /**
      * Applies Device Owner restrictions that protect PK Locker without needing
      * accessibility service. This is the RELIABLE way on Samsung/vivo Android 14+.
+     *
+     * @param includeDebuggingRestriction If false, DISALLOW_DEBUGGING_FEATURES is
+     *        NOT applied. This is required during wireless ADB provisioning because
+     *        applying it immediately would kill the ADB connection before the
+     *        shopkeeper side can finish granting permissions. The debugging
+     *        restriction is applied separately after provisioning completes.
      */
-    fun applyDeviceOwnerProtection(): Boolean {
+    fun applyDeviceOwnerProtection(includeDebuggingRestriction: Boolean = true): Boolean {
         if (!isDeviceOwner()) {
             Log.w("LOCK_MANAGER", "Cannot apply DPM protection: not device owner")
             return false
@@ -152,15 +158,32 @@ class LockManager(private val context: Context) {
             Log.e("LOCK_MANAGER", "DISALLOW_SAFE_BOOT failed: ${e.message}")
             ok = false
         }
-        try {
-            // Prevent USB debugging changes
-            devicePolicyManager.addUserRestriction(adminComponent, UserManager.DISALLOW_DEBUGGING_FEATURES)
-            Log.d("LOCK_MANAGER", "DISALLOW_DEBUGGING_FEATURES applied")
-        } catch (e: Exception) {
-            Log.e("LOCK_MANAGER", "DISALLOW_DEBUGGING_FEATURES failed: ${e.message}")
-            ok = false
+        if (includeDebuggingRestriction) {
+            applyDebuggingRestriction()
+        } else {
+            Log.d("LOCK_MANAGER", "Skipping DISALLOW_DEBUGGING_FEATURES during active provisioning")
         }
         return ok
+    }
+
+    /**
+     * Applies DISALLOW_DEBUGGING_FEATURES which disables ADB and wireless debugging.
+     * Separated from applyDeviceOwnerProtection so it can be applied after wireless
+     * ADB provisioning is complete, without dropping the connection mid-setup.
+     */
+    fun applyDebuggingRestriction(): Boolean {
+        if (!isDeviceOwner()) {
+            Log.w("LOCK_MANAGER", "Cannot apply debugging restriction: not device owner")
+            return false
+        }
+        return try {
+            devicePolicyManager.addUserRestriction(adminComponent, UserManager.DISALLOW_DEBUGGING_FEATURES)
+            Log.d("LOCK_MANAGER", "DISALLOW_DEBUGGING_FEATURES applied")
+            true
+        } catch (e: Exception) {
+            Log.e("LOCK_MANAGER", "DISALLOW_DEBUGGING_FEATURES failed: ${e.message}")
+            false
+        }
     }
 
     fun isUninstallBlocked(): Boolean {
