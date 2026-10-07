@@ -11,6 +11,9 @@ import androidx.work.WorkerParameters
 import androidx.work.ListenableWorker
 import com.pksafe.lock.manager.data.ApiService
 import com.pksafe.lock.manager.util.LockManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
@@ -39,32 +42,75 @@ class ConnectivityWorker(context: Context, params: WorkerParameters) : Coroutine
 
         val now = System.currentTimeMillis()
 
+        // ── Proactive FCM Sync: if not verified, try to sync now ────────────
+        if (!prefs.getBoolean("fcm_verified", false)) {
+            Log.d(TAG, "FCM not verified, attempting proactive sync...")
+            try {
+                // We use the fire-and-forget sync function from MainActivity
+                // (need to make it accessible or re-implement here)
+                val tokenTask = com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+                if (tokenTask.isSuccessful) {
+                    val token = tokenTask.result
+                    if (!token.isNullOrBlank()) {
+                        syncToken(imei, token, applicationContext)
+                    }
+                }
+            } catch (e: Exception) { }
+        }
+
         // ── Send heartbeat and get server state ────────────────────────────
         val serverState = sendHeartbeat(imei)
 
         if (serverState != null) {
-            // ── FIX 2: RECONNECT SYNC — catch missed commands after offline ──
-            // If server says device should be locked but device is unlocked, lock it
+            // ── RECONNECT SYNC — catch missed commands (Lock/Unlock) ────────
             val localLocked = prefs.getBoolean("is_locked", false)
             val serverLocked = serverState.status == "Locked"
 
-            if (serverLocked && !localLocked) {
-                Log.w(TAG, "RECONNECT SYNC: Server says Locked but device is Unlocked! Applying lock...")
-                prefs.edit().putBoolean("is_locked", true).commit()
+            if (serverLocked != localLocked) {
+                Log.w(TAG, "RECONNECT SYNC: Server status ($serverState.status) mismatch with Local! Syncing...")
+                prefs.edit().putBoolean("is_locked", serverLocked).commit()
+                
                 Handler(Looper.getMainLooper()).post {
                     val lockManager = LockManager(applicationContext)
-                    lockManager.lockDevice()
-                    // Start lock overlay
-                    try {
-                        val serviceIntent = Intent(applicationContext, LockService::class.java)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            applicationContext.startForegroundService(serviceIntent)
-                        } else {
-                            applicationContext.startService(serviceIntent)
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to start LockService: ${e.message}")
+                    if (serverLocked) {
+                        lockManager.lockDevice()
+                        // Start lock overlay
+                        try {
+                            val serviceIntent = Intent(applicationContext, LockService::class.java)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                applicationContext.startForegroundService(serviceIntent)
+                            } else {
+                                applicationContext.startService(serviceIntent)
+                            }
+                        } catch (e: Exception) { }
+                    } else {
+                        lockManager.unlockDevice()
+                        applicationContext.stopService(Intent(applicationContext, LockService::class.java))
                     }
+                }
+            }
+
+            // ── RESTRICTIONS SYNC — catch missed hardware/app blocks ────────
+            Handler(Looper.getMainLooper()).post {
+                val lockManager = LockManager(applicationContext)
+                serverState.controls?.let { c ->
+                    lockManager.setUsbDataDisabled(c.usbLock)
+                    lockManager.setCameraDisabled(c.cameraDisabled)
+                    lockManager.setAppInstallDisabled(c.installBlocked)
+                    lockManager.setAppUninstallDisabled(c.uninstallBlocked)
+                    lockManager.setOutgoingCallsDisabled(c.outgoingCallsBlocked)
+                    lockManager.setFactoryResetDisabled(c.softResetBlocked)
+                    lockManager.setSafeBootDisabled(c.softBootBlocked)
+                    prefs.edit().putBoolean("settings_blocked", c.settingsBlocked).apply()
+                }
+                serverState.appRestrictions?.let { a ->
+                    // Unhide/Hide apps based on server state
+                    val apps = mapOf(
+                        "whatsapp" to a.whatsapp, "facebook" to a.facebook, 
+                        "instagram" to a.instagram, "youtube" to a.youtube, 
+                        "chrome" to a.chrome, "telegram" to a.telegram
+                    )
+                    apps.forEach { (key, blocked) -> lockManager.setAppHidden(key, blocked) }
                 }
             }
 
@@ -117,6 +163,24 @@ class ConnectivityWorker(context: Context, params: WorkerParameters) : Coroutine
         } catch (e: Exception) {
             Log.e(TAG, "Heartbeat failed: ${e.message}")
             null
+        }
+    }
+
+    private suspend fun syncToken(imei: String, token: String, context: Context) {
+        try {
+            val retrofit = Retrofit.Builder()
+                .baseUrl(com.pksafe.lock.manager.util.Constants.BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+            val api = retrofit.create(ApiService::class.java)
+            val res = api.updateFcmToken(mapOf("imei" to imei, "fcmToken" to token))
+            if (res.isSuccessful) {
+                context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+                    .edit().putBoolean("fcm_verified", true).apply()
+                Log.d(TAG, "Verified FCM token on server via worker")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Token sync via worker failed: ${e.message}")
         }
     }
 }

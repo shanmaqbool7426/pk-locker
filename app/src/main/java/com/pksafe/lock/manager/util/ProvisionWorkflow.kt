@@ -191,6 +191,39 @@ class ProvisionWorkflow(private val context: Context) {
         }
     }
 
+    /**
+     * Opens the Add Account screen on the customer phone via ADB shell.
+     * This must be called BEFORE applyDebuggingRestriction() kills the ADB connection.
+     * After the account is added, Google FRP (Factory Reset Protection) activates automatically.
+     */
+    fun triggerFrpSetup(listener: Listener) {
+        log(listener, "Opening Add Account screen on customer phone for FRP...")
+        try {
+            shell.run("am start -a android.settings.ADD_ACCOUNT_SETTINGS")
+            log(listener, "Account settings opened. Customer ko Google account add karne do.")
+        } catch (e: Exception) {
+            log(listener, "FRP setup: ${e.message}")
+            throw e
+        }
+    }
+
+    /**
+     * Sends a broadcast to the customer app to lock Google account removal.
+     * Call this AFTER a Google account has been verified on the customer phone.
+     */
+    fun lockAccountViaAdb(listener: Listener) {
+        log(listener, "Locking Google account removal on customer phone...")
+        try {
+            val action = com.pksafe.lock.manager.receiver.AdminReceiver.ACTION_LOCK_GOOGLE_ACCOUNT
+            val cmd = "am broadcast -a $action -n ${TARGET_PACKAGE}/.receiver.DebugRestrictionReceiver"
+            shell.run(cmd)
+            log(listener, "Google account locked — cannot be removed without removing Device Owner first.")
+        } catch (e: Exception) {
+            log(listener, "Account lock: ${e.message}")
+            throw e
+        }
+    }
+
     private fun applyDebuggingRestriction(listener: Listener) {
         log(listener, "Securing device — disabling ADB / wireless debugging...")
         try {

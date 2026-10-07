@@ -100,6 +100,23 @@ class RegistrationViewModel : ViewModel() {
         viewModelScope.launch {
             isLoading = true
             try {
+                // ── KEY AVAILABILITY CHECK ───────────────────────────────────
+                val statsRes = apiService.getStats("Bearer $token")
+                if (statsRes.isSuccessful && statsRes.body()?.success == true) {
+                    val availableKeys = statsRes.body()?.data?.android?.availableKeys ?: 0
+                    if (availableKeys <= 0) {
+                        isSuccess = false
+                        message = "Key Not Available! Please purchase keys to register new devices."
+                        isLoading = false
+                        return@launch
+                    }
+                } else {
+                    isSuccess = false
+                    message = "Failed to verify key status. Try again."
+                    isLoading = false
+                    return@launch
+                }
+
                 // Clean numeric inputs (remove commas/spaces)
                 val cleanTotalStr = totalPrice.replace(",", "").trim()
                 val cleanDownStr = downPayment.replace(",", "").trim()
@@ -179,17 +196,38 @@ class RegistrationViewModel : ViewModel() {
 
     private fun validateInputs(): Boolean {
         if (imei.isBlank()) {
-            message = "IMEI/QR is required"
+            message = "IMEI / Serial Number is required"
             return false
         }
         if (name.isBlank()) {
-            message = "Name is required"
+            message = "Customer Name is required"
             return false
         }
-        if (cnic.length < 13) {
-            message = "Invalid CNIC"
+        if (cnic.isBlank() || cnic.length < 13) {
+            message = "Invalid CNIC Number (13 digits required)"
             return false
         }
+        if (phone.isBlank() || phone.length < 10) {
+            message = "Valid Phone Number is required"
+            return false
+        }
+        if (productName.isBlank()) {
+            message = "Product / Model Name is required"
+            return false
+        }
+        
+        val total = totalPrice.replace(",", "").trim().toDoubleOrNull() ?: 0.0
+        if (total <= 0) {
+            message = "Invalid Total Price"
+            return false
+        }
+
+        val tenure = emiTenure.replace(",", "").trim().toIntOrNull() ?: 0
+        if (tenure <= 0) {
+            message = "EMI Tenure must be at least 1 month"
+            return false
+        }
+
         return true
     }
 

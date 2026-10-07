@@ -34,6 +34,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.pksafe.lock.manager.ui.theme.*
 import com.pksafe.lock.manager.util.AdbController
+import com.pksafe.lock.manager.util.AdbShell
 import com.pksafe.lock.manager.util.Constants
 import com.pksafe.lock.manager.util.ProvisionWorkflow
 import kotlinx.coroutines.Dispatchers
@@ -312,6 +313,182 @@ fun WirelessAdbSetupScreen(
                             color = BrandBlue,
                             lineHeight = 16.sp
                         )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // ═══ STEP 4: GOOGLE FRP PROTECTION ═══════════════════════════════
+            var frpSetupDone by remember { mutableStateOf(false) }
+            var frpVerifying by remember { mutableStateOf(false) }
+            var frpAccountFound by remember { mutableStateOf(false) }
+            var frpAccountLocked by remember { mutableStateOf(false) }
+
+            StepCard(step = "4", title = "Google FRP Protection (IMPORTANT)", icon = Icons.Default.Security) {
+                Text(
+                    "Google account add karo customer phone pe. Is se FRP (Factory Reset Protection) activate hoga — agar koi somehow factory reset bhi kar le, toh bhi phone unlock NAHI hoga.",
+                    fontSize = 13.sp,
+                    color = TextMuted,
+                    lineHeight = 18.sp
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = WarningSurface,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(modifier = Modifier.padding(12.dp)) {
+                        Icon(Icons.Default.Warning, null, tint = Warning, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Yeh step BOHOT ZAROORI hai. Account ke bina device fully secure nahi hoga.",
+                            fontSize = 11.sp,
+                            color = Color(0xFF92400E),
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Button(
+                    onClick = {
+                        scope.launch {
+                            try {
+                                val shell = AdbShell(context)
+                                withContext(Dispatchers.IO) {
+                                    shell.run("am start -a android.settings.ADD_ACCOUNT_SETTINGS")
+                                }
+                                appendLog("→ Account settings opened on customer phone")
+                                appendLog("→ Customer phone pe Google account SIGN IN karo")
+                                Toast.makeText(context, "Customer phone pe account add karo", Toast.LENGTH_LONG).show()
+                            } catch (e: Exception) {
+                                appendLog("FRP Error: ${e.message}")
+                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Warning)
+                ) {
+                    Icon(Icons.Default.PersonAdd, null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("OPEN ACCOUNT SETUP ON CUSTOMER PHONE", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        frpVerifying = true
+                        scope.launch {
+                            try {
+                                val shell = AdbShell(context)
+                                val result = withContext(Dispatchers.IO) {
+                                    shell.run("dumpsys account | grep -m1 'Accounts:'")
+                                }
+                                frpAccountFound = result.contains("Accounts: 0").not() && result.contains("Accounts:")
+                                appendLog("FRP Check: $result")
+                                if (frpAccountFound) {
+                                    appendLog("✅ Google account found — FRP ACTIVE!")
+                                    Toast.makeText(context, "FRP Active — Device Fully Protected!", Toast.LENGTH_LONG).show()
+                                } else {
+                                    appendLog("❌ No account found — FRP NOT active")
+                                    Toast.makeText(context, "Account nahi mila — pehle account add karo", Toast.LENGTH_LONG).show()
+                                }
+                            } catch (e: Exception) {
+                                appendLog("Verify Error: ${e.message}")
+                            } finally {
+                                frpVerifying = false
+                            }
+                        }
+                    },
+                    enabled = !frpVerifying,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue)
+                ) {
+                    if (frpVerifying) {
+                        CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("VERIFYING...", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    } else {
+                        Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("VERIFY ACCOUNT ADDED", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+
+                if (frpAccountFound) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = SuccessSurface,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, null, tint = Success, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Google account found — FRP Active!",
+                                fontSize = 12.sp,
+                                color = Success,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    if (!frpAccountLocked) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    try {
+                                        val workflow = ProvisionWorkflow(context)
+                                        withContext(Dispatchers.IO) {
+                                            workflow.lockAccountViaAdb(object : ProvisionWorkflow.Listener {
+                                                override fun onLog(message: String) { appendLog(message) }
+                                                override fun onComplete(success: Boolean, message: String) {}
+                                            })
+                                        }
+                                        frpAccountLocked = true
+                                        appendLog("✅ Account removal locked on customer phone")
+                                        Toast.makeText(context, "Account locked — remove nahi ho sakta!", Toast.LENGTH_LONG).show()
+                                    } catch (e: Exception) {
+                                        appendLog("Lock Error: ${e.message}")
+                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Success)
+                        ) {
+                            Icon(Icons.Default.Lock, null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("LOCK ACCOUNT (Prevent Removal)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = SuccessSurface,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Lock, null, tint = Success, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "Account locked — cannot be removed!",
+                                    fontSize = 12.sp,
+                                    color = Success,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }

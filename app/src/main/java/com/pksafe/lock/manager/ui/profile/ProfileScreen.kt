@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pksafe.lock.manager.ui.theme.*
+import com.pksafe.lock.manager.util.DeviceDeregistrator
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  PK LOCKER — Profile / Settings Screen (Professional Redesign)
@@ -43,6 +44,7 @@ fun ProfileScreen(onLogout: () -> Unit) {
 
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
+    var showUninstallDialog by remember { mutableStateOf(false) }
 
     // ─── Logout Dialog ──────────────────────────────────────────────────────
     if (showLogoutDialog) {
@@ -93,6 +95,59 @@ fun ProfileScreen(onLogout: () -> Unit) {
                     colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
                     shape = RoundedCornerShape(12.dp)
                 ) { Text("I UNDERSTAND", fontWeight = FontWeight.Bold) }
+            },
+            containerColor = CardWhite,
+            shape = RoundedCornerShape(24.dp)
+        )
+    }
+
+    // ─── Self Uninstall Dialog ────────────────────────────────────────────
+    if (showUninstallDialog) {
+        AlertDialog(
+            onDismissRequest = { showUninstallDialog = false },
+            icon = { Icon(Icons.Default.DeleteForever, null, tint = Danger, modifier = Modifier.size(32.dp)) },
+            title = { Text("Uninstall PK Locker?", fontWeight = FontWeight.Bold, color = TextTitle) },
+            text = {
+                Column {
+                    Text(
+                        "Yeh app ko completely remove kar dega — Device Owner, Device Admin, saari permissions aur locks hata ke.",
+                        color = TextMuted,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFFEF2F2)
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp)) {
+                            Icon(Icons.Default.Warning, null, tint = Danger, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Irreversible — app turant uninstall ho jayegi.",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Danger
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showUninstallDialog = false
+                        DeviceDeregistrator.performFullDeregister(context)
+                        Toast.makeText(context, "Uninstalling PK Locker...", Toast.LENGTH_LONG).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Danger),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("YES, UNINSTALL", fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUninstallDialog = false }) {
+                    Text("Cancel", color = TextMuted, fontWeight = FontWeight.Medium)
+                }
             },
             containerColor = CardWhite,
             shape = RoundedCornerShape(24.dp)
@@ -277,6 +332,33 @@ fun ProfileScreen(onLogout: () -> Unit) {
                         Icon(Icons.Default.Logout, null, tint = Danger, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(12.dp))
                         Text("LOGOUT", color = Danger, fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = 0.5.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // ── Self Uninstall (no key needed) ─────────────────────────
+                Surface(
+                    onClick = { showUninstallDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF1E293B),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(18.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(Icons.Default.DeleteForever, null, tint = Color(0xFFF87171), modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "UNINSTALL APP",
+                            color = Color(0xFFF87171),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            letterSpacing = 0.5.sp
+                        )
                     }
                 }
 

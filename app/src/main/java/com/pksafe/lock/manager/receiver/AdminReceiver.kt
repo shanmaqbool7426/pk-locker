@@ -30,6 +30,14 @@ class AdminReceiver : DeviceAdminReceiver() {
          */
         const val ACTION_SET_PROVISIONING_ACTIVE =
             "com.pksafe.lock.manager.ACTION_SET_PROVISIONING_ACTIVE"
+
+        /**
+         * Broadcast action to lock Google account removal after FRP setup.
+         * Once a Google account is added for Factory Reset Protection, this prevents
+         * the account from being removed without first removing Device Owner.
+         */
+        const val ACTION_LOCK_GOOGLE_ACCOUNT =
+            "com.pksafe.lock.manager.ACTION_LOCK_GOOGLE_ACCOUNT"
     }
 
     override fun onEnabled(context: Context, intent: Intent) {

@@ -12,8 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,7 +25,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.pksafe.lock.manager.data.DashboardAnalytics
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  PK LOCKER — Professional Dashboard UI
@@ -53,13 +51,37 @@ fun DashboardScreen(
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    // Role is read per-composition (not via ViewModel state) so the self-heal
+    // that rewrites user_role also refreshes these gates on recomposition.
+    val accountRole = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        .getString("user_role", "shopkeeper") ?: "shopkeeper"
 
     LaunchedEffect(Unit) {
         viewModel.initDashboard(context)
     }
 
     val stats = viewModel.dashboardData
-    val analytics = viewModel.analytics
+
+    var showNoKeysDialog by remember { mutableStateOf(false) }
+
+    // ─── No Keys Dialog ──────────────────────────────────────────────────────
+    if (showNoKeysDialog) {
+        AlertDialog(
+            onDismissRequest = { showNoKeysDialog = false },
+            icon = { Icon(Icons.Default.VpnKey, null, tint = Danger, modifier = Modifier.size(28.dp)) },
+            title = { Text("Key Not Available!", fontWeight = FontWeight.Bold, color = TextPrimary) },
+            text = { Text("Your key balance is 0. Please purchase keys to register new devices.", color = TextSecondary, fontSize = 14.sp) },
+            confirmButton = {
+                Button(
+                    onClick = { showNoKeysDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("OK", fontWeight = FontWeight.Bold) }
+            },
+            containerColor = CardWhite,
+            shape = RoundedCornerShape(24.dp)
+        )
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(BgGray)) {
         Column(
@@ -91,15 +113,12 @@ fun DashboardScreen(
                 totalDevices = stats?.devices?.total ?: 0,
                 lockedDevices = stats?.devices?.locked ?: 0,
                 unlockedDevices = (stats?.devices?.total ?: 0) - (stats?.devices?.locked ?: 0),
-                availableKeys = stats?.android?.availableKeys ?: 0,
-                monthlyCollection = analytics?.monthlyCollection ?: 0.0,
-                collectionRate = analytics?.collectionRate ?: "0"
+                availableKeys = stats?.android?.availableKeys ?: 0
             )
 
-            // ── ANALYTICS CARDS ────────────────────────────────────────────
-            if (analytics != null) {
-                SectionTitle("Analytics")
-                AnalyticsRow(analytics = analytics)
+            if (stats != null) {
+                SectionTitle("Key Status")
+                KeyStatsGrid(stats = stats)
             }
 
             // ── QUICK SETUP ────────────────────────────────────────────────
@@ -111,6 +130,8 @@ fun DashboardScreen(
                 gradient = Brush.horizontalGradient(listOf(Color(0xFFF59E0B), Color(0xFFD97706))),
                 onClick = { onMenuItemClick("Wireless ADB") }
             )
+            // Hidden for now — uncomment to re-enable cable setup
+            /*
             SetupCard(
                 title = "Cable Activation",
                 subtitle = "Fast USB connection for instant setup.",
@@ -118,10 +139,21 @@ fun DashboardScreen(
                 gradient = Brush.horizontalGradient(listOf(Color(0xFF6366F1), Color(0xFF4F46E5))),
                 onClick = { onMenuItemClick("Cable Sync") }
             )
+            */
 
             // ── QUICK ACTIONS ──────────────────────────────────────────────
             SectionTitle("Quick Actions")
-            QuickActionsGrid(onMenuItemClick = onMenuItemClick, isAdmin = viewModel.isAdmin)
+            QuickActionsGrid(
+                onMenuItemClick = { route ->
+                    if (route == "Register Device" && (stats?.android?.availableKeys ?: 0) <= 0) {
+                        showNoKeysDialog = true
+                    } else {
+                        onMenuItemClick(route)
+                    }
+                },
+                isAdmin = accountRole == "admin",
+                isDealer = accountRole == "dealer"
+            )
 
             // ── HELP & SUPPORT ─────────────────────────────────────────────
             SectionTitle("Help & Support")
@@ -305,9 +337,7 @@ private fun StatsGrid(
     totalDevices: Int,
     lockedDevices: Int,
     unlockedDevices: Int,
-    availableKeys: Int,
-    monthlyCollection: Double,
-    collectionRate: String
+    availableKeys: Int
 ) {
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -344,25 +374,6 @@ private fun StatsGrid(
                 icon = Icons.Default.LockOpen,
                 iconBg = Color(0xFFFEF3C7),
                 iconColor = Warning,
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatCard(
-                title = "Monthly Collection",
-                value = "Rs. ${formatNumber(monthlyCollection)}",
-                icon = Icons.Default.AccountBalanceWallet,
-                iconBg = Color(0xFFECFDF5),
-                iconColor = Success,
-                modifier = Modifier.weight(1f)
-            )
-            StatCard(
-                title = "Collection Rate",
-                value = "${collectionRate.toDoubleOrNull() ?: 0.0}%",
-                icon = Icons.Default.TrendingUp,
-                iconBg = Color(0xFFE0F2FE),
-                iconColor = Info,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -414,71 +425,80 @@ private fun StatCard(
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  ANALYTICS ROW
+//  KEY STATS GRID
 // ═════════════════════════════════════════════════════════════════════════════
 @Composable
-private fun AnalyticsRow(analytics: DashboardAnalytics) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        AnalyticsCard(
-            title = "High Risk",
-            value = "${analytics.highRiskCount ?: 0}",
-            subtitle = "Overdue 2+ EMIs",
-            icon = Icons.Default.WarningAmber,
-            color = if ((analytics.highRiskCount ?: 0) > 0) Danger else Success,
-            modifier = Modifier.weight(1f)
-        )
-        AnalyticsCard(
-            title = "Locked",
-            value = "${analytics.deviceStats?.locked ?: 0}",
-            subtitle = "Devices secured",
-            icon = Icons.Default.PhonelinkLock,
-            color = Primary,
-            modifier = Modifier.weight(1f)
-        )
-        AnalyticsCard(
-            title = "Unlocked",
-            value = "${analytics.deviceStats?.unlocked ?: 0}",
-            subtitle = "Active devices",
-            icon = Icons.Default.PhonelinkRing,
-            color = Success,
-            modifier = Modifier.weight(1f)
-        )
+private fun KeyStatsGrid(stats: com.pksafe.lock.manager.data.DashboardData) {
+    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            PlatformKeyCard(
+                title = "Android Keys",
+                platformKeys = stats.android,
+                icon = Icons.Default.Android,
+                color = Success,
+                modifier = Modifier.weight(1f)
+            )
+            PlatformKeyCard(
+                title = "iOS Keys",
+                platformKeys = stats.ios,
+                icon = Icons.Default.PhoneIphone,
+                color = Info,
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
 @Composable
-private fun AnalyticsCard(
+private fun PlatformKeyCard(
     title: String,
-    value: String,
-    subtitle: String,
+    platformKeys: com.pksafe.lock.manager.data.PlatformKeys,
     icon: ImageVector,
     color: Color,
     modifier: Modifier
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = CardWhite),
         border = androidx.compose.foundation.BorderStroke(1.dp, Border),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
-            Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-            Text(text = subtitle, fontSize = 10.sp, color = TextSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    color = color.copy(alpha = 0.1f),
+                    shape = CircleShape,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                KeyStatItem("Total", platformKeys.totalKeys.toString(), modifier = Modifier.weight(1f))
+                KeyStatItem("Used", platformKeys.usedKeys.toString(), modifier = Modifier.weight(1f))
+                KeyStatItem("Left", platformKeys.availableKeys.toString(), color, modifier = Modifier.weight(1f))
+            }
         }
     }
 }
+
+@Composable
+private fun KeyStatItem(label: String, value: String, valueColor: Color = TextPrimary, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = valueColor)
+        Text(label, fontSize = 9.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
+    }
+}
+
+// AnalyticsRow / AnalyticsCard composables removed along with the Analytics section
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  SETUP CARDS
@@ -542,7 +562,7 @@ private fun SetupCard(
 //  QUICK ACTIONS GRID
 // ═════════════════════════════════════════════════════════════════════════════
 @Composable
-private fun QuickActionsGrid(onMenuItemClick: (String) -> Unit, isAdmin: Boolean) {
+private fun QuickActionsGrid(onMenuItemClick: (String) -> Unit, isAdmin: Boolean, isDealer: Boolean = false) {
     val actions = buildList {
         add(ActionItem("Register Device", Icons.Default.PersonAdd, Color(0xFFDBEAFE), Primary, "Register Device"))
         add(ActionItem("All Customers", Icons.Default.Groups, Color(0xFFD1FAE5), Success, "Active Customers"))
@@ -550,6 +570,12 @@ private fun QuickActionsGrid(onMenuItemClick: (String) -> Unit, isAdmin: Boolean
         add(ActionItem("EMI Payments", Icons.Default.CalendarMonth, Color(0xFFE0F2FE), Info, "Upcoming EMIs"))
         if (isAdmin) {
             add(ActionItem("Key Requests", Icons.Default.AdminPanelSettings, Color(0xFFFEE2E2), Danger, "Key Requests"))
+            add(ActionItem("Manage Users", Icons.Default.ManageAccounts, Color(0xFFEDE9FE), Color(0xFF7C3AED), "Manage Users"))
+            add(ActionItem("Allocate Keys", Icons.Default.VpnKey, Color(0xFFD1FAE5), Success, "Allocate Keys"))
+            add(ActionItem("App Updates", Icons.Default.SystemUpdate, Color(0xFFE0F2FE), Info, "App Updates"))
+        } else if (isDealer) {
+            // Dealer: only manages the shopkeeper accounts they created (Manage Shops screen)
+            add(ActionItem("Manage Users", Icons.Default.ManageAccounts, Color(0xFFEDE9FE), Color(0xFF7C3AED), "Manage Users"))
         }
         add(ActionItem("Deregistered", Icons.Default.PersonRemove, Color(0xFFF3E8FF), Color(0xFF7C3AED), "Deregistered"))
     }
@@ -689,14 +715,6 @@ private fun SectionTitle(title: String) {
         color = TextPrimary,
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 12.dp)
     )
-}
-
-private fun formatNumber(value: Double): String {
-    return if (value == value.toLong().toDouble()) {
-        String.format("%,d", value.toLong())
-    } else {
-        String.format("%,.2f", value)
-    }
 }
 
 private fun shareApk(context: Context) {

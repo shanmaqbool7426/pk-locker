@@ -11,10 +11,8 @@ import android.os.Looper
 import android.os.UserManager
 import android.provider.Settings
 import android.util.Log
-import android.widget.Toast
 import com.pksafe.lock.manager.receiver.AdminReceiver
 import com.pksafe.lock.manager.service.LockService
-import android.telephony.TelephonyManager
 import android.media.RingtoneManager
 import android.media.Ringtone
 import android.app.WallpaperManager
@@ -190,6 +188,44 @@ class LockManager(private val context: Context) {
         return try {
             devicePolicyManager.isUninstallBlocked(adminComponent, context.packageName)
         } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Checks if any Google account exists on the device (FRP active).
+     * When a Google account is present, Factory Reset Protection is automatically active:
+     * even after factory reset, the device will require the Google account credentials.
+     */
+    fun hasGoogleAccount(): Boolean {
+        return try {
+            val accountManager = android.accounts.AccountManager.get(context)
+            val accounts = accountManager.getAccountsByType("com.google")
+            accounts.isNotEmpty()
+        } catch (e: Exception) {
+            Log.e("LOCK_MANAGER", "hasGoogleAccount check failed: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Prevents removal of accounts by the user. Once a Google account is added for FRP,
+     * this ensures the account cannot be removed without first removing Device Owner.
+     */
+    fun lockGoogleAccount(): Boolean {
+        if (!isDeviceOwner()) {
+            Log.w("LOCK_MANAGER", "Cannot lock account: not device owner")
+            return false
+        }
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                devicePolicyManager.setAccountManagementDisabled(adminComponent, "com.google", true)
+                setUserRestriction(UserManager.DISALLOW_MODIFY_ACCOUNTS, true)
+                Log.d("LOCK_MANAGER", "Account management locked — accounts cannot be removed")
+            }
+            true
+        } catch (e: Exception) {
+            Log.e("LOCK_MANAGER", "lockGoogleAccount failed: ${e.message}")
             false
         }
     }
@@ -394,7 +430,12 @@ class LockManager(private val context: Context) {
                 // 3. Block ADB/Debugging
                 setUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES, enforce)
                 
-                Log.d("LOCK_MANAGER", "Permanent Restrictions Enforced: $enforce")
+                // 4. Block App Controls (Clear Data/Cache)
+                setUserRestriction(UserManager.DISALLOW_APPS_CONTROL, enforce)
+                // 5. Block Manual Uninstallation
+                devicePolicyManager.setUninstallBlocked(adminComponent, context.packageName, enforce)
+                
+                Log.d("LOCK_MANAGER", "Permanent Restrictions Enforced: $enforce (Reset, USB, Debug, AppControl, Uninstall)")
             }
         } catch (e: Exception) {
             Log.e("LOCK_MANAGER", "Permanent Enforce Error: ${e.message}")

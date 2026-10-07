@@ -40,7 +40,9 @@ class DashboardViewModel : ViewModel() {
 
         if (token.isNotEmpty()) {
             fetchStats("Bearer $token")
-            fetchAnalytics("Bearer $token")
+            // Analytics cards removed from dashboard — skip the extra API call
+            // (re-enable if analytics UI is added back)
+            // fetchAnalytics("Bearer $token")
         } else {
             errorMessage = "Authentication required"
         }

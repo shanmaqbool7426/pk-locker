@@ -10,11 +10,19 @@ data class Shopkeeper(
     @SerializedName("name") val name: String? = null,
     @SerializedName("phone") val phone: String? = null,
     @SerializedName("shopName") val shopName: String? = null,
-    @SerializedName("role") val role: String? = null
+    @SerializedName("role") val role: String? = null,
+    @SerializedName("updatePending") val updatePending: Boolean? = null
 )
 
 data class LoginRequest(val phone: String, val password: String)
 data class LoginResponse(val success: Boolean, val message: String, val token: String? = null, val shopkeeper: Shopkeeper? = null)
+
+// GET /api/auth/me — profile fetch used to self-heal stale user_role sessions
+// (sessions logged in before user_role was persisted have no stored role)
+data class MeResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("shopkeeper") val shopkeeper: Shopkeeper? = null
+)
 
 // --- Dashboard Stats ---
 data class StatsResponse(val success: Boolean, val data: DashboardData)
@@ -336,4 +344,63 @@ data class ActivityPagination(
     @SerializedName("limit") val limit: Int = 50,
     @SerializedName("total") val total: Int = 0,
     @SerializedName("pages") val pages: Int = 1
+)
+
+// --- Dealer / Account Management ---
+data class CreateAccountRequest(
+    @SerializedName("name") val name: String,
+    @SerializedName("phone") val phone: String,
+    @SerializedName("password") val password: String,
+    @SerializedName("shopName") val shopName: String? = null,
+    @SerializedName("role") val role: String = "shopkeeper"
+)
+
+data class DealerInfo(
+    @SerializedName("_id") val id: String? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("shopName") val shopName: String? = null,
+    @SerializedName("phone") val phone: String? = null
+)
+
+data class ShopkeeperKeyStats(
+    @SerializedName("android") val android: PlatformKeys? = null,
+    @SerializedName("ios") val ios: PlatformKeys? = null
+)
+
+data class ShopkeeperAccount(
+    @SerializedName("_id") val id: String? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("phone") val phone: String? = null,
+    @SerializedName("shopName") val shopName: String? = null,
+    @SerializedName("role") val role: String? = null,
+    @SerializedName("dealer") val dealer: DealerInfo? = null,
+    @SerializedName("keyStats") val keyStats: ShopkeeperKeyStats? = null
+)
+
+data class ShopkeeperListResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("count") val count: Int = 0,
+    @SerializedName("data") val data: List<ShopkeeperAccount> = emptyList()
+)
+
+data class AllocateKeysRequest(
+    @SerializedName("shopkeeperId") val shopkeeperId: String,
+    @SerializedName("platform") val platform: String,
+    @SerializedName("keys") val keys: Int
+)
+
+// --- App Update Configuration ---
+data class UpdateConfigResponse(
+    val success: Boolean,
+    val data: AppUpdateConfig?
+)
+
+data class AppUpdateConfig(
+    val versionCode: Int,
+    val versionName: String,
+    val updateUrl: String,
+    val updateTitle: String,
+    val updateMessage: String,
+    val isForceUpdate: Boolean,
+    val isUpdateEnabled: Boolean
 )

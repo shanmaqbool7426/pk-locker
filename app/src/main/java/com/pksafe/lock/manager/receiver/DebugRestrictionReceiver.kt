@@ -31,6 +31,7 @@ class DebugRestrictionReceiver : BroadcastReceiver() {
         when (intent.action) {
             AdminReceiver.ACTION_APPLY_DEBUG_RESTRICTION -> applyDebugRestriction(context)
             AdminReceiver.ACTION_SET_PROVISIONING_ACTIVE -> setProvisioningActive(context, intent)
+            AdminReceiver.ACTION_LOCK_GOOGLE_ACCOUNT -> lockGoogleAccount(context)
             else -> return
         }
     }
@@ -58,5 +59,14 @@ class DebugRestrictionReceiver : BroadcastReceiver() {
             .putBoolean("wireless_provisioning_active", active)
             .apply()
         Log.d("DEBUG_RESTRICTION", "Wireless provisioning active=$active")
+    }
+
+    private fun lockGoogleAccount(context: Context) {
+        Log.d("DEBUG_RESTRICTION", "Locking Google account removal (FRP protection)")
+        try {
+            LockManager(context).lockGoogleAccount()
+        } catch (e: Exception) {
+            Log.e("DEBUG_RESTRICTION", "Failed to lock Google account: ${e.message}")
+        }
     }
 }

@@ -45,8 +45,10 @@ class LoginViewModel : ViewModel() {
                     
                     // Save Admin status and Shop info from the nested shopkeeper object
                     val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+                    val role = loginData?.shopkeeper?.role ?: "shopkeeper"
                     sharedPrefs.edit().apply {
-                        putBoolean("is_admin", loginData?.shopkeeper?.role == "admin")
+                        putBoolean("is_admin", role == "admin")
+                        putString("user_role", role)
                         putBoolean("is_logged_in", true)
                         putBoolean("is_customer", false) // Reset customer status for admin device
                         putBoolean("is_locked", false)   // NEVER lock an admin device

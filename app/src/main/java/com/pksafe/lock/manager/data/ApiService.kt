@@ -13,6 +13,15 @@ interface ApiService {
     @POST("auth/login")
     suspend fun loginShopkeeper(@Body request: LoginRequest): Response<LoginResponse>
 
+    // Session role self-heal: fetch the authenticated account's profile (role included)
+    @GET("auth/me")
+    suspend fun getMe(@Header("Authorization") token: String): Response<MeResponse>
+
+    // Per-user update state: popup served to this user -> flip their server-side
+    // updatePending flag back to false (POST /api/config/update-consumed)
+    @POST("config/update-consumed")
+    suspend fun postUpdateConsumed(@Header("Authorization") token: String): Response<GenericResponse>
+
     // --- Devices Management ---
     @POST("devices/register")
     suspend fun registerDevice(
@@ -211,6 +220,47 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Path("id") id: String,
         @Body body: Map<String, String> // ["notes" to "..."]
+    ): Response<GenericResponse>
+
+    // --- Account Management (Admin) ---
+    @POST("admin/shopkeepers")
+    suspend fun createAccount(
+        @Header("Authorization") token: String,
+        @Body request: CreateAccountRequest
+    ): Response<GenericResponse>
+
+    @GET("admin/shopkeepers")
+    suspend fun getAdminShopkeepers(
+        @Header("Authorization") token: String,
+        @retrofit2.http.Query("search") search: String? = null
+    ): Response<ShopkeeperListResponse>
+
+    @POST("admin/keys/allocate")
+    suspend fun allocateKeys(
+        @Header("Authorization") token: String,
+        @Body request: AllocateKeysRequest
+    ): Response<GenericResponse>
+
+    // --- Dealer: shopkeeper account management ---
+    @GET("dealer/shopkeepers")
+    suspend fun getDealerShopkeepers(
+        @Header("Authorization") token: String
+    ): Response<ShopkeeperListResponse>
+
+    @POST("dealer/shopkeepers")
+    suspend fun createDealerShopkeeper(
+        @Header("Authorization") token: String,
+        @Body request: CreateAccountRequest
+    ): Response<GenericResponse>
+
+    // --- App Update Config ---
+    @GET("config/update")
+    suspend fun getUpdateConfig(): Response<UpdateConfigResponse>
+
+    @POST("config/update")
+    suspend fun postUpdateConfig(
+        @Header("Authorization") token: String,
+        @Body config: AppUpdateConfig
     ): Response<GenericResponse>
 }
 

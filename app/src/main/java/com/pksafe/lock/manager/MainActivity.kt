@@ -32,6 +32,8 @@ import androidx.compose.material3.*
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,9 +57,7 @@ import com.pksafe.lock.manager.ui.login.LoginScreen
 import com.pksafe.lock.manager.ui.provisioning.ProvisioningQrScreen
 import com.pksafe.lock.manager.ui.provisioning.NfcSetupScreen
 import com.pksafe.lock.manager.ui.registration.RegistrationScreen
-import com.pksafe.lock.manager.ui.theme.PKLockerTheme
-import com.pksafe.lock.manager.ui.theme.PrimaryDark
-import com.pksafe.lock.manager.ui.theme.SuccessGreen
+import com.pksafe.lock.manager.ui.theme.*
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -136,6 +136,81 @@ fun MainAppEntryPoint() {
     var isUserLoggedIn by rememberSaveable { mutableStateOf(sharedPrefs.getBoolean("is_logged_in", false)) }
     var fcmToken by remember { mutableStateOf(sharedPrefs.getString("fcm_token", "Fetching...")) }
     var deviceImei by remember { mutableStateOf(sharedPrefs.getString("device_imei", "")) }
+    var healedRole by remember { mutableStateOf<String?>(null) }
+    // Per-user update state from the server (GET /me): true = the admin's push
+    // armed THIS user; false = already served; null = older server / offline —
+    // treated as pending; local update_seen_version still guards as a fallback.
+    var serverUpdatePending by remember { mutableStateOf<Boolean?>(null) }
+        val userRole = healedRole ?: (sharedPrefs.getString("user_role", "shopkeeper") ?: "shopkeeper")
+    
+        // ─── Stale-session role self-heal ────────────────────────────────────────
+        // user_role is written only at login. Sessions created before this pref
+        // existed stay "shopkeeper" forever and never reach the dealer branch —
+        // fetch the real role once from GET /api/auth/me and persist it.
+        val roleApi = remember { com.pksafe.lock.manager.data.ApiClient.createApiService() }
+        LaunchedEffect(isUserLoggedIn) {
+            if (!isUserLoggedIn) { healedRole = null; return@LaunchedEffect }
+            val stored = sharedPrefs.getString("user_role", "") ?: ""
+            // Verify the stored role on EVERY open — older server deployments did not
+            // include `role` in the login response, so the stored value can be an
+            // explicit but WRONG "shopkeeper" for a real dealer/admin account.
+            val token = sharedPrefs.getString("auth_token", "") ?: ""
+            if (token.isNotEmpty()) {
+                try {
+                    val response = roleApi.getMe("Bearer $token")
+                    val me = if (response.isSuccessful) response.body()?.shopkeeper else null
+                    serverUpdatePending = me?.updatePending
+                    val role = me?.role
+                    if (!role.isNullOrBlank() && role != stored) {
+                        sharedPrefs.edit()
+                            .putString("user_role", role)
+                            .putBoolean("is_admin", role == "admin")
+                            .apply()
+                        healedRole = role
+                    }
+                } catch (_: Exception) {
+                    // Offline / server unreachable — keep current routing
+                }
+            }
+        }
+
+    // ─── Post-Update Auto-Logout ────────────────────────────────────────────
+    // After an OTA update, the app restarts. If the flag is set, log the shopkeeper out
+    // so they must re-login on the new version.
+    val pendingLogout = sharedPrefs.getBoolean("pending_update_logout", false)
+    if (pendingLogout) {
+        sharedPrefs.edit()
+            .remove("pending_update_logout")
+            .remove("is_logged_in")
+            .remove("is_admin")
+            .remove("auth_token")
+            .remove("shop_name")
+            .apply()
+        isUserLoggedIn = false
+        Log.d("MAIN_ACTIVITY", "Post-update logout complete. Shopkeeper must re-login.")
+    }
+
+    // ─── APK-Replacement Session Reset (fresh install / manual update) ─────
+    // Installing a new APK over the old one keeps SharedPreferences, so the
+    // PREVIOUS login session survives: the app opens straight to the dashboard
+    // and the update popup fires without any login happening. Detect the APK
+    // replacement (install time changed) and clear the session, so the user
+    // logs in FIRST and the update popup can only appear AFTER that login.
+    val lastInstallTime = sharedPrefs.getLong("app_last_update_time", 0L)
+    val currentInstallTime = try {
+        context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
+    } catch (_: Exception) { 0L }
+    if (currentInstallTime != 0L && currentInstallTime != lastInstallTime) {
+        sharedPrefs.edit()
+            .putLong("app_last_update_time", currentInstallTime)
+            .remove("is_logged_in")
+            .remove("is_admin")
+            .remove("auth_token")
+            .remove("shop_name")
+            .apply()
+        isUserLoggedIn = false
+        Log.d("MAIN_ACTIVITY", "APK replaced — session cleared, login required before update check.")
+    }
 
     val lockManager = remember { com.pksafe.lock.manager.util.LockManager(context) }
     val isAdmin = sharedPrefs.getBoolean("is_admin", false)
@@ -164,17 +239,22 @@ fun MainAppEntryPoint() {
     // Skip this during an active wireless provisioning session — applying
     // DISALLOW_DEBUGGING_FEATURES here would drop the ADB connection before the
     // shopkeeper side finishes granting permissions.
+    // NEW: We also wait for connection verification (FCM/SMS handshake) before locking down
+    // to prevent "bricking" the device in an unmanaged state.
     LaunchedEffect(isCustomer) {
         if (isCustomer && lockManager.isDeviceOwner()) {
             val provisioningComplete = sharedPrefs.getBoolean("provisioning_complete", false)
             val provisioningActive = sharedPrefs.getBoolean("wireless_provisioning_active", false)
-            if (provisioningComplete && !provisioningActive) {
+            val isVerified = sharedPrefs.getBoolean("fcm_verified", false) && 
+                             sharedPrefs.getBoolean("sms_verified", false)
+                             
+            if (provisioningComplete && !provisioningActive && isVerified) {
                 // Block Factory Reset, USB, and Debugging PERMANENTLY for customers
                 // We use a custom function that doesn't rely on the "is_locked" flag
                 lockManager.enforcePermanentRestrictions(true)
-                Log.d("SECURITY_ENFORCE", "Permanent Customer Restrictions Applied")
+                Log.d("SECURITY_ENFORCE", "Permanent Customer Restrictions Applied (Verified)")
             } else {
-                Log.d("SECURITY_ENFORCE", "Skipping permanent restrictions: provisioningComplete=$provisioningComplete, active=$provisioningActive")
+                Log.d("SECURITY_ENFORCE", "Skipping permanent restrictions: provisioningComplete=$provisioningComplete, active=$provisioningActive, verified=$isVerified")
             }
         }
     }
@@ -210,19 +290,103 @@ fun MainAppEntryPoint() {
         locationPermissionMissing = !fineGranted
     }
 
-    // Jab bhi app foreground mein aaye, dobara check karo
+    // ─── Update Dialog State ───────────────────────────────────────────────
+    var showUpdateDialog by remember { mutableStateOf<com.pksafe.lock.manager.util.AutoUpdater.UpdateCheckResult?>(null) }
+    var isUpdating by remember { mutableStateOf(false) }
+    var triggerDownload by remember { mutableStateOf(false) }
+
+    // ─── Download trigger — runs inside composition scope so state changes are observed ──
+    LaunchedEffect(triggerDownload) {
+        if (!triggerDownload) return@LaunchedEffect
+        val downloadUrl = showUpdateDialog?.downloadUrl ?: run {
+            triggerDownload = false
+            return@LaunchedEffect
+        }
+        val versionCode = showUpdateDialog?.versionCode ?: 0
+        try {
+            Log.d("MAIN_ACTIVITY", "Starting update download from $downloadUrl")
+            val updater = com.pksafe.lock.manager.util.AutoUpdater(context)
+            // Mark this version as triggered BEFORE downloading — prevents repeat popups
+            updater.markUpdateTriggered(versionCode)
+            updater.downloadAndInstall(downloadUrl)
+            Log.d("MAIN_ACTIVITY", "Download + install committed. Closing dialog.")
+        } catch (e: Exception) {
+            Log.e("MAIN_ACTIVITY", "Update download failed: ${e.message}", e)
+        } finally {
+            // Always close dialog and reset state — app will restart shortly
+            showUpdateDialog = null
+            isUpdating = false
+            triggerDownload = false
+        }
+    }
+
+    // ─── Permission checks (run when isCustomer changes) ────────────────
     LaunchedEffect(isCustomer) {
         if (isCustomer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             overlayPermissionMissing = !Settings.canDrawOverlays(context)
             smsPermissionMissing = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECEIVE_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED
             locationPermissionMissing = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED
         }
+    }
+
+    // ─── AUTO-UPDATE CHECK — runs ONLY after login (not on login screen) ──
+    // Keyed on isUserLoggedIn so:
+    //   • Fresh install → login screen → NO check (user not logged in yet)
+    //   • User logs in → isUserLoggedIn=true → check runs → popup if admin pushed update
+    //   • Post-update restart → logout → re-login → check runs again but
+    //     update_triggered_version flag inside AutoUpdater blocks repeat popup
+    LaunchedEffect(isUserLoggedIn) {
+        if (!isUserLoggedIn) return@LaunchedEffect
         
-        // --- AUTO-UPDATE TRIGGER (For both Customer and Shopkeeper) ---
+        // Small delay to let the dashboard render before checking
+        kotlinx.coroutines.delay(1000)
+        
+        // --- Role-specific behaviour ---
+        // Note: AutoUpdater.checkForUpdates() internally checks "update_triggered_version"
+        // flag — if user already tapped UPDATE for this version, it returns updateAvailable=false.
         try {
-            com.pksafe.lock.manager.util.AutoUpdater(context).checkForUpdatesAndInstall()
+            val updateResult = com.pksafe.lock.manager.util.AutoUpdater(context).checkForUpdates()
+            Log.d("MAIN_ACTIVITY", "Update check: available=${updateResult.updateAvailable}, force=${updateResult.isForceUpdate}, role=$userRole")
+            
+            if (updateResult.updateAvailable) {
+                when {
+                    isCustomer && updateResult.isForceUpdate -> {
+                        // Customer: only force updates
+                        showUpdateDialog = updateResult
+                    }
+                    userRole == "admin" -> {
+                        // Admin: NO popup — admin pushes updates, doesn't receive them
+                        Log.d("MAIN_ACTIVITY", "Admin device — skipping update popup")
+                    }
+                    userRole == "dealer" || userRole == "shopkeeper" -> {
+                        // Server-side PER-USER state: the admin's push armed THIS
+                        // user (updatePending=true). null (older server / offline
+                        // heal) fails open — local update_seen_version still guards.
+                        val pending = serverUpdatePending ?: true
+                        if (pending) {
+                            // Show popup (AFTER login only — this effect returns
+                            // early while not logged in)
+                            showUpdateDialog = updateResult
+                            // State machine: popup shown -> this user's state flips
+                            // to FALSE — locally AND on the server — so it never
+                            // shows again for this user until the admin pushes a
+                            // newer versionCode.
+                            com.pksafe.lock.manager.util.AutoUpdater(context).markUpdateSeen(updateResult.versionCode)
+                            val authToken = sharedPrefs.getString("auth_token", "") ?: ""
+                            if (authToken.isNotEmpty()) {
+                                try {
+                                    roleApi.postUpdateConsumed("Bearer $authToken")
+                                    serverUpdatePending = false
+                                } catch (_: Exception) {
+                                    // Offline — the server flips on the next served popup
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         } catch (e: Exception) {
-            Log.e("MAIN_ACTIVITY", "Auto update check failed", e)
+            Log.e("MAIN_ACTIVITY", "Auto update check failed: ${e.message}", e)
         }
     }
 
@@ -336,6 +500,134 @@ fun MainAppEntryPoint() {
         return
     }
 
+    // ─── App Update Dialog (Role-specific: Shopkeeper/Dealer popup / Customer force) ─
+    showUpdateDialog?.let { result ->
+        val roleLabel = when (userRole) {
+            "dealer" -> "Dealer"
+            "shopkeeper" -> "Shopkeeper"
+            else -> ""
+        }
+        AlertDialog(
+            onDismissRequest = {
+                // Customer force update cannot dismiss; shopkeeper/dealer can if not force
+                if (isCustomer || result.isForceUpdate) {
+                    // Block dismiss for force updates
+                } else {
+                    showUpdateDialog = null
+                }
+            },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            androidx.compose.ui.graphics.Brush.linearGradient(
+                                listOf(Color(0xFF2563EB), Color(0xFF1D4ED8))
+                            ),
+                            androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.SystemUpdate, null, tint = Color.White, modifier = Modifier.size(28.dp))
+                }
+            },
+            title = {
+                Text(
+                    text = result.title.ifBlank { if (result.isForceUpdate) "Critical Update Required" else "Update Available" },
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E293B)
+                )
+            },
+            text = {
+                Column {
+                    if (roleLabel.isNotEmpty()) {
+                        Text(
+                            "$roleLabel Update",
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF7C3AED),
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                    Text(
+                        "Version ${result.versionName} available",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2563EB),
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        result.message.ifBlank {
+                            if (result.isForceUpdate) "This update is required to continue using the app."
+                            else "A new version is available. Update now to get the latest features and improvements."
+                        },
+                        fontSize = 14.sp,
+                        color = Color(0xFF64748B),
+                        lineHeight = 20.sp
+                    )
+                    if (isUpdating) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color(0xFF2563EB), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text("Downloading update...", fontSize = 13.sp, color = Color(0xFF2563EB), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                if (isUpdating) {
+                    // Downloading — no button
+                } else if (!isCustomer) {
+                    // Shopkeeper/Dealer: tap UPDATE → download + silent install + auto-logout on restart
+                    Button(
+                        onClick = {
+                            isUpdating = true
+                            triggerDownload = true  // LaunchedEffect handles the rest
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                    ) {
+                        Text("UPDATE", fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                    }
+                } else {
+                    // Customer force update: open download URL
+                    Button(
+                        onClick = {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(result.downloadUrl))
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Log.e("UPDATE_DIALOG", "Could not open download URL", e)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                    ) {
+                        Text("UPDATE NOW", fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                    }
+                }
+            },
+            dismissButton = {
+                // Shopkeeper/Dealer can skip if not force update
+                if (!isCustomer && !result.isForceUpdate && !isUpdating) {
+                    TextButton(
+                        onClick = { showUpdateDialog = null },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Later", color = Color(0xFF64748B))
+                    }
+                }
+            },
+            containerColor = Color.White,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+        )
+        // Force update: block rest of UI
+        if (result.isForceUpdate || isUpdating) return
+    }
+
     // ─── BACKGROUND SYNC TRIGGER ──────────────────────────────────────────
     LaunchedEffect(isCustomer, deviceImei) {
         if (isCustomer && !deviceImei.isNullOrBlank()) {
@@ -353,7 +645,7 @@ fun MainAppEntryPoint() {
                 sharedPrefs.edit().putString("fcm_token", token).apply()
                 
                 if (isCustomer && !deviceImei.isNullOrBlank()) {
-                    syncTokenToServer(deviceImei!!, token)
+                    syncTokenToServer(context, deviceImei!!, token)
                 } else if (!isCustomer && isUserLoggedIn) {
                     // Update Shopkeeper's token
                     val authToken = sharedPrefs.getString("auth_token", null)
@@ -433,13 +725,15 @@ fun MainAppEntryPoint() {
             }
         )
     } else {
+        // ─── ADMIN / SHOPKEEPER ROUTE ──────────────────────────────────
         PKLockerApp(
-            isAdmin = true, 
+            isAdmin = userRole == "admin", 
             onLogout = {
                 isUserLoggedIn = false
                 sharedPrefs.edit()
                     .remove("is_logged_in")
                     .remove("is_admin")
+                    .remove("user_role")
                     .remove("auth_token")
                     .remove("shop_name")
                     .apply()
@@ -449,7 +743,7 @@ fun MainAppEntryPoint() {
 }
 
 
-private fun syncTokenToServer(imei: String, token: String) {
+private fun syncTokenToServer(context: Context, imei: String, token: String) {
     val retrofit = Retrofit.Builder()
         .baseUrl(com.pksafe.lock.manager.util.Constants.BASE_URL)
         .addConverterFactory(GsonConverterFactory.create())
@@ -458,8 +752,14 @@ private fun syncTokenToServer(imei: String, token: String) {
     
     CoroutineScope(Dispatchers.IO).launch {
         try {
-            apiService.updateFcmToken(mapOf("imei" to imei, "fcmToken" to token))
-            Log.d("SYNC_TOKEN", "Token synced for IMEI: $imei")
+            val res = apiService.updateFcmToken(mapOf("imei" to imei, "fcmToken" to token))
+            if (res.isSuccessful) {
+                Log.d("SYNC_TOKEN", "Token synced for IMEI: $imei")
+                context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("fcm_verified", true)
+                    .apply()
+            }
         } catch (e: Exception) {
             Log.e("SYNC_TOKEN", "Failed to sync: ${e.message}")
         }
@@ -569,9 +869,18 @@ private fun fetchAndSaveSmsCodesForCustomer(context: Context, imei: String) {
                         .putString("shop_phone", shopPhone)
                         .putString("emi_amount", "Rs. ${emiAmount?.toInt() ?: 0}")
                         .putString("emi_due_date", formattedDate)
+                        .putBoolean("sms_verified", true)
+                        .putBoolean("is_locked", device.status == "Locked") // NEW: Sync Lock Status
                         .apply()
                         
-                    Log.d("LOCK_SYNC", "Device info successfully saved to preferences")
+                    Log.d("LOCK_SYNC", "Device info successfully saved to preferences (SMS Verified + State Sync)")
+                    
+                    // Force UI to react if state changed
+                    if (device.status == "Locked") {
+                        com.pksafe.lock.manager.util.LockManager(context).lockDevice()
+                    } else {
+                        com.pksafe.lock.manager.util.LockManager(context).unlockDevice()
+                    }
                 } else {
                     Log.w("LOCK_SYNC", "Server response unsuccessful or body null")
                 }
@@ -728,8 +1037,11 @@ fun CustomerStatusScreen(
                 val isCustomer = prefs.getBoolean("is_customer", false)
                 val provisioningComplete = prefs.getBoolean("provisioning_complete", false)
                 val provisioningActive = prefs.getBoolean("wireless_provisioning_active", false)
+                val isVerified = prefs.getBoolean("fcm_verified", false) && 
+                                 prefs.getBoolean("sms_verified", false)
+
                 lockManager.applyDeviceOwnerProtection(
-                    includeDebuggingRestriction = isCustomer && provisioningComplete && !provisioningActive
+                    includeDebuggingRestriction = isCustomer && provisioningComplete && !provisioningActive && isVerified
                 )
             }
             isAccessibilityActive = com.pksafe.lock.manager.service.AntiUninstallService.isServiceRunning(context)
@@ -745,6 +1057,96 @@ fun CustomerStatusScreen(
             Spacer(modifier = Modifier.height(40.dp))
             
             // --- Premium Header ---
+            var showSecretReset by remember { mutableStateOf(false) }
+            var secretCodeInput by remember { mutableStateOf("") }
+            var secretError by remember { mutableStateOf<String?>(null) }
+            
+            // Get current device IMEI last 5 digits for verification
+            fun getLast5ImeiDigits(): String {
+                val imei = sharedPrefs.getString("device_imei", "") ?: ""
+                return if (imei.length >= 5) imei.takeLast(5) else imei
+            }
+
+            if (showSecretReset) {
+                val last5 = getLast5ImeiDigits()
+                AlertDialog(
+                    onDismissRequest = { 
+                        showSecretReset = false
+                        secretCodeInput = ""
+                        secretError = null
+                    },
+                    containerColor = Color(0xFF1A1A1A),
+                    shape = RoundedCornerShape(24.dp),
+                    icon = {
+                        Icon(Icons.Default.DeleteForever, null, tint = Color(0xFFEF4444), modifier = Modifier.size(32.dp))
+                    },
+                    title = { Text("System Reset", color = Color.White, fontWeight = FontWeight.Bold) },
+                    text = { 
+                        Column {
+                            Text(
+                                "Secret Code enter karein.",
+                                color = Color.Gray,
+                                fontSize = 13.sp,
+                                lineHeight = 19.sp
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = secretCodeInput,
+                                onValueChange = { 
+                                    if (it.length <= 5 && it.all { c -> c.isDigit() }) {
+                                        secretCodeInput = it; secretError = null 
+                                    }
+                                },
+                                label = { Text("Secret Code", color = Color.Gray) },
+                                isError = secretError != null,
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    cursorColor = Color.White,
+                                    focusedBorderColor = Color(0xFFEF4444),
+                                    unfocusedBorderColor = Color(0xFF444444),
+                                    focusedContainerColor = Color(0xFF0F0F0F),
+                                    unfocusedContainerColor = Color(0xFF0F0F0F)
+                                )
+                            )
+                            if (secretError != null) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(secretError!!, color = Color(0xFFEF4444), fontSize = 12.sp)
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = { 
+                                val entered = secretCodeInput.trim()
+                                if (entered == last5 && last5.isNotBlank()) {
+                                    showSecretReset = false
+                                    secretCodeInput = ""
+                                    secretError = null
+                                    com.pksafe.lock.manager.util.DeviceDeregistrator.performFullDeregister(context)
+                                } else {
+                                    secretError = "Ghalat Secret Code!"
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("UNINSTALL", fontWeight = FontWeight.Bold) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { 
+                            showSecretReset = false
+                            secretCodeInput = ""
+                            secretError = null
+                        }) {
+                            Text("Cancel", color = Color.Gray)
+                        }
+                    }
+                )
+            }
+
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -755,6 +1157,9 @@ fun CustomerStatusScreen(
                         ),
                         shape = CircleShape
                     )
+                    .pointerInput(Unit) {
+                        detectTapGestures(onLongPress = { showSecretReset = true })
+                    }
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
@@ -788,7 +1193,74 @@ fun CustomerStatusScreen(
             )
 
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // ─── CONNECTION STATUS CARD ────────────────────────────────────
+            val fcmVerified = sharedPrefs.getBoolean("fcm_verified", false)
+            val smsVerified = sharedPrefs.getBoolean("sms_verified", false)
+            val isVerified = fcmVerified && smsVerified
+            
+            Card(
+                colors = CardDefaults.cardColors(containerColor = if (isVerified) Color(0xFF0F172A) else Color(0xFF2D1B1B)),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, if (isVerified) Color(0xFF1E293B) else Color(0xFF451A1A)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            if (isVerified) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                            null,
+                            tint = if (isVerified) Color(0xFF22C55E) else Color(0xFFEF4444),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            if (isVerified) "HANDSHAKE SUCCESSFUL" else "CONNECTION PENDING",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            color = if (isVerified) Color(0xFF22C55E) else Color(0xFFEF4444),
+                            letterSpacing = 1.sp
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    StatusRow("IMEI Registration", imei != "Not Set", "Syncing...")
+                    StatusRow("Server FCM Handshake", fcmVerified, "Waiting for Token...")
+                    StatusRow("Offline SMS Security", smsVerified, "Fetching Codes...")
+                    
+                    if (!isVerified) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                if (imei != "Not Set") {
+                                    fetchAndSaveSmsCodesForCustomer(context, imei)
+                                    FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                                        if (task.isSuccessful) syncTokenToServer(context, imei, task.result)
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF451A1A)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("RETRY SYNC", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                        
+                        TextButton(
+                            onClick = onReset,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("ABORT ACTIVATION (Emergency)", color = Color.Gray, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             // ─── MANUAL SECURITY SETUP (NO PC / NO QR) ──────────────────────
             Card(
@@ -916,13 +1388,34 @@ fun CustomerStatusScreen(
                 textAlign = TextAlign.Center
             )
 
-
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
 
+
+@Composable
+fun StatusRow(label: String, isOk: Boolean, pendingText: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, fontSize = 13.sp, color = Color.Gray)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (isOk) {
+                Text("OK", color = Color(0xFF22C55E), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Spacer(Modifier.width(6.dp))
+                Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF22C55E), modifier = Modifier.size(14.dp))
+            } else {
+                Text(pendingText, color = Color(0xFFF59E0B), fontSize = 12.sp)
+                Spacer(Modifier.width(6.dp))
+                CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp, color = Color(0xFFF59E0B))
+            }
+        }
+    }
+}
 
 @Composable
 fun PermissionItem(title: String, subtitle: String? = null, isActive: Boolean, onClick: () -> Unit) {
@@ -1358,14 +1851,7 @@ fun CustomerLockScreen(onReset: () -> Unit) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
 
-            // Subtle Emergency Release — requires the shopkeeper's secret
-            // DEREGISTER code (same key shown in the shopkeeper Control Panel).
-            // A bare tap can NO LONGER bypass the EMI lock.
-            TextButton(onClick = { showReleaseDialog = true }) {
-                Text("Emergency Local Release", color = Color.White.copy(0.1f), fontSize = 10.sp)
-            }
         }
     }
 }
@@ -1390,7 +1876,11 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
         currentDestination = dest
     }
 
-    if (selectedDeviceImei != null && isAdmin) {
+    // Control Panel: available to ALL logged-in roles (admin, dealer, shopkeeper).
+    // The backend scopes every per-device route for non-admins
+    // (`if (req.user.role !== 'admin') query.shopkeeper = req.user._id`) ,
+    // so a shopkeeper can only open/control their OWN devices from here.
+    if (selectedDeviceImei != null) {
         ControlPanelScreen(
             imei = selectedDeviceImei!!,
             customerName = selectedDeviceName ?: "Unknown",
@@ -1410,7 +1900,11 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                     it != AppDestinations.NFC_SETUP &&
                     it != AppDestinations.WIRELESS_ADB &&
                     it != AppDestinations.ADMIN_KEYS &&
-                    it != AppDestinations.REGISTRATION
+                    it != AppDestinations.REGISTRATION &&
+                    it != AppDestinations.BUY_KEYS &&
+                    it != AppDestinations.MANAGE_ACCOUNTS &&
+                    it != AppDestinations.ALLOCATE_KEYS &&
+                    it != AppDestinations.ADMIN_UPDATE_CONFIG
                 }.forEach {
                     item(
                         icon = { Icon(imageVector = it.icon, contentDescription = it.label) },
@@ -1439,18 +1933,21 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                                 "NFC Setup" -> navigateSafe(AppDestinations.NFC_SETUP)
                                 "Key Requests" -> navigateSafe(AppDestinations.ADMIN_KEYS)
                                 "Register Device" -> navigateSafe(AppDestinations.REGISTRATION)
+                                "Manage Users" -> navigateSafe(AppDestinations.MANAGE_ACCOUNTS)
+                                "Allocate Keys" -> navigateSafe(AppDestinations.ALLOCATE_KEYS)
+                                "App Updates" -> navigateSafe(AppDestinations.ADMIN_UPDATE_CONFIG)
                             }
                         })
-                        AppDestinations.LIST -> if (isAdmin) DeviceListScreen(
+                        AppDestinations.LIST -> DeviceListScreen(
                             onDeviceClick = { imei, name ->
                                 selectedDeviceImei = imei
                                 selectedDeviceName = name
                             }
                         )
-                        AppDestinations.EMI_LIST -> if (isAdmin) EmiListScreen(
+                        AppDestinations.EMI_LIST -> EmiListScreen(
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
-                        AppDestinations.DEREGISTER_LIST -> if (isAdmin) DeregisteredListScreen(
+                        AppDestinations.DEREGISTER_LIST -> DeregisteredListScreen(
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
                         AppDestinations.PROVISIONING_QR -> if (isAdmin) com.pksafe.lock.manager.ui.dashboard.QrSetupScreen(
@@ -1460,7 +1957,7 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                         AppDestinations.CABLE_SYNC -> if (isAdmin) com.pksafe.lock.manager.ui.provisioning.ProvisioningCableScreen(
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
-                        AppDestinations.WIRELESS_ADB -> if (isAdmin) com.pksafe.lock.manager.ui.provisioning.WirelessAdbSetupScreen(
+                        AppDestinations.WIRELESS_ADB -> com.pksafe.lock.manager.ui.provisioning.WirelessAdbSetupScreen(
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
                         AppDestinations.PHONE_QR -> if (isAdmin) ProvisioningQrScreen(
@@ -1468,20 +1965,23 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                             isForInstallation = true,
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
-                        AppDestinations.VIDEO_HELP -> if (isAdmin) Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        AppDestinations.VIDEO_HELP -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("Video Tutorials Coming Soon")
                         }
                         AppDestinations.EASY_SETUP -> if (isAdmin) com.pksafe.lock.manager.ui.provisioning.EasySetupScreen(
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
-                        AppDestinations.BUY_KEYS -> if (isAdmin) com.pksafe.lock.manager.ui.keys.BuyKeysScreen(
+                        AppDestinations.BUY_KEYS -> com.pksafe.lock.manager.ui.keys.BuyKeysScreen(
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
-                        AppDestinations.REGISTRATION -> if (isAdmin) RegistrationScreen(
+                        AppDestinations.REGISTRATION -> RegistrationScreen(
                             onRegistrationSuccess = { currentDestination = AppDestinations.HOME }
                         )
                         AppDestinations.NFC_SETUP -> if (isAdmin) NfcSetupScreen(onBack = { currentDestination = AppDestinations.HOME })
                         AppDestinations.ADMIN_KEYS -> if (isAdmin) com.pksafe.lock.manager.ui.keys.AdminKeyOrdersScreen(onBack = { currentDestination = AppDestinations.HOME })
+                        AppDestinations.MANAGE_ACCOUNTS -> com.pksafe.lock.manager.ui.keys.ManageAccountsScreen(onBack = { currentDestination = AppDestinations.HOME })
+                        AppDestinations.ALLOCATE_KEYS -> if (isAdmin) com.pksafe.lock.manager.ui.keys.AllocateKeysScreen(onBack = { currentDestination = AppDestinations.HOME })
+                        AppDestinations.ADMIN_UPDATE_CONFIG -> if (isAdmin) com.pksafe.lock.manager.ui.dashboard.AdminUpdateConfigScreen(onBack = { currentDestination = AppDestinations.HOME })
                         AppDestinations.PROFILE -> com.pksafe.lock.manager.ui.profile.ProfileScreen(
                             onLogout = onLogout
                         )
@@ -1507,5 +2007,8 @@ enum class AppDestinations(val label: String, val icon: ImageVector) {
     WIRELESS_ADB("Wireless ADB", Icons.Default.WifiTethering),
     EASY_SETUP("Easy Setup", Icons.Default.PhoneAndroid),
     NFC_SETUP("NFC Setup", Icons.Default.TapAndPlay),
-    ADMIN_KEYS("Key Requests", Icons.Default.AdminPanelSettings)
+    ADMIN_KEYS("Key Requests", Icons.Default.AdminPanelSettings),
+    MANAGE_ACCOUNTS("Manage Accounts", Icons.Default.ManageAccounts),
+    ALLOCATE_KEYS("Allocate Keys", Icons.Default.VpnKey),
+    ADMIN_UPDATE_CONFIG("App Updates", Icons.Default.SystemUpdate)
 }
