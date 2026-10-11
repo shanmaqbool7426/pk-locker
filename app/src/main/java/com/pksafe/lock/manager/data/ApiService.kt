@@ -98,10 +98,12 @@ interface ApiService {
     ): Response<RegistrationResponse>
 
     // Heartbeat: lightweight ping that updates lastSeen on server
-    // and returns current device state for missed-command detection
+    // and returns current device state for missed-command detection.
+    // Also sends the device's local lock status so server stays in sync.
     @POST("devices/{imei}/heartbeat")
     suspend fun sendHeartbeat(
-        @Path("imei") imei: String
+        @Path("imei") imei: String,
+        @Body body: Map<String, @JvmSuppressWildcards String>
     ): Response<HeartbeatResponse>
 
     // Command acknowledgment: device tells server it received and processed an FCM command

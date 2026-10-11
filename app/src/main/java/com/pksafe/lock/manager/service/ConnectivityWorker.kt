@@ -128,21 +128,24 @@ class ConnectivityWorker(context: Context, params: WorkerParameters) : Coroutine
                 .apply()
         }
 
-        // ── Legacy: offline auto-lock after 24h without any heartbeat ─────
-        val lastSyncTime = prefs.getLong("last_online_sync", now)
-        val offlineLimit = TimeUnit.HOURS.toMillis(24)
-        if (now - lastSyncTime > offlineLimit && serverState == null) {
-            Log.w(TAG, "Device offline for 24h+ and heartbeat failed. Locking locally...")
-            prefs.edit().putBoolean("is_locked", true).apply()
-            val lockManager = LockManager(applicationContext)
-            lockManager.lockDevice()
-        }
+        // ── REMOVED: Legacy offline auto-lock ──────────────────────────────
+        // Previously: if device was offline 24h+, it locked itself locally.
+        // This caused two problems:
+        //   1. Customer devices locked unexpectedly after 2-4 days of bad connectivity
+        //   2. Server never knew about the local lock → shopkeeper still saw "Unlock" status
+        // Now: Server is the SOLE authority for lock/unlock (via EMI enforcer cron,
+        // manual shopkeeper action, or FCM). Device only locks when server tells it to.
+        // The heartbeat below now SENDS the local lock status TO the server so the
+        // shopkeeper always sees the real device state.
 
         return ListenableWorker.Result.success()
     }
 
     /**
      * Sends heartbeat to server, returns parsed server state or null on failure.
+     * Also sends the device's LOCAL lock status to the server so the shopkeeper
+     * always sees the real device state (even if device was locked locally via FCM
+     * or other mechanism that the server didn't initiate).
      */
     private suspend fun sendHeartbeat(imei: String): com.pksafe.lock.manager.data.HeartbeatData? {
         return try {
@@ -152,9 +155,14 @@ class ConnectivityWorker(context: Context, params: WorkerParameters) : Coroutine
                 .build()
             val api = retrofit.create(ApiService::class.java)
 
-            val response = api.sendHeartbeat(imei)
+            // Read local lock status and send it to server
+            val prefs = applicationContext.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+            val localLocked = prefs.getBoolean("is_locked", false)
+            val localStatus = if (localLocked) "Locked" else "Unlocked"
+
+            val response = api.sendHeartbeat(imei, mapOf("status" to localStatus))
             if (response.isSuccessful && response.body()?.success == true) {
-                Log.d(TAG, "Heartbeat sent. Server state: ${response.body()?.data?.status}")
+                Log.d(TAG, "Heartbeat sent (status=$localStatus). Server state: ${response.body()?.data?.status}")
                 response.body()?.data
             } else {
                 Log.w(TAG, "Heartbeat response not successful: ${response.code()}")
