@@ -169,6 +169,7 @@ class ConnectivityWorker(context: Context, params: WorkerParameters) : Coroutine
                 null
             }
         } catch (e: Exception) {
+
             Log.e(TAG, "Heartbeat failed: ${e.message}")
             null
         }
