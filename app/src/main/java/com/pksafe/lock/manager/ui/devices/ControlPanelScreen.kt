@@ -65,6 +65,8 @@ fun ControlPanelScreen(
 ) {
     val context = LocalContext.current
     val device = viewModel.devices.find { it.imei == imei }
+    val isAdmin = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        .getBoolean("is_admin", false)
 
     LaunchedEffect(Unit) {
         viewModel.fetchDevices(context)
@@ -76,6 +78,8 @@ fun ControlPanelScreen(
     var showLockDialog by remember { mutableStateOf(false) }
     var pendingLockState by remember { mutableStateOf(false) }
     var isOnlineMode by remember { mutableStateOf(true) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     if (showLockDialog) {
         LockConfirmDialog(
@@ -87,6 +91,74 @@ fun ControlPanelScreen(
                 showLockDialog = false
             },
             onDismiss = { showLockDialog = false }
+        )
+    }
+
+    // ── Admin Edit Device Dialog ──
+    if (showEditDialog && device != null) {
+        EditDeviceDialog(
+            device = device,
+            onDismiss = { showEditDialog = false },
+            onSave = { updatedFields ->
+                viewModel.updateDevice(context, imei, updatedFields) { success, msg ->
+                    if (success) {
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                        showEditDialog = false
+                    } else {
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        )
+    }
+
+    // ── Admin Delete Confirmation Dialog ──
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            containerColor = CardWhite,
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Warning, null, tint = Danger)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Delete Device", color = Danger, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column {
+                    Text("Are you sure you want to permanently delete this device?", color = TextPrimary)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("IMEI: $imei", color = TextSecondary, fontWeight = FontWeight.Medium)
+                    Text("Customer: $customerName", color = TextSecondary, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("This will also delete all EMI records. This action cannot be undone!", color = Danger, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.hardDeleteDevice(context, imei) { success, msg ->
+                            if (success) {
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                onBack() // Go back to device list
+                            } else {
+                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Danger),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Delete", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            }
         )
     }
 
@@ -110,6 +182,14 @@ fun ControlPanelScreen(
                         }
                     },
                     actions = {
+                        if (isAdmin) {
+                            IconButton(onClick = { showEditDialog = true }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit Device", tint = Primary)
+                            }
+                            IconButton(onClick = { showDeleteDialog = true }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete Device", tint = Danger)
+                            }
+                        }
                         IconButton(onClick = { viewModel.fetchDevices(context) }) {
                             Icon(Icons.Default.Refresh, contentDescription = null, tint = Primary)
                         }
@@ -1487,7 +1567,10 @@ private fun ControlSwitch(
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color.White,
                     checkedTrackColor = Primary,
-                    uncheckedTrackColor = Color(0xFFE2E8F0)
+                    checkedBorderColor = Primary,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = Color(0xFFCBD5E1),
+                    uncheckedBorderColor = Color(0xFF94A3B8)
                 )
             )
         }
@@ -1901,4 +1984,163 @@ private fun ActivityTimelineItem(item: com.pksafe.lock.manager.data.ActivityLogI
             }
         }
     }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  Admin Edit Device Dialog
+// ═════════════════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditDeviceDialog(
+    device: DeviceResponse,
+    onDismiss: () -> Unit,
+    onSave: (Map<String, Any>) -> Unit
+) {
+    var customerName by remember { mutableStateOf(device.customerName) }
+    var phoneNumber by remember { mutableStateOf(device.phoneNumber) }
+    var cnic by remember { mutableStateOf(device.cnic) }
+    var brand by remember { mutableStateOf(device.brand ?: "") }
+    var model by remember { mutableStateOf(device.model ?: "") }
+    var productName by remember { mutableStateOf(device.productName ?: "") }
+    var totalPrice by remember { mutableStateOf(if (device.totalPrice > 0) device.totalPrice.toString() else "") }
+    var downPayment by remember { mutableStateOf(if (device.downPayment > 0) device.downPayment.toString() else "") }
+    var balance by remember { mutableStateOf(if (device.balance > 0) device.balance.toString() else "") }
+    var emiTenure by remember { mutableStateOf(if (device.emiTenure > 0) device.emiTenure.toString() else "") }
+    var emiAmount by remember { mutableStateOf(if (device.emiAmount > 0) device.emiAmount.toString() else "") }
+    var guarantorName by remember { mutableStateOf(device.guarantor?.name ?: "") }
+    var guarantorMobile by remember { mutableStateOf(device.guarantor?.mobile ?: "") }
+    var guarantorAddress by remember { mutableStateOf(device.guarantor?.address ?: "") }
+    var isSaving by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        containerColor = CardWhite,
+        shape = RoundedCornerShape(20.dp),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Edit, null, tint = Primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Edit Device", color = TextPrimary, fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Customer Info", fontWeight = FontWeight.SemiBold, color = Primary, fontSize = 14.sp)
+                OutlinedTextField(
+                    value = customerName, onValueChange = { customerName = it },
+                    label = { Text("Customer Name") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = phoneNumber, onValueChange = { phoneNumber = it },
+                    label = { Text("Phone Number") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = cnic, onValueChange = { cnic = it },
+                    label = { Text("CNIC") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+
+                HorizontalDivider(color = Border)
+
+                Text("Device Info", fontWeight = FontWeight.SemiBold, color = Primary, fontSize = 14.sp)
+                OutlinedTextField(
+                    value = brand, onValueChange = { brand = it },
+                    label = { Text("Brand") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = model, onValueChange = { model = it },
+                    label = { Text("Model") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = productName, onValueChange = { productName = it },
+                    label = { Text("Product Name") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+
+                HorizontalDivider(color = Border)
+
+                Text("EMI Details", fontWeight = FontWeight.SemiBold, color = Primary, fontSize = 14.sp)
+                OutlinedTextField(
+                    value = totalPrice, onValueChange = { totalPrice = it.filter { c -> c.isDigit() || c == '.' } },
+                    label = { Text("Total Price") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = downPayment, onValueChange = { downPayment = it.filter { c -> c.isDigit() || c == '.' } },
+                    label = { Text("Down Payment") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = balance, onValueChange = { balance = it.filter { c -> c.isDigit() || c == '.' } },
+                    label = { Text("Balance") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = emiTenure, onValueChange = { emiTenure = it.filter { c -> c.isDigit() } },
+                    label = { Text("EMI Tenure (months)") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = emiAmount, onValueChange = { emiAmount = it.filter { c -> c.isDigit() || c == '.' } },
+                    label = { Text("EMI Amount") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+
+                HorizontalDivider(color = Border)
+
+                Text("Guarantor", fontWeight = FontWeight.SemiBold, color = Primary, fontSize = 14.sp)
+                OutlinedTextField(
+                    value = guarantorName, onValueChange = { guarantorName = it },
+                    label = { Text("Guarantor Name") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = guarantorMobile, onValueChange = { guarantorMobile = it },
+                    label = { Text("Guarantor Mobile") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = guarantorAddress, onValueChange = { guarantorAddress = it },
+                    label = { Text("Guarantor Address") }, singleLine = false, maxLines = 2, modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    isSaving = true
+                    val fields = mutableMapOf<String, Any>()
+                    if (customerName.isNotBlank()) fields["customerName"] = customerName
+                    if (phoneNumber.isNotBlank()) fields["phoneNumber"] = phoneNumber
+                    if (cnic.isNotBlank()) fields["cnic"] = cnic
+                    if (brand.isNotBlank()) fields["brand"] = brand
+                    if (model.isNotBlank()) fields["model"] = model
+                    if (productName.isNotBlank()) fields["productName"] = productName
+                    totalPrice.toDoubleOrNull()?.let { fields["totalPrice"] = it }
+                    downPayment.toDoubleOrNull()?.let { fields["downPayment"] = it }
+                    balance.toDoubleOrNull()?.let { fields["balance"] = it }
+                    emiTenure.toIntOrNull()?.let { fields["emiTenure"] = it }
+                    emiAmount.toDoubleOrNull()?.let { fields["emiAmount"] = it }
+                    fields["guarantor"] = mapOf(
+                        "name" to guarantorName,
+                        "mobile" to guarantorMobile,
+                        "address" to guarantorAddress
+                    )
+                    onSave(fields)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                shape = RoundedCornerShape(12.dp),
+                enabled = !isSaving
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text("Save", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isSaving) {
+                Text("Cancel", color = TextSecondary)
+            }
+        }
+    )
 }

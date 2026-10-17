@@ -5,6 +5,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.DELETE
 import retrofit2.http.PUT
 import retrofit2.http.Path
 
@@ -128,6 +129,21 @@ interface ApiService {
         @Path("imei") imei: String
     ): Response<DeregisterResponse>
 
+    // Admin: Update device details (customer info, EMI, brand, model etc.)
+    @PUT("devices/{imei}")
+    suspend fun updateDevice(
+        @Header("Authorization") token: String,
+        @Path("imei") imei: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Response<RegistrationResponse>
+
+    // Admin: Hard delete device (complete removal from DB)
+    @DELETE("devices/{imei}/hard-delete")
+    suspend fun hardDeleteDevice(
+        @Header("Authorization") token: String,
+        @Path("imei") imei: String
+    ): Response<RegistrationResponse>
+
     // ── Customer-side: fetch device info + smsCodes for offline SMS locking ──
     // This is called when customer activates their device (enters IMEI).
     // smsCodes (lockCode + unlockCode) are saved to SharedPrefs by MainActivity
@@ -236,6 +252,21 @@ interface ApiService {
         @Header("Authorization") token: String,
         @retrofit2.http.Query("search") search: String? = null
     ): Response<ShopkeeperListResponse>
+
+    // Admin: Edit shopkeeper/dealer details
+    @retrofit2.http.PATCH("admin/shopkeepers/{id}")
+    suspend fun editAccount(
+        @Header("Authorization") token: String,
+        @Path("id") id: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Response<GenericResponse>
+
+    // Admin: Delete (soft) shopkeeper/dealer
+    @retrofit2.http.DELETE("admin/shopkeepers/{id}")
+    suspend fun deleteAccount(
+        @Header("Authorization") token: String,
+        @Path("id") id: String
+    ): Response<GenericResponse>
 
     @POST("admin/keys/allocate")
     suspend fun allocateKeys(

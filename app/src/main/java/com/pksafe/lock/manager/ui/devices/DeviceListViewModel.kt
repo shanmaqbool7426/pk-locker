@@ -299,4 +299,58 @@ class DeviceListViewModel : ViewModel() {
     fun clearDeregisterResult() {
         deregisterResult = null
     }
+
+    // ── Admin: Update device details ──
+    var updateSuccess by mutableStateOf<Boolean?>(null)
+
+    fun updateDevice(context: Context, imei: String, body: Map<String, Any>, onResult: (Boolean, String) -> Unit) {
+        val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        val token = sharedPrefs.getString("auth_token", "") ?: ""
+        if (token.isEmpty()) return
+
+        viewModelScope.launch {
+            isLoading = true
+            try {
+                val response = apiService.updateDevice("Bearer $token", imei, body)
+                if (response.isSuccessful && response.body()?.success == true) {
+                    fetchDevices(context)
+                    onResult(true, response.body()?.message ?: "Device updated")
+                } else {
+                    val errMsg = response.body()?.message ?: response.message() ?: "Update failed"
+                    onResult(false, errMsg)
+                }
+            } catch (e: Exception) {
+                Log.e("UPDATE_DEVICE", "Error: ${e.message}")
+                onResult(false, e.message ?: "Network error")
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    // ── Admin: Hard delete device ──
+    fun hardDeleteDevice(context: Context, imei: String, onResult: (Boolean, String) -> Unit) {
+        val sharedPrefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        val token = sharedPrefs.getString("auth_token", "") ?: ""
+        if (token.isEmpty()) return
+
+        viewModelScope.launch {
+            isLoading = true
+            try {
+                val response = apiService.hardDeleteDevice("Bearer $token", imei)
+                if (response.isSuccessful && response.body()?.success == true) {
+                    fetchDevices(context)
+                    onResult(true, response.body()?.message ?: "Device deleted")
+                } else {
+                    val errMsg = response.body()?.message ?: response.message() ?: "Delete failed"
+                    onResult(false, errMsg)
+                }
+            } catch (e: Exception) {
+                Log.e("HARD_DELETE", "Error: ${e.message}")
+                onResult(false, e.message ?: "Network error")
+            } finally {
+                isLoading = false
+            }
+        }
+    }
 }

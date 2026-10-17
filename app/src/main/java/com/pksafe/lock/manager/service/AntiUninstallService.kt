@@ -25,15 +25,20 @@ class AntiUninstallService : AccessibilityService() {
 
     companion object {
         // --- 1. Blocked Keywords ---
+        // ONLY block dangerous actions — allow normal Settings (Wi-Fi, Display, Sound etc.)
         private val BLOCKED_KEYWORDS = listOf(
+            // App removal / admin
             "pk locker", "pklocker", "uninstall", "delete app",
-            "manage app if unused", "remove permissions", "display over other",
-            "appear on top", "draw over", "special app access",
+            "manage app if unused", "remove permissions",
             "device admin", "deactivate", "active admin",
-            "accessibility", "installed services", "downloaded apps",
-            "force stop", "force close", "developer options", "usb debugging",
-            "build number", "about phone", "reset options", "erase all data",
-            "factory reset", "reset"
+            // Accessibility guard bypass
+            "installed services", "downloaded apps",
+            // Dangerous resets only (NOT generic "reset" which matches Wi-Fi reset etc.)
+            "factory reset", "erase all data", "reset options",
+            // Developer/ADB bypass prevention
+            "developer options", "usb debugging",
+            // Force stop our app
+            "force stop", "force close"
         )
 
         // --- 2. Package Mapping ---

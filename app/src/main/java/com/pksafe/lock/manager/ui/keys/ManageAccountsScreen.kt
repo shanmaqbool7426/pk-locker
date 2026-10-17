@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.CircleShape
 import com.pksafe.lock.manager.data.ShopkeeperAccount
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -107,6 +109,54 @@ class ManageAccountsViewModel : ViewModel() {
             }
         }
     }
+
+    // ─ Admin: Edit account ──
+    fun editAccount(context: Context, id: String, body: Map<String, Any>, onResult: (Boolean, String) -> Unit) {
+        val prefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        val token = prefs.getString("auth_token", "") ?: ""
+        if (token.isEmpty()) { onResult(false, "Not logged in"); return }
+
+        viewModelScope.launch {
+            isSubmitting = true
+            try {
+                val response = apiService.editAccount("Bearer $token", id, body)
+                if (response.isSuccessful && response.body()?.success == true) {
+                    fetchAccounts(context, prefs.getString("user_role", "admin") ?: "admin")
+                    onResult(true, "Account updated")
+                } else {
+                    onResult(false, response.body()?.message ?: "Update failed")
+                }
+            } catch (e: Exception) {
+                onResult(false, e.message ?: "Network error")
+            } finally {
+                isSubmitting = false
+            }
+        }
+    }
+
+    // ── Admin: Delete account ──
+    fun deleteAccount(context: Context, id: String, onResult: (Boolean, String) -> Unit) {
+        val prefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        val token = prefs.getString("auth_token", "") ?: ""
+        if (token.isEmpty()) { onResult(false, "Not logged in"); return }
+
+        viewModelScope.launch {
+            isSubmitting = true
+            try {
+                val response = apiService.deleteAccount("Bearer $token", id)
+                if (response.isSuccessful && response.body()?.success == true) {
+                    fetchAccounts(context, prefs.getString("user_role", "admin") ?: "admin")
+                    onResult(true, "Account deleted")
+                } else {
+                    onResult(false, response.body()?.message ?: "Delete failed")
+                }
+            } catch (e: Exception) {
+                onResult(false, e.message ?: "Network error")
+            } finally {
+                isSubmitting = false
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -116,12 +166,16 @@ fun ManageAccountsScreen(onBack: () -> Unit, viewModel: ManageAccountsViewModel 
     val sharedPrefs = remember { context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE) }
     val userRole = (sharedPrefs.getString("user_role", "shopkeeper") ?: "shopkeeper").lowercase().trim()
 
-    var role by remember { mutableStateOf(if (userRole == "admin") "dealer" else "shopkeeper") }
+    var role by remember { mutableStateOf(if (userRole == "admin") "all" else "shopkeeper") }
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var shopName by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var editingAccount by remember { mutableStateOf<ShopkeeperAccount?>(null) }
+    var deletingAccount by remember { mutableStateOf<ShopkeeperAccount?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.fetchAccounts(context, userRole)
@@ -163,6 +217,11 @@ fun ManageAccountsScreen(onBack: () -> Unit, viewModel: ManageAccountsViewModel 
                 ) {
                     // Admin manages both roles; a dealer only ever manages shopkeepers
                     if (userRole == "admin") {
+                        FilterChip(
+                            selected = role == "all",
+                            onClick = { role = "all" },
+                            label = { Text("All Users", fontWeight = FontWeight.Bold) }
+                        )
                         FilterChip(
                             selected = role == "dealer",
                             onClick = { role = "dealer" },
@@ -243,10 +302,10 @@ fun ManageAccountsScreen(onBack: () -> Unit, viewModel: ManageAccountsViewModel 
 
                 // ─── LISTING SECTION ────────────────────────────────────────
                 item {
-                    Text("Existing ${role.replaceFirstChar { it.uppercase() }}s", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 12.dp))
+                    Text(if (role == "all") "All Accounts" else "Existing ${role.replaceFirstChar { it.uppercase() }}s", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 12.dp))
                 }
 
-                val filteredList = viewModel.accounts.filter { it.role == role }
+                val filteredList = if (role == "all") viewModel.accounts else viewModel.accounts.filter { it.role == role }
 
                 if (viewModel.isLoading && viewModel.accounts.isEmpty()) {
                     item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
@@ -258,7 +317,17 @@ fun ManageAccountsScreen(onBack: () -> Unit, viewModel: ManageAccountsViewModel 
                     }
                 } else {
                     items(filteredList) { acc ->
-                        AccountRow(acc)
+                        AccountRow(
+                            acc = acc,
+                            onEdit = {
+                                editingAccount = acc
+                                showEditDialog = true
+                            },
+                            onDelete = {
+                                deletingAccount = acc
+                                showDeleteDialog = true
+                            }
+                        )
                         Spacer(Modifier.height(10.dp))
                     }
                 }
@@ -267,42 +336,235 @@ fun ManageAccountsScreen(onBack: () -> Unit, viewModel: ManageAccountsViewModel 
             }
         }
     }
+
+    // ── Edit Account Dialog ──
+    if (showEditDialog && editingAccount != null) {
+        EditAccountDialog(
+            account = editingAccount!!,
+            onDismiss = { showEditDialog = false; editingAccount = null },
+            onSave = { fields ->
+                viewModel.editAccount(context, editingAccount!!.id ?: "", fields) { ok, msg ->
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    if (ok) {
+                        showEditDialog = false
+                        editingAccount = null
+                    }
+                }
+            }
+        )
+    }
+
+    // ── Delete Confirmation Dialog ──
+    if (showDeleteDialog && deletingAccount != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false; deletingAccount = null },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Delete, null, tint = Color(0xFFEF4444))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Delete Account", fontWeight = FontWeight.Bold, color = Color(0xFFEF4444))
+                }
+            },
+            text = {
+                Column {
+                    Text("Are you sure you want to delete this account?")
+                    Spacer(Modifier.height(8.dp))
+                    Text("Name: ${deletingAccount!!.name ?: "Unknown"}", fontWeight = FontWeight.SemiBold)
+                    Text("Shop: ${deletingAccount!!.shopName ?: "N/A"}", color = Color.Gray)
+                    Text("Phone: ${deletingAccount!!.phone ?: "N/A"}", color = Color.Gray)
+                    Spacer(Modifier.height(8.dp))
+                    Text("This will soft-delete the account. They won't be able to log in.", fontSize = 12.sp, color = Color(0xFFEF4444))
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteAccount(context, deletingAccount!!.id ?: "") { ok, msg ->
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            if (ok) {
+                                showDeleteDialog = false
+                                deletingAccount = null
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Delete", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false; deletingAccount = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable
-private fun AccountRow(acc: ShopkeeperAccount) {
+private fun AccountRow(
+    acc: ShopkeeperAccount,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(
-                color = Color(0xFF2563EB).copy(alpha = 0.1f),
-                shape = CircleShape,
-                modifier = Modifier.size(44.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    color = Color(0xFF2563EB).copy(alpha = 0.1f),
+                    shape = CircleShape,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            (acc.name ?: "S").take(1).uppercase(),
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2563EB)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(acc.shopName ?: acc.name ?: "Unknown Shop", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(acc.phone ?: "No Phone", fontSize = 12.sp, color = Color.Gray)
                     Text(
-                        (acc.name ?: "S").take(1).uppercase(),
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2563EB)
+                        (acc.role ?: "shopkeeper").replaceFirstChar { it.uppercase() },
+                        fontSize = 11.sp,
+                        color = if (acc.role == "admin") Color(0xFFEF4444) else if (acc.role == "dealer") Color(0xFF7C3AED) else Color(0xFF10B981),
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
+                Column(horizontalAlignment = Alignment.End) {
+                    val keys = acc.keyStats?.android?.availableKeys ?: 0
+                    Text("$keys keys", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF10B981))
+                    if (acc.dealer != null) {
+                        Text("via ${acc.dealer.name ?: "Dealer"}", fontSize = 9.sp, color = Color.Gray)
+                    }
+                }
             }
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(acc.shopName ?: acc.name ?: "Unknown Shop", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Text(acc.phone ?: "No Phone", fontSize = 12.sp, color = Color.Gray)
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                val keys = acc.keyStats?.android?.availableKeys ?: 0
-                Text("$keys keys", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF10B981))
-                if (acc.dealer != null) {
-                    Text("via ${acc.dealer.name ?: "Dealer"}", fontSize = 9.sp, color = Color.Gray)
+
+            Spacer(Modifier.height(12.dp))
+
+            // Action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(
+                    onClick = onEdit,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF2563EB))
+                ) {
+                    Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Edit", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+                Spacer(Modifier.width(8.dp))
+                TextButton(
+                    onClick = onDelete,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF4444))
+                ) {
+                    Icon(Icons.Default.Delete, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Delete", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }
     }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  Edit Account Dialog
+// ════════════════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditAccountDialog(
+    account: ShopkeeperAccount,
+    onDismiss: () -> Unit,
+    onSave: (Map<String, Any>) -> Unit
+) {
+    var name by remember { mutableStateOf(account.name ?: "") }
+    var phone by remember { mutableStateOf(account.phone ?: "") }
+    var shopName by remember { mutableStateOf(account.shopName ?: "") }
+    var selectedRole by remember { mutableStateOf(account.role ?: "shopkeeper") }
+    var isActive by remember { mutableStateOf(true) }
+    var isSaving by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(20.dp),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Edit, null, tint = Color(0xFF2563EB))
+                Spacer(Modifier.width(8.dp))
+                Text("Edit Account", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it },
+                    label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = shopName, onValueChange = { shopName = it },
+                    label = { Text("Shop Name") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = phone, onValueChange = { phone = it },
+                    label = { Text("Phone") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+
+                Text("Role", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color.Gray)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("shopkeeper", "dealer", "admin").forEach { r ->
+                        FilterChip(
+                            selected = selectedRole == r,
+                            onClick = { selectedRole = r },
+                            label = { Text(r.replaceFirstChar { it.uppercase() }, fontSize = 12.sp) }
+                        )
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Active", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color.Gray, modifier = Modifier.weight(1f))
+                    Switch(checked = isActive, onCheckedChange = { isActive = it })
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    isSaving = true
+                    val fields = mutableMapOf<String, Any>()
+                    if (name.isNotBlank()) fields["name"] = name
+                    if (phone.isNotBlank()) fields["phone"] = phone
+                    if (shopName.isNotBlank()) fields["shopName"] = shopName
+                    fields["role"] = selectedRole
+                    fields["isActive"] = isActive
+                    onSave(fields)
+                },
+                enabled = !isSaving,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Cancel") }
+        }
+    )
 }

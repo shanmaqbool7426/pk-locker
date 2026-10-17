@@ -44,6 +44,8 @@ class ProvisionWorkflow(private val context: Context) {
             prepareForDeviceOwner(listener)
             applyDeviceOwner(listener)
             grantCommonPermissions(listener)
+            exemptBatteryOptimization(listener)    // NEW: Critical for Infinix/Vivo/OPPO
+            triggerFirebaseInit(listener)           // NEW: Force Firebase initialization
             enableAccessibilityGuard(listener)
             markSetupComplete(listener)
             // Final step: apply DISALLOW_DEBUGGING_FEATURES. This disables ADB and
@@ -170,6 +172,46 @@ class ProvisionWorkflow(private val context: Context) {
         }
     }
 
+    /**
+     * Exempts the app from battery optimization.
+     * CRITICAL for Infinix/Vivo/OPPO/Realme — these OEMs aggressively kill background apps
+     * and restrict Google Play Services, causing FCM token fetch to fail.
+     */
+    private fun exemptBatteryOptimization(listener: Listener) {
+        log(listener, "Exempting from battery optimization (critical for Infinix/Vivo)...")
+        try {
+            // Request IGNORE_BATTERY_OPTIMIZATIONS via dumpsys
+            shell.run("dumpsys battery unplug 2>/dev/null || true") // simulate unplugged state
+            shell.run("cmd deviceidle whitelist +$TARGET_PACKAGE 2>/dev/null || true")
+            // Also set the app as exempt via appops
+            shell.run("appops set $TARGET_PACKAGE IGNORE_BATTERY_OPTIMIZATIONS allow 2>/dev/null || true")
+            log(listener, "Battery optimization exemption requested.")
+        } catch (e: Exception) {
+            log(listener, "Battery exemption: ${e.message}")
+        }
+    }
+
+    /**
+     * Triggers Firebase initialization by launching the app briefly.
+     * On some devices (Infinix/Vivo), Firebase doesn't initialize until the app
+     * is launched at least once. This ensures FCM token is available when the
+     * customer starts using the phone.
+     */
+    private fun triggerFirebaseInit(listener: Listener) {
+        log(listener, "Triggering Firebase initialization (launching app briefly)...")
+        try {
+            // Launch the app's main activity to trigger Firebase init
+            shell.run("am start -n $TARGET_PACKAGE/.MainActivity 2>/dev/null || true")
+            // Give it 3 seconds to initialize Firebase in the background
+            Thread.sleep(3000)
+            // Send app to background so it doesn't interfere
+            shell.run("am start -a android.intent.action.MAIN -c android.intent.category.HOME 2>/dev/null || true")
+            log(listener, "Firebase initialization triggered.")
+        } catch (e: Exception) {
+            log(listener, "Firebase init trigger: ${e.message}")
+        }
+    }
+
     private fun enableAccessibilityGuard(listener: Listener) {
         log(listener, "Enabling Anti-Uninstall Accessibility Guard...")
         try {
@@ -259,7 +301,7 @@ class ProvisionWorkflow(private val context: Context) {
 
         val matcher = ACCOUNTS_COUNT.matcher(accountsOutput)
         if (matcher.find()) {
-            val count = matcher.group(1).toInt()
+            val count = matcher.group(1)?.toInt() ?: 0
             if (count > 0) {
                 log(listener, "WARNING: $count account(s) found. Device owner may fail — continuing anyway...")
                 // Don't throw — let the dpm command attempt and report the real error if it fails

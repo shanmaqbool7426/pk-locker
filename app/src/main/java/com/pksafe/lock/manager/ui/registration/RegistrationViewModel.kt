@@ -101,9 +101,12 @@ class RegistrationViewModel : ViewModel() {
             isLoading = true
             try {
                 // ── KEY AVAILABILITY CHECK ───────────────────────────────────
+                Log.d("Registration", "Step 1: Checking key availability...")
                 val statsRes = apiService.getStats("Bearer $token")
+                Log.d("Registration", "Stats response: code=${statsRes.code()}, body=${statsRes.body()}")
                 if (statsRes.isSuccessful && statsRes.body()?.success == true) {
                     val availableKeys = statsRes.body()?.data?.android?.availableKeys ?: 0
+                    Log.d("Registration", "Available Android keys: $availableKeys")
                     if (availableKeys <= 0) {
                         isSuccess = false
                         message = "Key Not Available! Please purchase keys to register new devices."
@@ -111,8 +114,10 @@ class RegistrationViewModel : ViewModel() {
                         return@launch
                     }
                 } else {
+                    val errBody = statsRes.errorBody()?.string()
+                    Log.e("Registration", "Stats check failed: code=${statsRes.code()}, error=$errBody")
                     isSuccess = false
-                    message = "Failed to verify key status. Try again."
+                    message = "Failed to verify key status (HTTP ${statsRes.code()}). Try again."
                     isLoading = false
                     return@launch
                 }
@@ -154,9 +159,13 @@ class RegistrationViewModel : ViewModel() {
                     cnicProofImage = customerCnicImage
                 )
                 
+                Log.d("Registration", "Step 2: Sending registration request for IMEI=$imei, customer=$name")
                 val response = apiService.registerDevice("Bearer $token", request)
+                val responseBody = response.body()
+                val errorBody = response.errorBody()?.string()
+                Log.d("Registration", "Register response: code=${response.code()}, success=${responseBody?.success}, message=${responseBody?.message}, error=$errorBody")
                 
-                if (response.isSuccessful && response.body()?.success == true) {
+                if (response.isSuccessful && responseBody?.success == true) {
                     
                     // Do NOT sync shopkeeper's FCM token to the device record.
                     // The shopkeeper's token ≠ customer's device token.
@@ -167,7 +176,9 @@ class RegistrationViewModel : ViewModel() {
                     // CRITICAL: DO NOT set is_customer = true here, as this is the shopkeeper's phone.
                 } else {
                     isSuccess = false
-                    message = "Failed: ${response.body()?.message ?: response.message()}"
+                    val serverMsg = responseBody?.message ?: errorBody ?: response.message()
+                    message = "Failed (HTTP ${response.code()}): $serverMsg"
+                    Log.e("Registration", "Registration FAILED: HTTP ${response.code()} — $serverMsg")
                 }
             } catch (e: java.net.SocketTimeoutException) {
                 isSuccess = false
@@ -233,13 +244,55 @@ class RegistrationViewModel : ViewModel() {
 
     fun convertUriToBase64(context: Context, uri: Uri): String? {
         return try {
-            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
-            val bytes = inputStream?.readBytes()
-            if (bytes != null) {
-                // Use NO_WRAP to avoid newlines in the base64 string
-                Base64.encodeToString(bytes, Base64.NO_WRAP)
-            } else null
+            // Step 1: Decode bounds to get image dimensions without loading full bitmap
+            val boundsStream = context.contentResolver.openInputStream(uri)
+            val options = android.graphics.BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            android.graphics.BitmapFactory.decodeStream(boundsStream, null, options)
+            boundsStream?.close()
+
+            val imgWidth = options.outWidth
+            val imgHeight = options.outHeight
+
+            // Step 2: Calculate inSampleSize to max 800px (small enough for Vercel 4.5MB limit)
+            val MAX_SIZE = 800
+            var sampleSize = 1
+            while (imgWidth / sampleSize > MAX_SIZE || imgHeight / sampleSize > MAX_SIZE) {
+                sampleSize *= 2
+            }
+
+            // Step 3: Decode bitmap with sample size (much smaller memory)
+            val decodeStream = context.contentResolver.openInputStream(uri)
+            val decodeOptions = android.graphics.BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+            }
+            var bitmap = android.graphics.BitmapFactory.decodeStream(decodeStream, null, decodeOptions)
+            decodeStream?.close()
+
+            if (bitmap == null) return null
+
+            // Step 4: Compress to JPEG — start at 50%, reduce further if still too big
+            val MAX_BYTES = 300 * 1024 // 300KB per image max (3 images = 900KB < Vercel 4.5MB)
+            var quality = 50
+            var outputStream = java.io.ByteArrayOutputStream()
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, outputStream)
+            
+            // If still too large, reduce quality further
+            while (outputStream.size() > MAX_BYTES && quality > 15) {
+                quality -= 10
+                outputStream = java.io.ByteArrayOutputStream()
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, outputStream)
+            }
+            
+            bitmap.recycle()
+            val compressedBytes = outputStream.toByteArray()
+            Log.d("IMAGE_COMPRESS", "Original: ${imgWidth}x${imgHeight}, sampleSize=$sampleSize, quality=$quality%, final=${compressedBytes.size / 1024}KB")
+
+            // Step 5: Convert to base64
+            Base64.encodeToString(compressedBytes, Base64.NO_WRAP)
         } catch (e: Exception) {
+            Log.e("IMAGE_COMPRESS", "Failed: ${e.message}")
             null
         }
     }

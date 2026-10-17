@@ -133,7 +133,7 @@ fun MainAppEntryPoint() {
 
     var isCustomer by remember { mutableStateOf(sharedPrefs.getBoolean("is_customer", false)) }
     var isLocked by remember { mutableStateOf(sharedPrefs.getBoolean("is_locked", false)) }
-    var isUserLoggedIn by rememberSaveable { mutableStateOf(sharedPrefs.getBoolean("is_logged_in", false)) }
+    var isUserLoggedIn by remember { mutableStateOf(sharedPrefs.getBoolean("is_logged_in", false)) }
     var fcmToken by remember { mutableStateOf(sharedPrefs.getString("fcm_token", "Fetching...")) }
     var deviceImei by remember { mutableStateOf(sharedPrefs.getString("device_imei", "")) }
     var healedRole by remember { mutableStateOf<String?>(null) }
@@ -636,25 +636,18 @@ fun MainAppEntryPoint() {
         }
     }
 
-    // Professional FCM Token Sync with Server
+    // Professional FCM Token Sync with Server — WITH RETRY
+    // Infinix/Vivo/OPPO aggressively kill background services and delay Play Services,
+    // so a single token fetch often fails. Retry with exponential backoff (5 attempts).
     LaunchedEffect(isCustomer, deviceImei, isUserLoggedIn) {
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                val token = task.result
-                fcmToken = token
-                sharedPrefs.edit().putString("fcm_token", token).apply()
-                
-                if (isCustomer && !deviceImei.isNullOrBlank()) {
-                    syncTokenToServer(context, deviceImei!!, token)
-                } else if (!isCustomer && isUserLoggedIn) {
-                    // Update Shopkeeper's token
-                    val authToken = sharedPrefs.getString("auth_token", null)
-                    if (authToken != null) {
-                        syncShopkeeperTokenToServer(authToken, token)
-                    }
-                }
-            }
-        }
+        fetchFcmTokenWithRetry(
+            context = context,
+            imei = deviceImei,
+            isCustomer = isCustomer,
+            isUserLoggedIn = isUserLoggedIn,
+            sharedPrefs = sharedPrefs,
+            onTokenFetched = { token -> fcmToken = token }
+        )
     }
 
     val listener = remember {
@@ -736,7 +729,10 @@ fun MainAppEntryPoint() {
                     .remove("user_role")
                     .remove("auth_token")
                     .remove("shop_name")
+                    .remove("fcm_token")
                     .apply()
+                // Force activity restart to clear all Compose state
+                (context as? android.app.Activity)?.finishAffinity()
             }
         )
     }
@@ -764,6 +760,67 @@ private fun syncTokenToServer(context: Context, imei: String, token: String) {
             Log.e("SYNC_TOKEN", "Failed to sync: ${e.message}")
         }
     }
+}
+
+/**
+ * Fetches FCM token with retry (exponential backoff).
+ * Fixes Infinix/Vivo/OPPO where Play Services is slow to initialize.
+ * Retries up to 5 times: 2s, 4s, 8s, 16s, 30s delays.
+ */
+private suspend fun fetchFcmTokenWithRetry(
+    context: Context,
+    imei: String?,
+    isCustomer: Boolean,
+    isUserLoggedIn: Boolean,
+    sharedPrefs: android.content.SharedPreferences,
+    onTokenFetched: (String) -> Unit
+) {
+    val maxRetries = 5
+    val delays = listOf(2000L, 4000L, 8000L, 16000L, 30000L)
+    
+    for (attempt in 1..maxRetries) {
+        try {
+            Log.d("FCM_RETRY", "Attempt $attempt/$maxRetries to fetch FCM token...")
+            
+            // Wrap Firebase callback in suspendCoroutine
+            val token: String? = kotlin.coroutines.suspendCoroutine { cont ->
+                FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        cont.resumeWith(Result.success(task.result))
+                    } else {
+                        cont.resumeWith(Result.success(null))
+                    }
+                }
+            }
+            
+            if (token.isNullOrBlank()) {
+                Log.w("FCM_RETRY", "Attempt $attempt: token is null/blank, retrying...")
+                if (attempt < maxRetries) kotlinx.coroutines.delay(delays[attempt - 1])
+                continue
+            }
+            
+            Log.d("FCM_RETRY", "Attempt $attempt: Token fetched successfully")
+            onTokenFetched(token)
+            sharedPrefs.edit().putString("fcm_token", token).apply()
+            
+            if (isCustomer && !imei.isNullOrBlank()) {
+                syncTokenToServer(context, imei, token)
+            } else if (!isCustomer && isUserLoggedIn) {
+                val authToken = sharedPrefs.getString("auth_token", null)
+                if (authToken != null) {
+                    syncShopkeeperTokenToServer(authToken, token)
+                }
+            }
+            return // Success — exit retry loop
+            
+        } catch (e: Exception) {
+            Log.e("FCM_RETRY", "Attempt $attempt failed: ${e.message}")
+            if (attempt < maxRetries) {
+                kotlinx.coroutines.delay(delays[attempt - 1])
+            }
+        }
+    }
+    Log.e("FCM_RETRY", "All $maxRetries attempts failed. FCM token could not be fetched.")
 }
 
 private fun scheduleLocationSync(context: Context) {
@@ -1975,7 +2032,7 @@ fun PKLockerApp(isAdmin: Boolean, viewModel: DeviceListViewModel = viewModel(), 
                             onBack = { currentDestination = AppDestinations.HOME }
                         )
                         AppDestinations.REGISTRATION -> RegistrationScreen(
-                            onRegistrationSuccess = { currentDestination = AppDestinations.HOME }
+                            onRegistrationSuccess = { currentDestination = AppDestinations.LIST }
                         )
                         AppDestinations.NFC_SETUP -> if (isAdmin) NfcSetupScreen(onBack = { currentDestination = AppDestinations.HOME })
                         AppDestinations.ADMIN_KEYS -> if (isAdmin) com.pksafe.lock.manager.ui.keys.AdminKeyOrdersScreen(onBack = { currentDestination = AppDestinations.HOME })

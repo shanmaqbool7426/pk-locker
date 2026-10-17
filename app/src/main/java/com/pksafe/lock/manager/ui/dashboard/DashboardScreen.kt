@@ -2,6 +2,8 @@ package com.pksafe.lock.manager.ui.dashboard
 
 import android.content.Context
 import android.content.Intent
+import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,13 +20,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pksafe.lock.manager.util.AdbController
+import com.pksafe.lock.manager.util.Constants
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  PK LOCKER — Professional Dashboard UI
@@ -63,6 +73,74 @@ fun DashboardScreen(
     val stats = viewModel.dashboardData
 
     var showNoKeysDialog by remember { mutableStateOf(false) }
+
+    // ── Wireless ADB Connect (on Home screen) ──
+    var pairingCode by remember { mutableStateOf("") }
+    var isWorking by remember { mutableStateOf(false) }
+    var isConnected by remember { mutableStateOf(false) }
+    var showPairingSuccess by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val adbController = remember { AdbController(context) }
+
+    fun runConnectSetup() {
+        if (pairingCode.trim().length < 6 && !adbController.isConnected()) {
+            Toast.makeText(context, "Pehle 6-digit pairing code likho", Toast.LENGTH_SHORT).show()
+            return
+        }
+        isWorking = true
+        scope.launch {
+            try {
+                if (!adbController.isConnected()) {
+                    withContext(Dispatchers.IO) {
+                        adbController.pairAndConnectFromCode(pairingCode, object : com.pksafe.lock.manager.util.AdbController.ProgressListener {
+                            override fun onLog(message: String) {}
+                        })
+                    }
+                    isConnected = true
+                    showPairingSuccess = true
+                }
+                val workflow = com.pksafe.lock.manager.util.ProvisionWorkflow(context)
+                var ownerOk = false
+                var ownerMsg = ""
+                withContext(Dispatchers.IO) {
+                    workflow.runDeviceOwnerOnly(object : com.pksafe.lock.manager.util.ProvisionWorkflow.Listener {
+                        override fun onLog(message: String) {}
+                        override fun onComplete(success: Boolean, message: String) {
+                            ownerOk = success
+                            ownerMsg = message
+                        }
+                    })
+                }
+                isConnected = adbController.isConnected()
+                if (ownerOk) {
+                    Toast.makeText(context, "Full Device Owner ON ho gaya!", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(context, "Fail: $ownerMsg", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                isConnected = false
+                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                isWorking = false
+            }
+        }
+    }
+
+    // Pairing success popup
+    if (showPairingSuccess) {
+        AlertDialog(
+            onDismissRequest = { showPairingSuccess = false },
+            containerColor = CardWhite,
+            shape = RoundedCornerShape(20.dp),
+            title = { Text("Connected!", color = Color(0xFF22C55E), fontWeight = FontWeight.Bold) },
+            text = { Text("Device paired successfully. Setting up permissions...", color = TextSecondary) },
+            confirmButton = {
+                Button(onClick = { showPairingSuccess = false }, shape = RoundedCornerShape(12.dp)) {
+                    Text("OK")
+                }
+            }
+        )
+    }
 
     // ─── No Keys Dialog ──────────────────────────────────────────────────────
     if (showNoKeysDialog) {
@@ -121,26 +199,6 @@ fun DashboardScreen(
                 KeyStatsGrid(stats = stats)
             }
 
-            // ── QUICK SETUP ────────────────────────────────────────────────
-            SectionTitle("Customer Device Setup")
-            SetupCard(
-                title = "Wireless ADB Setup",
-                subtitle = "No cable needed. Pair with 6-digit code.",
-                icon = Icons.Default.WifiTethering,
-                gradient = Brush.horizontalGradient(listOf(Color(0xFFF59E0B), Color(0xFFD97706))),
-                onClick = { onMenuItemClick("Wireless ADB") }
-            )
-            // Hidden for now — uncomment to re-enable cable setup
-            /*
-            SetupCard(
-                title = "Cable Activation",
-                subtitle = "Fast USB connection for instant setup.",
-                icon = Icons.Default.Usb,
-                gradient = Brush.horizontalGradient(listOf(Color(0xFF6366F1), Color(0xFF4F46E5))),
-                onClick = { onMenuItemClick("Cable Sync") }
-            )
-            */
-
             // ── QUICK ACTIONS ──────────────────────────────────────────────
             SectionTitle("Quick Actions")
             QuickActionsGrid(
@@ -158,6 +216,166 @@ fun DashboardScreen(
             // ── HELP & SUPPORT ─────────────────────────────────────────────
             SectionTitle("Help & Support")
             SupportCard()
+
+            // ── SETUP (End Section) ──────────────────────────────────────────
+            SectionTitle("Setup")
+
+            // 1) Download App QR
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(3.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFEFF6FF)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Download, null, tint = Primary, modifier = Modifier.size(18.dp))
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text("Download App QR", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0F172A))
+                            Text("Customer phone pe scan karein", fontSize = 12.sp, color = Color(0xFF64748B))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    val downloadQr = remember { generateQrCode(Constants.APK_DOWNLOAD_URL, 512) }
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(4.dp),
+                        modifier = Modifier.size(190.dp)
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            if (downloadQr != null) {
+                                Image(
+                                    bitmap = downloadQr.asImageBitmap(),
+                                    contentDescription = "App Download QR",
+                                    modifier = Modifier.size(160.dp)
+                                )
+                            } else {
+                                CircularProgressIndicator(color = Primary)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Info, null, tint = Primary, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Camera khol kar scan karein — APK download hogi", color = Primary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 2) Enter Code & Connect (Inline)
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(3.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    // Header
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFF59E0B)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("3", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "Enter Code & Connect",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = Color(0xFF0F172A)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Pairing code input
+                    OutlinedTextField(
+                        value = pairingCode,
+                        onValueChange = { if (it.length <= 6) pairingCode = it.filter { c -> c.isDigit() } },
+                        label = { Text("6-digit pairing code", fontSize = 13.sp) },
+                        placeholder = { Text("e.g. 115999") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Primary,
+                            unfocusedBorderColor = Border,
+                            focusedContainerColor = Color(0xFFF8FAFC),
+                            unfocusedContainerColor = Color(0xFFF8FAFC)
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // CONNECT & SETUP button
+                    Button(
+                        onClick = { runConnectSetup() },
+                        enabled = !isWorking,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Primary,
+                            disabledContainerColor = Primary,
+                            disabledContentColor = Color.White
+                        )
+                    ) {
+                        if (isWorking) {
+                            CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text("CONNECTING...", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        } else {
+                            Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("CONNECT & SETUP", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Info box
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFEFF6FF),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp)) {
+                            Icon(Icons.Default.Info, null, tint = Primary, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Yeh button connect karega, Device Owner set karega, SMS/location/overlay/anti-uninstall — cable wali saari permissions automatically.",
+                                fontSize = 11.sp,
+                                color = Primary,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
         }

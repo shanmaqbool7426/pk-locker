@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.zxing.BarcodeFormat
@@ -57,6 +58,7 @@ fun WirelessAdbSetupScreen(
     var pairingCode by remember { mutableStateOf("") }
     var isWorking by remember { mutableStateOf(false) }
     var isConnected by remember { mutableStateOf(false) }
+    var showPairingSuccess by remember { mutableStateOf(false) }
     var logText by remember { mutableStateOf("Ready. Customer phone pe pairing code kholo, yahan type karo, phir 1 button dabao.") }
 
     val downloadQrBitmap = remember { generateQrBitmap(Constants.APK_DOWNLOAD_URL, 512) }
@@ -86,7 +88,9 @@ fun WirelessAdbSetupScreen(
                         })
                     }
                     isConnected = true
-                    appendLog("Connected. Ab Device Owner laga raha hoon...")
+                    appendLog("✅ Pairing Successful! Device connected.")
+                    // Show success popup
+                    showPairingSuccess = true
                 }
 
                 var ownerOk = false
@@ -126,6 +130,38 @@ fun WirelessAdbSetupScreen(
                 isWorking = false
             }
         }
+    }
+
+    // ─── PAIRING SUCCESS POPUP ─────────────────────────────────────────────
+    if (showPairingSuccess) {
+        AlertDialog(
+            onDismissRequest = { showPairingSuccess = false },
+            containerColor = Color(0xFF1A1A1A),
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Text(
+                    "✅ Connected!",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color(0xFF22C55E)
+                )
+            },
+            text = {
+                Text(
+                    "Device paired successfully. Setting up permissions...",
+                    color = Color(0xFFCBD5E1),
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showPairingSuccess = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22C55E))
+                ) {
+                    Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -319,12 +355,13 @@ fun WirelessAdbSetupScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // ═══ STEP 4: GOOGLE FRP PROTECTION ═══════════════════════════════
-            var frpSetupDone by remember { mutableStateOf(false) }
-            var frpVerifying by remember { mutableStateOf(false) }
-            var frpAccountFound by remember { mutableStateOf(false) }
-            var frpAccountLocked by remember { mutableStateOf(false) }
+            // ═══ STEP 4: GOOGLE FRP PROTECTION ═══ COMMENTED OUT TEMPORARILY ═══
+            // var frpSetupDone by remember { mutableStateOf(false) }
+            // var frpVerifying by remember { mutableStateOf(false) }
+            // var frpAccountFound by remember { mutableStateOf(false) }
+            // var frpAccountLocked by remember { mutableStateOf(false) }
 
+            /*
             StepCard(step = "4", title = "Google FRP Protection (IMPORTANT)", icon = Icons.Default.Security) {
                 Text(
                     "Google account add karo customer phone pe. Is se FRP (Factory Reset Protection) activate hoga — agar koi somehow factory reset bhi kar le, toh bhi phone unlock NAHI hoga.",
@@ -492,6 +529,7 @@ fun WirelessAdbSetupScreen(
                     }
                 }
             }
+            */
 
             Spacer(modifier = Modifier.height(20.dp))
 

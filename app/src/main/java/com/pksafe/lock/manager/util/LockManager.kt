@@ -133,12 +133,20 @@ class LockManager(private val context: Context) {
         }
         var ok = true
         try {
-            // Block uninstallation of PK Locker specifically
+            // LAYER 1: Block uninstallation of PK Locker specifically (Device Owner API)
             devicePolicyManager.setUninstallBlocked(adminComponent, context.packageName, true)
-            Log.d("LOCK_MANAGER", "setUninstallBlocked applied")
+            Log.d("LOCK_MANAGER", "Layer 1: setUninstallBlocked applied")
         } catch (e: Exception) {
             Log.e("LOCK_MANAGER", "setUninstallBlocked failed: ${e.message}")
             ok = false
+        }
+        try {
+            // LAYER 2: Block ALL app uninstalls as backup (works on Infinix/Vivo where Layer 1 may fail)
+            devicePolicyManager.addUserRestriction(adminComponent, UserManager.DISALLOW_UNINSTALL_APPS)
+            Log.d("LOCK_MANAGER", "Layer 2: DISALLOW_UNINSTALL_APPS applied")
+        } catch (e: Exception) {
+            Log.e("LOCK_MANAGER", "DISALLOW_UNINSTALL_APPS failed: ${e.message}")
+            // Don't mark as failed — Layer 1 might still work
         }
         try {
             // Prevent factory reset
@@ -185,11 +193,23 @@ class LockManager(private val context: Context) {
     }
 
     fun isUninstallBlocked(): Boolean {
-        return try {
+        // Check Layer 1: setUninstallBlocked
+        val layer1 = try {
             devicePolicyManager.isUninstallBlocked(adminComponent, context.packageName)
         } catch (e: Exception) {
             false
         }
+        
+        // Check Layer 2: DISALLOW_UNINSTALL_APPS user restriction
+        val layer2 = try {
+            val restrictions = devicePolicyManager.getUserRestrictions(adminComponent)
+            restrictions.getBoolean(UserManager.DISALLOW_UNINSTALL_APPS)
+        } catch (e: Exception) {
+            false
+        }
+        
+        // Return true if EITHER layer is active (backup mechanism)
+        return layer1 || layer2
     }
 
     /**
