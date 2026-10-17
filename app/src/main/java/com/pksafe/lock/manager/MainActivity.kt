@@ -731,8 +731,6 @@ fun MainAppEntryPoint() {
                     .remove("shop_name")
                     .remove("fcm_token")
                     .apply()
-                // Force activity restart to clear all Compose state
-                (context as? android.app.Activity)?.finishAffinity()
             }
         )
     }

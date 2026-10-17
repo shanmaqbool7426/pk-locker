@@ -46,8 +46,16 @@ fun LoginScreen(
 
     var showCustomerScreen by remember { mutableStateOf(false) }
 
-    if (viewModel.isLoggedIn) {
-        onLoginSuccess()
+    // Reset isLoggedIn when LoginScreen appears (handles logout → re-show case)
+    LaunchedEffect(Unit) {
+        viewModel.isLoggedIn = false
+    }
+
+    // Navigate to home ONLY on actual login state change (not during composition)
+    LaunchedEffect(viewModel.isLoggedIn) {
+        if (viewModel.isLoggedIn) {
+            onLoginSuccess()
+        }
     }
 
     // If button clicked, show the Customer status/setup screen directly

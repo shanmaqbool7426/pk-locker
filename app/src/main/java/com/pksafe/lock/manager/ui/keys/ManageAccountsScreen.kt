@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -32,6 +33,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pksafe.lock.manager.data.ApiClient
+import com.pksafe.lock.manager.data.AllocateKeysRequest
 import com.pksafe.lock.manager.data.CreateAccountRequest
 import kotlinx.coroutines.launch
 
@@ -157,6 +159,30 @@ class ManageAccountsViewModel : ViewModel() {
             }
         }
     }
+
+    // ── Admin: Allocate keys to user ──
+    fun allocateKeys(context: Context, shopkeeperId: String, platform: String, keys: Int, onResult: (Boolean, String) -> Unit) {
+        val prefs = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+        val token = prefs.getString("auth_token", "") ?: ""
+        if (token.isEmpty()) { onResult(false, "Not logged in"); return }
+
+        viewModelScope.launch {
+            isSubmitting = true
+            try {
+                val response = apiService.allocateKeys("Bearer $token", AllocateKeysRequest(shopkeeperId, platform, keys))
+                if (response.isSuccessful && response.body()?.success == true) {
+                    fetchAccounts(context, prefs.getString("user_role", "admin") ?: "admin")
+                    onResult(true, response.body()?.message ?: "$keys $platform keys allocated")
+                } else {
+                    onResult(false, response.body()?.message ?: "Allocation failed")
+                }
+            } catch (e: Exception) {
+                onResult(false, e.message ?: "Network error")
+            } finally {
+                isSubmitting = false
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -176,6 +202,7 @@ fun ManageAccountsScreen(onBack: () -> Unit, viewModel: ManageAccountsViewModel 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var editingAccount by remember { mutableStateOf<ShopkeeperAccount?>(null) }
     var deletingAccount by remember { mutableStateOf<ShopkeeperAccount?>(null) }
+    var allocateKeysAccount by remember { mutableStateOf<ShopkeeperAccount?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.fetchAccounts(context, userRole)
@@ -319,6 +346,7 @@ fun ManageAccountsScreen(onBack: () -> Unit, viewModel: ManageAccountsViewModel 
                     items(filteredList) { acc ->
                         AccountRow(
                             acc = acc,
+                            isAdmin = userRole == "admin",
                             onEdit = {
                                 editingAccount = acc
                                 showEditDialog = true
@@ -326,6 +354,9 @@ fun ManageAccountsScreen(onBack: () -> Unit, viewModel: ManageAccountsViewModel 
                             onDelete = {
                                 deletingAccount = acc
                                 showDeleteDialog = true
+                            },
+                            onAllocateKeys = {
+                                allocateKeysAccount = acc
                             }
                         )
                         Spacer(Modifier.height(10.dp))
@@ -402,13 +433,31 @@ fun ManageAccountsScreen(onBack: () -> Unit, viewModel: ManageAccountsViewModel 
             }
         )
     }
+
+    // ── Allocate Keys Dialog ──
+    if (allocateKeysAccount != null) {
+        AllocateKeysDialog(
+            account = allocateKeysAccount!!,
+            onDismiss = { allocateKeysAccount = null },
+            onAllocate = { platform, keys ->
+                viewModel.allocateKeys(context, allocateKeysAccount!!.id ?: "", platform, keys) { ok, msg ->
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    if (ok) {
+                        allocateKeysAccount = null
+                    }
+                }
+            }
+        )
+    }
 }
 
 @Composable
 private fun AccountRow(
     acc: ShopkeeperAccount,
+    isAdmin: Boolean,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onAllocateKeys: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -458,6 +507,17 @@ private fun AccountRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
+                if (isAdmin && acc.role != "admin") {
+                    TextButton(
+                        onClick = onAllocateKeys,
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFF59E0B))
+                    ) {
+                        Icon(Icons.Default.Key, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Keys", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
                 TextButton(
                     onClick = onEdit,
                     colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF2563EB))
@@ -565,6 +625,100 @@ private fun EditAccountDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Cancel") }
+        }
+    )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Allocate Keys Dialog
+// ═══════════════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AllocateKeysDialog(
+    account: ShopkeeperAccount,
+    onDismiss: () -> Unit,
+    onAllocate: (platform: String, keys: Int) -> Unit
+) {
+    var platform by remember { mutableStateOf("android") }
+    var keysText by remember { mutableStateOf("") }
+    var isAllocating by remember { mutableStateOf(false) }
+
+    val keysCount = keysText.toIntOrNull() ?: 0
+
+    AlertDialog(
+        onDismissRequest = { if (!isAllocating) onDismiss() },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(20.dp),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Key, null, tint = Color(0xFFF59E0B))
+                Spacer(Modifier.width(8.dp))
+                Text("Allocate Keys", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Current user info
+                Surface(
+                    color = Color(0xFFFEF3C7),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text("User: ${account.name ?: "Unknown"}", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Text("Shop: ${account.shopName ?: "N/A"}", fontSize = 12.sp, color = Color.Gray)
+                        val androidKeys = account.keyStats?.android?.availableKeys ?: 0
+                        val iosKeys = account.keyStats?.ios?.availableKeys ?: 0
+                        Text("Current: Android=$androidKeys | iOS=$iosKeys", fontSize = 11.sp, color = Color(0xFF92400E))
+                    }
+                }
+
+                // Platform selection
+                Text("Platform", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color.Gray)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("android" to "Android", "ios" to "iOS").forEach { (value, label) ->
+                        FilterChip(
+                            selected = platform == value,
+                            onClick = { platform = value },
+                            label = { Text(label, fontSize = 12.sp) }
+                        )
+                    }
+                }
+
+                // Keys count input
+                OutlinedTextField(
+                    value = keysText,
+                    onValueChange = { keysText = it.filter { c -> c.isDigit() } },
+                    label = { Text("Number of Keys") },
+                    placeholder = { Text("e.g. 10") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (keysCount > 0) {
+                        isAllocating = true
+                        onAllocate(platform, keysCount)
+                    }
+                },
+                enabled = !isAllocating && keysCount > 0,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                if (isAllocating) {
+                    CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text("Allocate $keysCount Keys", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isAllocating) { Text("Cancel") }
         }
     )
 }
