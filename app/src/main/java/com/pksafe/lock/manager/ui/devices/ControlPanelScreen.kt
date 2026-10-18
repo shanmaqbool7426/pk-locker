@@ -2000,6 +2000,7 @@ private fun EditDeviceDialog(
     var customerName by remember { mutableStateOf(device.customerName) }
     var phoneNumber by remember { mutableStateOf(device.phoneNumber) }
     var cnic by remember { mutableStateOf(device.cnic) }
+    var contactPhone by remember { mutableStateOf(device.contactPhone ?: "") }
     var brand by remember { mutableStateOf(device.brand ?: "") }
     var model by remember { mutableStateOf(device.model ?: "") }
     var productName by remember { mutableStateOf(device.productName ?: "") }
@@ -2043,6 +2044,14 @@ private fun EditDeviceDialog(
                 OutlinedTextField(
                     value = cnic, onValueChange = { cnic = it },
                     label = { Text("CNIC") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = contactPhone, onValueChange = { contactPhone = it },
+                    label = { Text("Support Number (Lock Screen)") },
+                    supportingText = { Text("Customer isse shopkeeper ka number dekhega", fontSize = 10.sp) },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 HorizontalDivider(color = Border)
@@ -2111,6 +2120,7 @@ private fun EditDeviceDialog(
                     if (customerName.isNotBlank()) fields["customerName"] = customerName
                     if (phoneNumber.isNotBlank()) fields["phoneNumber"] = phoneNumber
                     if (cnic.isNotBlank()) fields["cnic"] = cnic
+                    if (contactPhone.isNotBlank()) fields["contactPhone"] = contactPhone
                     if (brand.isNotBlank()) fields["brand"] = brand
                     if (model.isNotBlank()) fields["model"] = model
                     if (productName.isNotBlank()) fields["productName"] = productName

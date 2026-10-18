@@ -388,7 +388,7 @@ class LockService : Service() {
                         val shopName  = device.shopkeeper?.shopName
                             ?: device.shopkeeper?.name
                             ?: "Authorized Dealer"
-                        val shopPhone = device.shopkeeper?.phone ?: "Contact Provider"
+                        val shopPhone = device.contactPhone ?: device.shopkeeper?.phone ?: "Contact Provider"
 
                         val rawAmount = emiSummary.nextEmi?.amount ?: device.emiAmount
                         val emiAmount = "Rs. ${rawAmount.toInt()}"

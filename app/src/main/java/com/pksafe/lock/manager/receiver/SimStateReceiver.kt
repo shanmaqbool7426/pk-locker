@@ -50,25 +50,46 @@ class SimStateReceiver : BroadcastReceiver() {
                 "LOADED", "READY" -> {
                     Log.d("SIM_RECEIVER", "SIM is present and ready (State: $state). Checking for change...")
                     
-                    val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
                     var currentIccid = "Unknown"
                     var currentPhoneNumber = ""
                     
                     try {
-                        // Strategy 1: TelephonyManager (Serial)
-                        currentIccid = telephonyManager.simSerialNumber ?: "Unknown"
+                        // Strategy 1: SubscriptionManager — per-subscription ICCID + number.
+                        // Dual-SIM aware: match the number to the SIM that actually changed.
+                        // NOTE: sub.number is often empty (carriers rarely write MSISDN to
+                        // SIM), so collect the best available and fall back below.
+                        val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as? SubscriptionManager
+                        val subs = subscriptionManager?.activeSubscriptionInfoList
+                        val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
                         
-                        // Strategy 2: SubscriptionManager (Better for modern Android)
-                        if (currentIccid == "Unknown" || currentIccid.isEmpty()) {
-                            val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as? android.telephony.SubscriptionManager
-                            val activeSubscriptions = subscriptionManager?.activeSubscriptionInfoList
-                            if (!activeSubscriptions.isNullOrEmpty()) {
-                                currentIccid = activeSubscriptions[0].iccId ?: "Unknown"
-                                Log.d("SIM_RECEIVER", "ICCID found via SubscriptionManager: $currentIccid")
+                        var fallbackIccid = ""
+                        var fallbackNumber = ""
+                        if (!subs.isNullOrEmpty()) {
+                            for (sub in subs) {
+                                val subIccid = try { sub.iccId } catch (_: Exception) { null }
+                                val subNumber = try {
+                                    sub.number?.takeIf { it.isNotBlank() }
+                                        ?: telephonyManager.createForSubscriptionId(sub.subscriptionId).line1Number?.takeIf { it.isNotBlank() }
+                                } catch (_: Exception) { null }
+                                
+                                if (!subIccid.isNullOrEmpty() && fallbackIccid.isEmpty()) fallbackIccid = subIccid
+                                if (!subNumber.isNullOrEmpty() && fallbackNumber.isEmpty()) fallbackNumber = subNumber
+                                // Prefer the subscription that has BOTH iccid and a readable number
+                                if (!subIccid.isNullOrEmpty() && !subNumber.isNullOrEmpty()) {
+                                    currentIccid = subIccid
+                                    currentPhoneNumber = subNumber
+                                    break
+                                }
                             }
                         }
-
-                        currentPhoneNumber = telephonyManager.line1Number ?: ""
+                        
+                        // Strategy 2: TelephonyManager (Serial + line1Number fallback)
+                        if (currentIccid == "Unknown") {
+                            currentIccid = fallbackIccid.ifEmpty { telephonyManager.simSerialNumber ?: "Unknown" }
+                        }
+                        if (currentPhoneNumber.isEmpty()) {
+                            currentPhoneNumber = fallbackNumber.ifEmpty { telephonyManager.line1Number ?: "" }
+                        }
                     } catch (e: Exception) {
                         Log.w("SIM_RECEIVER", "Error reading SIM info: ${e.message}")
                     }

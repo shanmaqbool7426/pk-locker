@@ -894,7 +894,7 @@ private fun fetchAndSaveSmsCodesForCustomer(context: Context, imei: String) {
                     val deregisterCode = device.smsCodes?.deregisterCode
                     
                     val shopName = device.shopkeeper?.shopName ?: device.shopkeeper?.name ?: "Authorized Dealer"
-                    val shopPhone = device.shopkeeper?.phone ?: "Contact Provider"
+                    val shopPhone = device.contactPhone ?: device.shopkeeper?.phone ?: "Contact Provider"
                     
                     val emiAmount = emiSummary.nextEmi?.amount ?: device.emiAmount
                     val emiDate = emiSummary.nextEmi?.dueDate ?: "Contact Provider"

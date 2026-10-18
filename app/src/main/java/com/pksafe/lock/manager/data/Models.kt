@@ -74,6 +74,7 @@ data class DeviceResponse(
     @SerializedName("guarantor") val guarantor: Guarantor? = null,
     @SerializedName("registeredAt") val registeredAt: String? = null,
     @SerializedName("smsCodes") val smsCodes: SmsCodes? = null,
+    @SerializedName("contactPhone") val contactPhone: String? = null,
     @SerializedName("controls") val controls: DeviceControls? = null,
     @SerializedName("appRestrictions") val appRestrictions: AppRestrictions? = null,
     @SerializedName("location") val location: LocationData? = null,
@@ -230,6 +231,7 @@ data class DeviceRegistrationRequest(
     @SerializedName("emiStartDate") val emiStartDate: String? = null,
     @SerializedName("emiAmount") val emiAmount: Double = 0.0,
     @SerializedName("fcmToken") val fcmToken: String? = null,
+    @SerializedName("contactPhone") val contactPhone: String? = null,
     @SerializedName("guarantor") val guarantor: Guarantor? = null,
     @SerializedName("profilePicture") val profilePicture: String? = null, // NEW: Customer Profile Photo
     @SerializedName("cnicProofImage") val cnicProofImage: String? = null // NEW: Customer CNIC Proof
