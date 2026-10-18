@@ -230,6 +230,11 @@ fun MainAppEntryPoint() {
         if (isCustomer && !deviceImei.isNullOrBlank()) {
             fetchAndSaveSmsCodesForCustomer(context, deviceImei!!)
             Log.d("STARTUP_REFRESH", "Silently refreshing EMI data for IMEI: $deviceImei")
+            // Customer devices have no login — no update popup; self-update
+            // silently in the background (silent install under Device Owner).
+            try {
+                com.pksafe.lock.manager.util.AutoUpdater(context).selfUpdateIfAvailable()
+            } catch (_: Exception) { }
         }
     }
 
