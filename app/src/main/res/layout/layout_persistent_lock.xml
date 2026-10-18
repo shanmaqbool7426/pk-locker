@@ -282,10 +282,11 @@
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/tvWhatsAppNumber"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:alpha="0.8"
-                    android:text="WhatsApp — +92 306 9829158"
+                    android:text="WhatsApp"
                     android:textColor="#FFFFFF"
                     android:textSize="11sp" />
             </LinearLayout>

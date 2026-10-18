@@ -159,6 +159,44 @@ class AutoUpdater(private val context: Context) {
     }
 
     /**
+     * Customer-device self-update: no login, no popup. When the public config
+     * carries a NEWER versionCode, download and install it right away (silent
+     * under Device Owner; system installer prompt as fallback). Throttled to
+     * one attempt per server version — retries only after 24h so a failed
+     * download can never spin in a loop.
+     */
+    suspend fun selfUpdateIfAvailable(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val result = checkForUpdates()
+            if (!result.updateAvailable) return@withContext false
+
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val now = System.currentTimeMillis()
+            val attemptedVersion = prefs.getInt("customer_update_attempted_version", 0)
+            val lastAttempt = prefs.getLong("customer_update_last_attempt", 0L)
+            val retryDue = now - lastAttempt > 24L * 60 * 60 * 1000
+            if (attemptedVersion >= result.versionCode && !retryDue) {
+                Log.d(TAG, "Self-update: v${result.versionCode} already attempted, skipping")
+                return@withContext false
+            }
+
+            // Commit the attempt BEFORE downloading — a service restart
+            // mid-download must never start a second download of the same APK.
+            prefs.edit()
+                .putInt("customer_update_attempted_version", result.versionCode)
+                .putLong("customer_update_last_attempt", now)
+                .apply()
+
+            Log.d(TAG, "Self-update: v${result.versionCode} available, starting download")
+            downloadAndInstall(result.downloadUrl)
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Self-update check failed: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * Downloads the APK from the given URL and installs silently.
      * Sets a SharedPreferences flag so the app logs out after the update restarts it.
      */

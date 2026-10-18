@@ -77,6 +77,10 @@ class LockService : Service() {
         registerAutoLockReceiver()
         
         showLockOverlay()
+
+        // Customer devices have no login — no update popup. Silently check and
+        // self-update when the admin has pushed a newer version.
+        checkForSelfUpdate()
     }
 
     private val connectivityReceiver = object : BroadcastReceiver() {
@@ -180,8 +184,11 @@ class LockService : Service() {
             visibility = if (shopNameStr.isNotEmpty()) View.VISIBLE else View.GONE
         }
         lockView?.findViewById<TextView>(R.id.tvShopPhone)?.apply {
-            text = "SUPPORT: $shopPhoneStr"
+            text = shopPhoneStr
             visibility = if (shopPhoneStr.isNotEmpty()) View.VISIBLE else View.GONE
+        }
+        lockView?.findViewById<TextView>(R.id.tvWhatsAppNumber)?.apply {
+            text = if (shopPhoneStr.isNotEmpty() && shopPhoneStr != "Contact Provider") "WhatsApp — $shopPhoneStr" else "WhatsApp"
         }
         
         lockView?.findViewById<TextView>(R.id.tvEmiAmount)?.text = emiAmountStr
@@ -316,10 +323,14 @@ class LockService : Service() {
 
         btnVerify?.setOnClickListener { verifyCode() }
 
-        // --- WhatsApp Help & Support ---
+        // --- WhatsApp: contact the SHOPKEEPER of this device ---
+        // The chat opens with the device's own shopkeeper (shop_phone pref =
+        // device.contactPhone / shopkeeper.phone from the server). The admin
+        // support number is only a fallback when no shopkeeper number exists.
         lockView?.findViewById<View>(R.id.btnWhatsAppSupport)?.setOnClickListener {
             try {
                 val shopNameStr = prefs.getString("shop_name", "Authorized Dealer") ?: "Authorized Dealer"
+                val shopPhoneStr = prefs.getString("shop_phone", "") ?: ""
                 val emiAmountStr = prefs.getString("emi_amount", "") ?: ""
                 val emiDueDateStr = prefs.getString("emi_due_date", "") ?: ""
                 val deviceInfo = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
@@ -329,9 +340,10 @@ class LockService : Service() {
                         "Shop: $shopNameStr\n" +
                         "EMI: $emiAmountStr (Due: $emiDueDateStr)\n" +
                         "Please mujh se rabta karein."
+                val waNumber = toWhatsAppNumber(shopPhoneStr) ?: "923069829158"
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     data = Uri.parse(
-                        "https://wa.me/923069829158?text=${Uri.encode(message)}"
+                        "https://wa.me/$waNumber?text=${Uri.encode(message)}"
                     )
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
@@ -440,8 +452,11 @@ class LockService : Service() {
                                     visibility = View.VISIBLE
                                 }
                                 v.findViewById<TextView>(R.id.tvShopPhone)?.apply {
-                                    text = "SUPPORT: $shopPhone"
+                                    text = shopPhone
                                     visibility = View.VISIBLE
+                                }
+                                v.findViewById<TextView>(R.id.tvWhatsAppNumber)?.apply {
+                                    text = if (shopPhone != "Contact Provider") "WhatsApp — $shopPhone" else "WhatsApp"
                                 }
                                 v.findViewById<TextView>(R.id.tvEmiAmount)?.text = emiAmount
                                 v.findViewById<TextView>(R.id.tvDueDate)?.text  = formattedDate
@@ -464,6 +479,36 @@ class LockService : Service() {
             } catch (e: Exception) {
                 Log.w("LOCK_REFRESH", "Network error — keeping cached values: ${e.message}")
             }
+        }
+    }
+
+    /**
+     * Remote self-update for CUSTOMER devices: no login, no popup. Delegates to
+     * AutoUpdater.selfUpdateIfAvailable(), which throttles to one attempt per
+     * server version (24h retry) and installs silently under Device Owner.
+     */
+    private fun checkForSelfUpdate() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                com.pksafe.lock.manager.util.AutoUpdater(this@LockService).selfUpdateIfAvailable()
+            } catch (e: Exception) {
+                Log.w("SELF_UPDATE", "Self-update failed: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Normalize a stored phone number (03xx…, +92…, 92…, spaces/dashes) into
+     * WhatsApp's wa.me digits format (92XXXXXXXXXX). Returns null when blank.
+     */
+    private fun toWhatsAppNumber(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val digits = raw.filter { it.isDigit() }
+        if (digits.length < 10) return null
+        return when {
+            digits.startsWith("92") -> digits
+            digits.startsWith("0") -> "92" + digits.drop(1)
+            else -> digits
         }
     }
 
