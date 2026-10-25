@@ -30,22 +30,8 @@ class SimStateReceiver : BroadcastReceiver() {
 
             when (state) {
                 "ABSENT", "REMOVED" -> {
-                    val autoLockOnSim = sharedPrefs.getBoolean("auto_lock_sim_change_enabled", false)
-                    if (autoLockOnSim) {
-                        Log.w("SIM_RECEIVER", "SIM REMOVED! Auto-Lock is ON. Locking device...")
-                        
-                        // Set specific SIM lock flag
-                        sharedPrefs.edit()
-                            .putBoolean("is_locked", true)
-                            .putBoolean("is_locked_by_sim", true)
-                            .apply()
-                        
-                        // Trigger Professional Lock
-                        val lockManager = LockManager(context)
-                        lockManager.lockDevice()
-                    } else {
-                        Log.i("SIM_RECEIVER", "SIM REMOVED! Auto-Lock is OFF. Only logging.")
-                    }
+                    // NO AUTO-LOCK — user mandate: manual lock only
+                    Log.i("SIM_RECEIVER", "SIM REMOVED! Notifying backend only (no auto-lock).")
                 }
                 "LOADED", "READY" -> {
                     Log.d("SIM_RECEIVER", "SIM is present and ready (State: $state). Checking for change...")
@@ -123,16 +109,8 @@ class SimStateReceiver : BroadcastReceiver() {
                     if (currentIccid != "Unknown" && !lastIccid.isNullOrEmpty() && currentIccid != lastIccid) {
                         Log.i("SIM_RECEIVER", "SIM Change Detected! ICCID: $currentIccid, Last: $lastIccid")
                         
-                        // If Auto-Lock is ON, lock immediately
-                        if (autoLockOnSim) {
-                            Log.w("SIM_RECEIVER", "SIM Change + Auto-Lock ON! Locking device...")
-                            sharedPrefs.edit()
-                                .putBoolean("is_locked", true)
-                                .putBoolean("is_locked_by_sim", true)
-                                .apply()
-                            val lockManager = LockManager(context)
-                            lockManager.lockDevice()
-                        }
+                        // NO AUTO-LOCK — user mandate: manual lock only
+                        // Just notify backend; shopkeeper/admin will lock manually if needed.
 
                         // Notify backend
                         val retrofit = Retrofit.Builder()

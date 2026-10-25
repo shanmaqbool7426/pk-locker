@@ -95,30 +95,13 @@ class AntiUninstallService : AccessibilityService() {
         
         connectivityReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
-                val isAutoLockEnabled = prefs.getBoolean("auto_lock_enabled", false)
-                val isCustomer = prefs.getBoolean("is_customer", false) || LockManager(applicationContext).isDeviceOwner()
-                
-                if (isCustomer && isAutoLockEnabled && !isOnline()) {
-                    Log.w("AUTO_LOCK", "Internet disconnected! Triggering Lock from Guard Service.")
-                    
-                    // Trigger Lock
-                    prefs.edit().putBoolean("is_locked", true).commit()
-                    val lockManager = LockManager(applicationContext)
-                    lockManager.lockDevice()
-                }
+                // NO AUTO-LOCK on internet disconnect — user mandate: manual lock only
+                Log.d("ANTI_GUARD", "Connectivity change detected (no auto-lock).")
             }
         }
         
         val filter = IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION)
         registerReceiver(connectivityReceiver, filter)
-    }
-
-    private fun isOnline(): Boolean {
-        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val net = cm.activeNetwork ?: return false
-        val caps = cm.getNetworkCapabilities(net) ?: return false
-        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     private fun extractAllText(node: AccessibilityNodeInfo?, sb: StringBuilder) {

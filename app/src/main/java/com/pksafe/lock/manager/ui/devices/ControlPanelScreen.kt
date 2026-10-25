@@ -775,20 +775,8 @@ private fun OnlineActionsContent(
 
     // Security Controls
     SectionCard(title = "Security Controls") {
-        ControlSwitch(
-            label = "Auto-Lock on No Network",
-            icon = Icons.Default.GppMaybe,
-            checked = device?.controls?.autoLock ?: false,
-            onCheckedChange = { viewModel.sendControl(context, imei, "autoLock", it) }
-        )
-        ControlDivider()
-        ControlSwitch(
-            label = "Auto-Lock on SIM Change",
-            icon = Icons.Default.SimCardAlert,
-            checked = device?.controls?.autoLockOnSimChange ?: false,
-            onCheckedChange = { viewModel.sendControl(context, imei, "autoLockOnSimChange", it) }
-        )
-        ControlDivider()
+        // AUTO-LOCK SWITCHES REMOVED — user mandate: manual lock only
+        // No automatic locking under any circumstances.
         ControlSwitch(
             label = "Block USB Connection",
             icon = Icons.Default.Usb,

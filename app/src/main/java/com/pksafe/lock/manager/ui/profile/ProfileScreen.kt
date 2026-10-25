@@ -263,16 +263,7 @@ fun ProfileScreen(onLogout: () -> Unit) {
                         defaultValue = true
                     )
                     SettingsDivider()
-                    SettingsSwitchRow(
-                        icon = Icons.Default.PhonelinkLock,
-                        iconBg = BrandBlueLight,
-                        iconTint = BrandBlue,
-                        title = "Auto-Lock Protocol",
-                        subtitle = "Lock on SIM change automatically",
-                        sharedPrefs = sharedPrefs,
-                        prefKey = "pref_auto_lock",
-                        defaultValue = false
-                    )
+                    // AUTO-LOCK TOGGLE REMOVED — user mandate: manual lock only
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))

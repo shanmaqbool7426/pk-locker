@@ -10,6 +10,7 @@ import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
+import android.os.BatteryManager
 import android.os.IBinder
 import android.os.Looper
 import android.view.Gravity
@@ -73,9 +74,17 @@ class LockService : Service() {
 
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         
-        // Register Auto-Lock listener if enabled
+        // Charging indicator: ACTION_BATTERY_CHANGED is sticky, so this also
+        // paints the current battery level immediately. Guarded: onStartCommand
+        // can run again on the SAME instance (re-lock while already locked) and
+        // re-registering a receiver throws IllegalArgumentException → crash.
         registerAutoLockReceiver()
-        
+        try {
+            registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        } catch (e: Exception) {
+            Log.w("LOCK_SERVICE", "batteryReceiver already registered", e)
+        }
+
         showLockOverlay()
 
         // Customer devices have no login — no update popup. Silently check and
@@ -83,29 +92,40 @@ class LockService : Service() {
         checkForSelfUpdate()
     }
 
-    private val connectivityReceiver = object : BroadcastReceiver() {
+    /**
+     * Live charging/battery indicator for the lock overlay. The lock screen
+     * hides the system charging animation (keyguard + status bar disabled),
+     * so without this the customer cannot tell the phone is charging.
+     * ACTION_BATTERY_CHANGED is sticky — registering paints current state too.
+     */
+    private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            val prefs = getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
-            val isAutoLockEnabled = prefs.getBoolean("auto_lock_enabled", false)
-            
-            if (isAutoLockEnabled && !isOnline()) {
-                Log.w("AUTO_LOCK", "Internet disconnected! Triggering Lock.")
-                prefs.edit().putBoolean("is_locked", true).apply()
-                // Update UI or restart session if needed
+            if (intent.action != Intent.ACTION_BATTERY_CHANGED) return
+            val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
+            val charging = plugged != 0
+            lockView?.findViewById<TextView>(R.id.tvChargeStatus)?.apply {
+                text = if (charging) "Charging — $level%" else "Battery — $level%"
+                setTextColor(if (charging) 0xFF10B981.toInt() else 0xCCFFFFFF.toInt())
+                visibility = if (level >= 0) View.VISIBLE else View.GONE
             }
         }
     }
 
-    private fun registerAutoLockReceiver() {
-        val filter = IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION)
-        registerReceiver(connectivityReceiver, filter)
+    private val connectivityReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            // NO AUTO-LOCK on internet disconnect — user mandate: manual lock only
+            Log.d("LOCK_SERVICE", "Connectivity change detected (no auto-lock).")
+        }
     }
 
-    private fun isOnline(): Boolean {
-        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val net = cm.activeNetwork ?: return false
-        val caps = cm.getNetworkCapabilities(net) ?: return false
-        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    private fun registerAutoLockReceiver() {
+        try {
+            val filter = IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION)
+            registerReceiver(connectivityReceiver, filter)
+        } catch (e: Exception) {
+            Log.w("LOCK_SERVICE", "connectivityReceiver already registered", e)
+        }
     }
 
     private fun createNotificationChannel() {
@@ -142,6 +162,16 @@ class LockService : Service() {
         // with the app window below + keyguard state). FLAG_NOT_TOUCH_MODAL is
         // kept so touches outside the window bounds still reach the system.
         // ─────────────────────────────────────────────────────────────────────────
+        // ─── CHARGING NOTE ────────────────────────────────────────────────────
+        // FLAG_KEEP_SCREEN_ON is deliberately NOT set. It used to keep the
+        // screen awake 24/7 while locked → constant battery drain + heat →
+        // many phones (Xiaomi/Oppo/Vivo etc.) PAUSE charging on thermal
+        // protection, so customers reported "locking se charging block ho
+        // jati hai". The overlay window stays ADDED to the WindowManager, so
+        // it still covers the screen the instant it turns back on — the lock
+        // itself is not weakened, and FLAG_TURN_SCREEN_ON still lights the
+        // screen up when the lock first engages.
+        // ─────────────────────────────────────────────────────────────────────────
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -149,7 +179,6 @@ class LockService : Service() {
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_FULLSCREEN or
                     WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
                     WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
@@ -514,6 +543,7 @@ class LockService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        try { unregisterReceiver(batteryReceiver) } catch (_: Exception) { }
         lockView?.let {
             try {
                 windowManager.removeView(it)
