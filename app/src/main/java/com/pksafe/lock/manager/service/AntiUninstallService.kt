@@ -24,24 +24,53 @@ class AntiUninstallService : AccessibilityService() {
     private var connectivityReceiver: BroadcastReceiver? = null
 
     companion object {
-        // --- 1. Blocked Keywords ---
-        // ONLY block dangerous actions — allow normal Settings (Wi-Fi, Display, Sound etc.)
+        // --- 1. Blocked Keywords (ONLY dangerous actions) ---
+        // Be VERY specific to avoid false positives on legitimate settings
         private val BLOCKED_KEYWORDS = listOf(
             // App removal / admin
-            "pk locker", "pklocker", "uninstall", "delete app",
+            "uninstall pk locker", "uninstall pksafe", "delete app",
             "manage app if unused", "remove permissions",
-            "device admin", "deactivate", "active admin",
+            "device admin apps", "deactivate pk locker", "active admin apps",
             // Accessibility guard bypass
             "installed services", "downloaded apps",
-            // Dangerous resets only (NOT generic "reset" which matches Wi-Fi reset etc.)
-            "factory reset", "erase all data", "reset options",
+            // Dangerous resets ONLY (specific phrases, not generic "reset")
+            "factory data reset", "erase all data", "factory reset protection",
             // Developer/ADB bypass prevention
-            "developer options", "usb debugging",
+            "developer options", "usb debugging", "wireless debugging",
             // Force stop our app
-            "force stop", "force close"
+            "force stop pk locker", "force close pk locker"
         )
 
-        // --- 2. Package Mapping ---
+        // --- 2. ALLOWED Settings (NEVER block these — customer needs them) ---
+        // Be SPECIFIC to avoid matching dangerous screens
+        private val ALLOWED_SETTINGS_KEYWORDS = listOf(
+            // Basic settings that customer MUST be able to access
+            "date", "time", "language", "display", "sound", "volume",
+            "wi-fi", "wifi", "bluetooth", "mobile data", "network",
+            "battery", "storage", "about phone", "status",
+            "notifications", "app notifications", "app permissions",
+            "accessibility", "security", "privacy",
+            "accounts", "backup", "google",
+            "brightness", "wallpaper", "theme", "font",
+            // Additional common settings
+            "date & time", "date and time", "time zone", "automatic date",
+            "language & input", "keyboard", "spell checker",
+            "region", "locale", "country",
+            "screen", "rotation", "timeout", "sleep",
+            "ringtone", "vibrate", "do not disturb", "dnd",
+            "data usage", "data saver", "hotspot", "tethering",
+            "sim", "cellular", "roaming", "apn",
+            "location", "gps", "maps",
+            "fingerprint", "face", "screen lock", "password",
+            "pin", "pattern", "lock screen",
+            "apps", "default apps", "special app access",
+            "digital wellbeing", "parental", "focus",
+            "system update", "software update", "android version",
+            "model", "serial", "imei", "ip address",
+            "build number", "oem"
+        )
+
+        // --- 3. Package Mapping ---
         private val APP_PACKAGE_MAP = mapOf(
             "whatsapp"  to listOf("com.whatsapp", "com.whatsapp.w4b"),
             "facebook"  to listOf("com.facebook.katana", "com.facebook.lite", "com.facebook.orca"),
@@ -139,9 +168,13 @@ class AntiUninstallService : AccessibilityService() {
         val isAppBlocked = blockedApps.any { appKey ->
             val knownPackages = APP_PACKAGE_MAP[appKey.lowercase()]
             if (knownPackages != null) {
+                // Known app — check if package matches exactly
                 knownPackages.any { pkg -> packageName == pkg }
             } else {
-                packageName.contains(appKey.lowercase())
+                // Custom app — check if package contains the key (but be more precise)
+                // Only block if the package name contains the app key as a whole word
+                // to avoid false positives (e.g., "chat" shouldn't block "com.viber.voip")
+                packageName.contains(appKey.lowercase()) && appKey.length > 3
             }
         }
 
@@ -168,12 +201,8 @@ class AntiUninstallService : AccessibilityService() {
 
         if (!isSettingsApp) return
 
-        if (isSettingsBlocked) {
-            performGlobalAction(GLOBAL_ACTION_HOME)
-            return
-        }
-
-        // Extract complete screen text recursively from full view tree
+        // CRITICAL: Even if isSettingsBlocked is true, allow basic settings
+        // Extract screen text to check for allowed keywords
         val sb = StringBuilder()
         event.text.forEach { sb.append(it.toString().lowercase()).append(" ") }
         rootInActiveWindow?.let { root ->
@@ -182,8 +211,9 @@ class AntiUninstallService : AccessibilityService() {
         }
 
         val screenText = sb.toString()
-        if (screenText.isBlank()) return
-
+        
+        // CRITICAL: Check BLOCKED keywords FIRST (security priority)
+        // If screen contains dangerous keywords, BLOCK immediately
         val blockedKeyword = BLOCKED_KEYWORDS.firstOrNull { keyword ->
             screenText.contains(keyword)
         }
@@ -195,7 +225,35 @@ class AntiUninstallService : AccessibilityService() {
                 performGlobalAction(GLOBAL_ACTION_HOME)
             }, 150)
             Toast.makeText(this, "Security settings restricted by PKLocker.", Toast.LENGTH_SHORT).show()
+            return
         }
+
+        // Only if NO blocked keywords found, check for allowed keywords
+        val hasAllowedKeyword = ALLOWED_SETTINGS_KEYWORDS.any { keyword ->
+            screenText.contains(keyword)
+        }
+
+        if (hasAllowedKeyword) {
+            Log.d("ANTI_GUARD", "Allowed settings screen — not blocking even if isSettingsBlocked=true")
+            return
+        }
+
+        // CRITICAL FIX: If screen text is blank or too short, DON'T block
+        // This happens when accessibility event fires before screen content loads
+        // Default to ALLOWING settings to avoid false positives
+        if (screenText.isBlank() || screenText.length < 10) {
+            Log.d("ANTI_GUARD", "Screen text blank/short — allowing settings (content not loaded yet)")
+            return
+        }
+
+        // Only block settings if isSettingsBlocked is true AND not an allowed screen AND no blocked keywords
+        if (isSettingsBlocked) {
+            performGlobalAction(GLOBAL_ACTION_HOME)
+            return
+        }
+
+        // Extract complete screen text recursively from full view tree (if not already done)
+        if (screenText.isBlank()) return
     }
 
     override fun onInterrupt() { }

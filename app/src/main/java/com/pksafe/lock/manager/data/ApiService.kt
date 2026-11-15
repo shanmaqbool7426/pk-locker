@@ -129,6 +129,13 @@ interface ApiService {
         @Path("imei") imei: String
     ): Response<DeregisterResponse>
 
+    // Customer device: sync its one-time emergency unlock code (no auth, like heartbeat)
+    @POST("devices/{imei}/emergency-code")
+    suspend fun syncEmergencyCode(
+        @Path("imei") imei: String,
+        @Body body: Map<String, String>
+    ): Response<RegistrationResponse>
+
     // Admin: Update device details (customer info, EMI, brand, model etc.)
     @PUT("devices/{imei}")
     suspend fun updateDevice(

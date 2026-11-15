@@ -309,11 +309,36 @@
             android:layout_width="match_parent"
             android:layout_height="20dp" />
 
+        <!-- WiFi Connect Button -->
+        <Button
+            android:id="@+id/btnWifiConnect"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:backgroundTint="#1E40AF"
+            android:text="📶 Connect WiFi"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:drawableStart="@android:drawable/ic_menu_manage"
+            android:drawablePadding="12dp"
+            android:paddingStart="20dp" />
+
+        <!-- Connection Status -->
+        <TextView
+            android:id="@+id/tvConnectionStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Internet: Checking..."
+            android:textColor="#10B981"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
         <TextView
             android:id="@+id/tvShowUnlock"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
+            android:layout_marginTop="24dp"
             android:alpha="0.3"
             android:text="Enter Clearance Code"
             android:textColor="#FFFFFF"

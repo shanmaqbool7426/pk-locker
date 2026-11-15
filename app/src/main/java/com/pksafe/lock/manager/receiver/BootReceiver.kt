@@ -25,9 +25,11 @@ class BootReceiver : BroadcastReceiver() {
                 lockManager.ensureAccessibilityServiceEnabled()
             }
 
-            // Yahan hum check karenge ke kya device locked state mein tha?
-            // Abhi ke liye hum hamesha start kar dete hain agar Admin active ho
-            if (lockManager.isAdminActive() && lockManager.canDrawOverlays()) {
+            // Only restore the lock overlay if the device was actually locked before reboot.
+            // (Previously it started unconditionally → phone "locked itself" after any reboot.)
+            val wasLocked = context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+                .getBoolean("is_locked", false)
+            if (wasLocked && lockManager.isAdminActive() && lockManager.canDrawOverlays()) {
                 val serviceIntent = Intent(context, LockService::class.java)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(serviceIntent)

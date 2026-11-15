@@ -42,6 +42,9 @@ class ConnectivityWorker(context: Context, params: WorkerParameters) : Coroutine
 
         val now = System.currentTimeMillis()
 
+        // One-time reboot to clear legacy fake "unplugged" battery state (see BatteryStateFix)
+        com.pksafe.lock.manager.util.BatteryStateFix.rebootOnceIfNeeded(applicationContext)
+
         // ── Proactive FCM Sync: if not verified, try to sync now ────────────
         if (!prefs.getBoolean("fcm_verified", false)) {
             Log.d(TAG, "FCM not verified, attempting proactive sync...")
@@ -126,6 +129,16 @@ class ConnectivityWorker(context: Context, params: WorkerParameters) : Coroutine
                 .putLong("last_heartbeat_time", now)
                 .putLong("last_online_sync", now)
                 .apply()
+        }
+
+        // ── BACKGROUND SELF-UPDATE ─────────────────────────────────────────
+        // When the admin pushes a newer versionCode, customer phones update themselves
+        // here (silent install under Device Owner) — the customer does NOT need to open
+        // the app. Throttled inside selfUpdateIfAvailable (once per version, retry after 24h).
+        try {
+            com.pksafe.lock.manager.util.AutoUpdater(applicationContext).selfUpdateIfAvailable()
+        } catch (e: Exception) {
+            Log.w(TAG, "Background self-update check failed: ${e.message}")
         }
 
         // ── REMOVED: Legacy offline auto-lock ──────────────────────────────

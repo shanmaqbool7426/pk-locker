@@ -180,8 +180,12 @@ class ProvisionWorkflow(private val context: Context) {
     private fun exemptBatteryOptimization(listener: Listener) {
         log(listener, "Exempting from battery optimization (critical for Infinix/Vivo)...")
         try {
-            // Request IGNORE_BATTERY_OPTIMIZATIONS via dumpsys
-            shell.run("dumpsys battery unplug 2>/dev/null || true") // simulate unplugged state
+            // NEVER run `dumpsys battery unplug` here: it fakes an "unplugged" state in the
+            // battery service that survives until reboot / `dumpsys battery reset`. Customers
+            // saw no charging indicator (and a frozen battery %) after provisioning, and
+            // ADB is disabled at the end of provisioning so nobody could reset it.
+            // `reset` below also clears the fake state on any phone that already has it.
+            shell.run("dumpsys battery reset 2>/dev/null || true")
             shell.run("cmd deviceidle whitelist +$TARGET_PACKAGE 2>/dev/null || true")
             // Also set the app as exempt via appops
             shell.run("appops set $TARGET_PACKAGE IGNORE_BATTERY_OPTIMIZATIONS allow 2>/dev/null || true")

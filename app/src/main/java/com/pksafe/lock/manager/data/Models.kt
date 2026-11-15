@@ -84,7 +84,8 @@ data class DeviceResponse(
     @SerializedName("lastSeen") val lastSeen: String? = null,
     @SerializedName("lastCommand") val lastCommand: String? = null,
     @SerializedName("lastCommandSentAt") val lastCommandSentAt: String? = null,
-    @SerializedName("lastCommandAckAt") val lastCommandAckAt: String? = null
+    @SerializedName("lastCommandAckAt") val lastCommandAckAt: String? = null,
+    @SerializedName("emergencyCode") val emergencyCode: String? = null // One-time emergency unlock code
 )
 
 data class DeviceControls(

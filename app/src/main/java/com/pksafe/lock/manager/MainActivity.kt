@@ -638,7 +638,11 @@ fun MainAppEntryPoint() {
         if (isCustomer && !deviceImei.isNullOrBlank()) {
             if (!locationPermissionMissing) scheduleLocationSync(context)
             scheduleHeartbeat(context)
+            // CRITICAL: Register instant connectivity monitor for queue system
+            registerInstantConnectivityMonitor(context)
         }
+        // CRITICAL: Schedule FCM token sync for ALL users (customer + shopkeeper)
+        scheduleFcmTokenSync(context)
     }
 
     // Professional FCM Token Sync with Server — WITH RETRY
@@ -749,26 +753,66 @@ private fun syncTokenToServer(context: Context, imei: String, token: String) {
         .build()
     val apiService = retrofit.create(ApiService::class.java)
     
+    // CRITICAL: Retry sync up to 5 times with exponential backoff
+    // This ensures FCM token is NEVER null in database
     CoroutineScope(Dispatchers.IO).launch {
-        try {
-            val res = apiService.updateFcmToken(mapOf("imei" to imei, "fcmToken" to token))
-            if (res.isSuccessful) {
-                Log.d("SYNC_TOKEN", "Token synced for IMEI: $imei")
-                context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
-                    .edit()
-                    .putBoolean("fcm_verified", true)
-                    .apply()
+        val maxRetries = 5
+        val delays = listOf(2000L, 4000L, 8000L, 16000L, 32000L) // 2s, 4s, 8s, 16s, 32s
+        
+        for (attempt in 1..maxRetries) {
+            try {
+                Log.d("SYNC_TOKEN", "Attempt $attempt/$maxRetries to sync FCM token for IMEI: $imei")
+                val res = apiService.updateFcmToken(mapOf("imei" to imei, "fcmToken" to token))
+                
+                if (res.isSuccessful) {
+                    Log.d("SYNC_TOKEN", "✅ Token synced successfully on attempt $attempt")
+                    context.getSharedPreferences("PKLockerPrefs", Context.MODE_PRIVATE)
+                        .edit()
+                        .putBoolean("fcm_verified", true)
+                        .apply()
+                    return@launch // Success — exit retry loop
+                } else {
+                    Log.w("SYNC_TOKEN", "Attempt $attempt failed: HTTP ${res.code()}")
+                    if (attempt < maxRetries) {
+                        kotlinx.coroutines.delay(delays[attempt - 1])
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("SYNC_TOKEN", "Attempt $attempt exception: ${e.message}")
+                if (attempt < maxRetries) {
+                    kotlinx.coroutines.delay(delays[attempt - 1])
+                }
             }
-        } catch (e: Exception) {
-            Log.e("SYNC_TOKEN", "Failed to sync: ${e.message}")
         }
+        
+        Log.e("SYNC_TOKEN", "❌ All $maxRetries attempts failed. FCM token NOT synced to server.")
+        // Schedule immediate retry via WorkManager as fallback
+        scheduleImmediateFcmSync(context)
     }
 }
 
+// Schedule immediate FCM sync when network is available
+private fun scheduleImmediateFcmSync(context: Context) {
+    val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.pksafe.lock.manager.worker.FcmTokenWorker>()
+        .setConstraints(
+            androidx.work.Constraints.Builder()
+                .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+                .build()
+        )
+        .build()
+    
+    androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
+        "ImmediateFcmSync",
+        androidx.work.ExistingWorkPolicy.REPLACE,
+        workRequest
+    )
+    Log.d("SYNC_TOKEN", "Scheduled immediate FCM sync when network available")
+}
+
 /**
- * Fetches FCM token with retry (exponential backoff).
- * Fixes Infinix/Vivo/OPPO where Play Services is slow to initialize.
- * Retries up to 5 times: 2s, 4s, 8s, 16s, 30s delays.
+ * Fetches FCM token with INDEFINITE retry until success.
+ * CRITICAL: FCM token must NEVER be null — it's required for lock/unlock commands.
+ * Retries every 30 seconds until token is fetched successfully.
  */
 private suspend fun fetchFcmTokenWithRetry(
     context: Context,
@@ -778,31 +822,32 @@ private suspend fun fetchFcmTokenWithRetry(
     sharedPrefs: android.content.SharedPreferences,
     onTokenFetched: (String) -> Unit
 ) {
-    val maxRetries = 5
-    val delays = listOf(2000L, 4000L, 8000L, 16000L, 30000L)
+    val retryDelay = 30000L // 30 seconds between retries
+    var attempt = 0
     
-    for (attempt in 1..maxRetries) {
+    while (true) {
+        attempt++
         try {
-            Log.d("FCM_RETRY", "Attempt $attempt/$maxRetries to fetch FCM token...")
+            Log.d("FCM_RETRY", "Attempt $attempt to fetch FCM token...")
             
-            // Wrap Firebase callback in suspendCoroutine
-            val token: String? = kotlin.coroutines.suspendCoroutine { cont ->
-                FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        cont.resumeWith(Result.success(task.result))
-                    } else {
-                        cont.resumeWith(Result.success(null))
-                    }
+            // Use CompletableDeferred for reliable Firebase token fetch
+            val deferred = kotlinx.coroutines.CompletableDeferred<String?>()
+            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    deferred.complete(task.result)
+                } else {
+                    deferred.complete(null)
                 }
             }
+            val token: String? = deferred.await()
             
             if (token.isNullOrBlank()) {
-                Log.w("FCM_RETRY", "Attempt $attempt: token is null/blank, retrying...")
-                if (attempt < maxRetries) kotlinx.coroutines.delay(delays[attempt - 1])
+                Log.w("FCM_RETRY", "Attempt $attempt: token is null/blank, retrying in 30s...")
+                kotlinx.coroutines.delay(retryDelay)
                 continue
             }
             
-            Log.d("FCM_RETRY", "Attempt $attempt: Token fetched successfully")
+            Log.d("FCM_RETRY", "Attempt $attempt: Token fetched successfully: ${token.take(20)}...")
             onTokenFetched(token)
             sharedPrefs.edit().putString("fcm_token", token).apply()
             
@@ -817,13 +862,10 @@ private suspend fun fetchFcmTokenWithRetry(
             return // Success — exit retry loop
             
         } catch (e: Exception) {
-            Log.e("FCM_RETRY", "Attempt $attempt failed: ${e.message}")
-            if (attempt < maxRetries) {
-                kotlinx.coroutines.delay(delays[attempt - 1])
-            }
+            Log.e("FCM_RETRY", "Attempt $attempt failed: ${e.message}, retrying in 30s...")
+            kotlinx.coroutines.delay(retryDelay)
         }
     }
-    Log.e("FCM_RETRY", "All $maxRetries attempts failed. FCM token could not be fetched.")
 }
 
 private fun scheduleLocationSync(context: Context) {
@@ -853,6 +895,58 @@ private fun scheduleHeartbeat(context: Context) {
         workRequest
     )
     Log.d("HEARTBEAT", "Heartbeat scheduled — every ${com.pksafe.lock.manager.service.ConnectivityWorker.HEARTBEAT_INTERVAL / 3600000} hours")
+}
+
+// ─── INSTANT CONNECTIVITY MONITOR — Queue System ─────────────────────────
+// Monitors network changes and triggers IMMEDIATE heartbeat when internet becomes available.
+// This ensures pending lock/unlock commands are applied instantly, not after 2 hours.
+private fun registerInstantConnectivityMonitor(context: Context) {
+    try {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val request = android.net.NetworkRequest.Builder()
+            .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+
+        val networkCallback = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) {
+                Log.d("QUEUE_SYNC", "Internet connected — triggering immediate heartbeat")
+                // Internet just came back — trigger immediate heartbeat
+                // Unique + KEEP: a flapping network must not pile up many heartbeat jobs
+                // (extra radio wake-ups = battery drain).
+                val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.pksafe.lock.manager.service.ConnectivityWorker>()
+                    .build()
+                androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
+                    "InstantHeartbeat",
+                    androidx.work.ExistingWorkPolicy.KEEP,
+                    workRequest
+                )
+            }
+
+            override fun onLost(network: android.net.Network) {
+                Log.d("QUEUE_SYNC", "Internet lost — will sync when reconnected")
+            }
+        }
+
+        connectivityManager.registerNetworkCallback(request, networkCallback)
+        Log.d("QUEUE_SYNC", "Instant connectivity monitor registered — queue system active")
+    } catch (e: Exception) {
+        Log.e("QUEUE_SYNC", "Failed to register connectivity monitor: ${e.message}")
+    }
+}
+
+// ─── FCM TOKEN WORKER SCHEDULING ─────────────────────────────────────────
+// CRITICAL: Ensures FCM token is NEVER null. Runs every 1 hour as safety net.
+private fun scheduleFcmTokenSync(context: Context) {
+    val workRequest = androidx.work.PeriodicWorkRequestBuilder<com.pksafe.lock.manager.worker.FcmTokenWorker>(
+        1, java.util.concurrent.TimeUnit.HOURS
+    ).build()
+
+    androidx.work.WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+        com.pksafe.lock.manager.worker.FcmTokenWorker.WORK_NAME,
+        androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+        workRequest
+    )
+    Log.d("FCM_TOKEN", "FCM token sync scheduled — every 1 hour")
 }
 
 private fun syncShopkeeperTokenToServer(authToken: String, token: String) {

@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -227,6 +228,46 @@ fun ControlPanelScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         StatusChip(status = device?.status ?: "Unknown")
+                        
+                        // Emergency Code Display (One-Time Use)
+                        val emergencyCode = device?.emergencyCode
+                        if (!emergencyCode.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFFF59E0B).copy(alpha = 0.15f),
+                                border = BorderStroke(1.dp, Color(0xFFF59E0B))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Key,
+                                        contentDescription = null,
+                                        tint = Color(0xFFF59E0B),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Column {
+                                        Text(
+                                            text = "Emergency Code (1-Time Use)",
+                                            fontSize = 9.sp,
+                                            color = Color(0xFFF59E0B),
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = emergencyCode,
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF0F172A),
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 2.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        
                         // Last Online indicator
                         val lastSeenText = formatLastSeen(device?.lastSeen)
                         if (lastSeenText != null) {
